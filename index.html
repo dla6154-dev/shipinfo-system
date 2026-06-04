@@ -1499,13 +1499,17 @@ const DATASETS = [
               <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
               <div>
                 <h2 class="text-2xl font-bold text-blue-400">조석표</h2>
-                <p class="text-sm text-slate-400 mt-1">메인 아이콘 배치 미리보기용 섹션입니다.</p>
+                <p class="text-sm text-slate-400 mt-1">항만별 조석 변화를 선형 그래프로 확인할 수 있습니다.</p>
               </div>
             </div>
-            <div class="rounded-3xl border border-blue-500/20 bg-slate-800/90 p-8 text-center">
-              <i class="fa-solid fa-water text-5xl text-blue-300 mb-5"></i>
-              <h3 class="text-xl font-bold text-white">조석표 자리 미리보기</h3>
-              <p class="mt-3 text-sm text-slate-400">다음 단계에서 실제 조석표 화면 또는 외부 연동 화면을 붙이면 됩니다.</p>
+            <div class="overflow-hidden rounded-3xl border border-blue-500/20 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
+              <iframe
+                src="${WEATHER_REMOTE_ORIGIN}/tides?embed=1"
+                title="조석표"
+                class="block w-full"
+                style="height: calc(100vh - 15rem); min-height: 760px;"
+                loading="eager"
+              ></iframe>
             </div>`;
           break;
 
