@@ -1,0 +1,2449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>진도 운항관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    .category-card, .ship-card, .dangerous-goods-card, .law-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+    .category-card:hover, .ship-card:hover, .dangerous-goods-card:hover, .law-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); }
+    .fade-in { animation: fadeIn 0.5s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
+    .finding-details { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+    .finding-item.open .finding-details { max-height: 1000px; }
+    .finding-item.open .chevron-icon { transform: rotate(180deg); }
+    .chevron-icon { transition: transform 0.3s ease; }
+    .modal-enter { animation: fadeIn 0.3s ease-in-out; }
+    .modal-leave { animation: fadeOut 0.3s ease-in-out; }
+@keyframes fadeOut { from { opacity: 1;} to { opacity: 0;} }
+
+/* --- Tab Component Styles (추가) --- */
+.tab-btn {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #94a3b8; /* text-slate-400 */
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab-btn:hover {
+  color: #f1f5f9; /* text-slate-100 */
+}
+.tab-btn.active {
+  color: #22d3ee; /* text-cyan-400 */
+  border-bottom-color: #22d3ee;
+}
+[role="tabpanel"] {
+  /* 패널 전환 시 부드러운 효과 */
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* --- Global Component Styles --- */
+    .back-btn { 
+      flex-shrink: 0; 
+      background-color: #334155; 
+      padding: .75rem 1rem; 
+      border-radius: 9999px; 
+      transition: background-color 0.2s; 
+    }
+    .back-btn:hover { background-color: #475569; }
+    
+    .input-style { 
+      width: 100%; 
+      padding: .75rem 1.25rem; 
+      padding-right: 3rem; 
+      background-color: #1e293b; 
+      border: 2px solid #334155; 
+      border-radius: 9999px; 
+      outline: none; 
+      transition: border-color 0.2s, box-shadow 0.2s; 
+      color: white;
+    }
+    .input-style:focus { 
+      border-color: #06b6d4; 
+      box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.3); 
+    }
+    .input-style::placeholder {
+      color: #64748b;
+    }
+    
+    .input-icon { 
+      position: absolute; 
+      right: 1.25rem; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      color: #64748b; 
+    }
+    
+    .icon-style { 
+      width: 1.25rem; 
+      text-align: center; 
+      color: #94a38; 
+      margin-right: .5rem; 
+    }
+
+    /* --- Keypad Lockscreen Styles --- */
+    #keypad-lockscreen {
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    #keypad-display {
+      letter-spacing: 0.5em;
+      transition: transform 0.1s ease-in-out;
+    }
+    #keypad-display.error {
+      animation: shake 0.4s ease-in-out;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      50% { transform: translateX(10px); }
+      75% { transform: translateX(-10px); }
+    }
+    .keypad-btn {
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid #334155;
+      border-radius: 50%;
+      width: 70px;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      color: white;
+      transition: background-color 0.2s ease;
+      -webkit-tap-highlight-color: transparent; /* 모바일 클릭 효과 제거 */
+    }
+    .keypad-btn:active {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    body.timetable-viewer-open {
+      overflow: hidden;
+    }
+    .timetable-preview-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .timetable-preview-btn img {
+      width: 100%;
+      height: auto;
+      max-height: 420px;
+      object-fit: contain;
+      background: #ffffff;
+      transition: transform 0.2s ease;
+    }
+    .timetable-preview-btn:hover img {
+      transform: scale(1.01);
+    }
+    .timetable-viewer-stage {
+      position: relative;
+      overflow: hidden;
+      touch-action: none;
+      background:
+        radial-gradient(circle at top, rgba(148, 163, 184, 0.18), transparent 40%),
+        rgba(2, 6, 23, 0.96);
+    }
+    .timetable-viewer-stage.can-pan {
+      cursor: grab;
+    }
+    .timetable-viewer-stage.is-dragging {
+      cursor: grabbing;
+    }
+    .timetable-viewer-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transform-origin: center center;
+      transition: transform 0.08s ease-out;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .timetable-viewer-image.is-interacting {
+      transition: none;
+    }
+
+  </style>
+</head>
+<body class="bg-slate-900 text-white antialiased">
+
+  <!-- =============================== -->
+  <!-- 1) Keypad Lockscreen (Visible by default) -->
+  <!-- =============================== -->
+  <div id="keypad-lockscreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/80 p-4">
+    <div class="text-center">
+      <div class="inline-block bg-slate-800 p-4 rounded-full mb-4">
+        <i class="fa-solid fa-ship text-4xl text-cyan-400"></i>
+      </div>
+      <h2 class="text-2xl font-bold mb-3">비밀번호 입력</h2>
+      <p id="keypad-message" class="text-slate-400 text-sm h-5 mb-4">앱에 접근하려면 비밀번호를 입력하세요.</p>
+      
+      <!-- Keypad Display -->
+      <div id="keypad-display" class="h-10 w-48 mx-auto bg-slate-800 rounded-lg flex items-center justify-center text-2xl font-mono border border-slate-700 mb-6">
+      </div>
+
+      <!-- Keypad Grid -->
+      <div class="grid grid-cols-3 gap-4 max-w-xs mx-auto">
+        <button class="keypad-btn" data-key="1">1</button>
+        <button class="keypad-btn" data-key="2">2</button>
+        <button class="keypad-btn" data-key="3">3</button>
+        <button class="keypad-btn" data-key="4">4</button>
+        <button class="keypad-btn" data-key="5">5</button>
+        <button class="keypad-btn" data-key="6">6</button>
+        <button class="keypad-btn" data-key="7">7</button>
+        <button class="keypad-btn" data-key="8">8</button>
+        <button class="keypad-btn" data-key="9">9</button>
+        <button class="keypad-btn !bg-transparent !border-none" data-key="clear">
+          <i class="fa-solid fa-delete-left text-xl text-slate-400"></i>
+        </button>
+        <button class="keypad-btn" data-key="0">0</button>
+        <button class="keypad-btn !bg-cyan-600 !border-cyan-500" data-key="enter">
+          <i class="fa-solid fa-check text-xl"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- =============================== -->
+  <!-- 2) Main Application (Hidden by default) -->
+  <!-- =============================== -->
+  <div id="app-container" class="hidden">
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+      <header class="text-center mb-8">
+        <div class="inline-block bg-slate-800 p-4 rounded-full mb-4"><i class="fa-solid fa-ship text-4xl text-cyan-400"></i></div>
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight">여객선 통합 정보 시스템</h1>
+        <p id="header-subtitle" class="text-slate-400 mt-2">원하는 정보의 카테고리를 선택하세요.</p>
+      </header>
+  
+      <div id="main-menu" class="fade-in">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div id="law-search-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-cyan-500">
+            <i class="fa-solid fa-book-open text-3xl text-cyan-400 mb-3"></i>
+            <h2 class="text-xl font-semibold">법령 검색</h2>
+            <p class="text-slate-400 text-sm">관련 법령 및 규정 검색</p>
+          </div>
+          <div id="ship-info-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-sky-500">
+            <i class="fa-solid fa-circle-info text-3xl text-sky-400 mb-3"></i>
+            <h2 class="text-xl font-semibold">여객선 정보</h2>
+            <p class="text-slate-400 text-sm">제원, 지적사항, 설비 조회</p>
+          </div>
+          <div id="dangerous-goods-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-amber-500">
+            <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-3"></i>
+            <h2 class="text-xl font-semibold">위험물 검색</h2>
+            <p class="text-slate-400 text-sm">선박 위험물 정보 조회</p>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Dynamic Sections -->
+      <main id="law-search-section" class="hidden fade-in"></main>
+      <main id="ship-search-section" class="hidden fade-in"></main>
+      <main id="ship-detail-section" class="hidden fade-in"></main>
+      <main id="dangerous-goods-search-section" class="hidden fade-in"></main>
+      <main id="data-management-section" class="hidden fade-in"></main>
+  
+      <!-- Footer: 데이터 관리 버튼을 이곳으로 이동시키고 최소화 -->
+      <footer id="app-footer-container" class="flex justify-between items-center text-xs text-slate-500 mt-12">
+        <span id="app-footer-timestamp">데이터 로드 중...</span>
+        <button id="data-manage-btn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition" title="데이터 관리">
+          <i class="fa-solid fa-database text-green-400 w-4 h-4"></i>
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal Container -->
+  <div id="modal-container" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+    <div id="modal-content" class="bg-slate-800 w-full max-w-3xl rounded-lg shadow-lg border border-slate-700 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b border-slate-700 flex-shrink-0">
+        <h2 id="modal-title" class="text-xl font-bold text-cyan-400"></h2>
+        <button id="modal-close-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+      </div>
+      <div id="modal-body" class="p-6 overflow-y-auto text-slate-300 leading-relaxed"></div>
+    </div>
+  </div>
+
+  <div id="timetable-viewer" class="fixed inset-0 hidden bg-slate-950/95 backdrop-blur-sm" style="z-index: 60;">
+    <div class="flex h-full flex-col">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-800 bg-slate-950/90 px-4 py-4">
+        <div class="min-w-0">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.32em] text-fuchsia-300/80">Image Viewer</p>
+          <h2 id="timetable-viewer-title" class="mt-2 text-lg font-bold text-white sm:text-xl"></h2>
+          <p id="timetable-viewer-description" class="mt-1 text-sm text-slate-400">두 손가락으로 확대/축소하고, 확대 후에는 한 손가락으로 이동할 수 있습니다.</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <button id="timetable-viewer-reset-btn" class="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-fuchsia-400 hover:text-white">
+            원래 크기
+          </button>
+          <button id="timetable-viewer-close-btn" class="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-fuchsia-400 hover:text-white">
+            닫기
+          </button>
+        </div>
+      </div>
+      <div id="timetable-viewer-stage" class="timetable-viewer-stage flex-1 p-3 sm:p-6">
+        <div class="flex h-full w-full items-center justify-center">
+          <img id="timetable-viewer-image" class="timetable-viewer-image" alt="" draggable="false" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // ===============================
+    // 1) Firebase 초기화 (v10 Modular)
+    // ===============================
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAMfFKnMvEZo2yRKzC-1o_x3IlgLdMsahM",
+      authDomain: "passengership-info.firebaseapp.com",
+      projectId: "passengership-info",
+      storageBucket: "passengership-info.firebasestorage.app",
+      messagingSenderId: "620164264969",
+      appId: "1:620164264969:web:b55455c725b45d4aed34d8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ===============================
+    // 2) 전역 상태 (Firestore 동기화)
+    // ===============================
+let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
+const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
+let favoriteShipIds = loadFavoriteShipIds();
+const shipSearchState = {
+  showOtherSearch: false,
+  term: ''
+};
+const APP_TITLE = '진도 운항관리';
+const MAIN_MENU_SUBTITLE = '원하는 메뉴를 선택하세요.';
+const WEATHER_REMOTE_ORIGIN = 'https://mokpo-weather-dashboard.onrender.com';
+const WEATHER_OVERVIEW_URL = 'https://mokpo-weather-dashboard.onrender.com/overview';
+const WEATHER_PROXY_PREFIX = '/weather-api';
+const VISIBILITY_LIMIT_APP_URL = 'https://dla6154-dev.github.io/AUTO-BAND/';
+const SHIPINFO_FIXED_AREA_SELECTION_KEYS = ['22A30105', '12A30212', '12B10201', '12B10302', '12B10100'];
+const SHIPINFO_FIXED_AREA_LABELS = {
+  '22A30105': '전남남부서해앞바다',
+  '12A30212': '서해남부남쪽안쪽먼바다',
+  '12B10201': '남해서부서쪽먼바다',
+  '12B10302': '제주도북부앞바다',
+  '12B10100': '남해서부앞바다'
+};
+const SHIPINFO_FIXED_QUERY1_SELECTION_KEYS = [
+  'C:파고BUOY|22500|조도',
+  'C:파고BUOY|22449|진도',
+  'L:등표|959|해수서',
+  'C:파고BUOY|22481|맹골수도',
+  'B:BUOY|22297|가거도',
+  'B:BUOY|22184|추자도',
+  'C:파고BUOY|22457|제주항',
+  'N:조위관측소|690704|제주',
+  '등대/등표|1139001|하조도등대'
+];
+const WEATHER_INFO_CARDS = [
+  {
+    icon: 'fa-cloud-sun',
+    title: '오늘 날씨',
+    description: '출항 전 하늘 상태와 강수 여부를 먼저 확인하세요.',
+    checks: ['강수 여부 확인', '가시거리 확인', '기온 변화 확인']
+  },
+  {
+    icon: 'fa-wind',
+    title: '해상 상태',
+    description: '운항 전 풍속과 파고를 함께 점검하는 영역입니다.',
+    checks: ['풍속 체크', '파고 체크', '조류 상황 메모']
+  },
+  {
+    icon: 'fa-bell',
+    title: '특보 확인',
+    description: '운항 전 해상 특보와 경보 발효 여부를 정리하세요.',
+    checks: ['풍랑 특보', '호우·강풍 특보', '운항 제한 여부']
+  }
+];
+const LEGACY_TIMETABLE_ROUTES = [
+  {
+    name: '항로 1',
+    description: '원하는 항로명으로 수정하세요.',
+    image: ''
+  },
+  {
+    name: '항로 2',
+    description: '시간표 사진을 넣을 수 있는 자리입니다.',
+    image: ''
+  },
+  {
+    name: '항로 3',
+    description: '필요한 항로를 계속 추가해서 사용할 수 있습니다.',
+    image: ''
+  },
+  {
+    name: '항로 4',
+    description: '이미지 경로를 넣으면 사진 시간표가 표시됩니다.',
+    image: ''
+  }
+];
+
+const TIMETABLE_ROUTES = [
+  {
+    name: '우수영 / 상태동리',
+    description: '해진고속카페리 · 3월~11월 / 12월~2월 시간표',
+    image: './assets/timetables/haejin-goseok-ferry.png'
+  },
+  {
+    name: '쉬미 / 가사',
+    description: '가사페리호 · 하절기/동절기 시간표',
+    image: './assets/timetables/gasa-ferry.png'
+  },
+  {
+    name: '진도 / 추자 / 제주',
+    description: '산타모니카 · 현행 운항시간표',
+    image: './assets/timetables/santa-monica.png'
+  },
+  {
+    name: '진도 / 죽도',
+    description: '섬사랑9호 · 왕복 시간표',
+    image: './assets/timetables/seomsarang9.png'
+  },
+  {
+    name: '울목 / 진도',
+    description: '새섬두레호 · 하절기/동절기 시간표',
+    image: './assets/timetables/saeseom-dure.png'
+  },
+  {
+    name: '진도 / 서거차',
+    description: '한림페리11호 · 하절기/동절기 시간표',
+    image: './assets/timetables/hanlim-ferry11.png'
+  },
+  {
+    name: '울목 / 진도',
+    description: '새섬관매호 · 2026.4.1 ~ 4.30 시간표',
+    image: './assets/timetables/saeseom-gwanmae.png'
+  }
+];
+
+const FIELD_DUTY_BOARDS = [
+  {
+    name: '진도 / 우수영 사무소',
+    description: '현장업무 지정표 · 하절기 3.1 ~ 10.31',
+    image: './assets/field-duty/jindo-usuyeong-field-duty-summer.jpg'
+  }
+];
+const VISIBILITY_LIMIT_ROUTE_SUMMARY = [
+  { route: '율목 / 진도', ships: '새섬두레, 새섬관매' },
+  { route: '진도 / 서거차', ships: '한림페리11호' },
+  { route: '쉬미 / 가사', ships: '가사페리호' },
+  { route: '진도 / 죽도', ships: '섬사랑9호' },
+  { route: '진도 / 제주', ships: '산타모니카' },
+  { route: '우수영 / 상태동리', ships: '해진고속카페리' }
+];
+const VISIBILITY_LIMIT_STATUS_SUMMARY = [
+  { name: '출항 대기', reason: '상황값에 따라 자동', suffix: '운항대기합니다.' },
+  { name: '통제', reason: '상황값에 따라 자동', suffix: '출항 통제합니다.' },
+  { name: '정상운항', reason: '호전 사유 자동', suffix: '정상운항합니다.' },
+  { name: '결항', reason: '상황값에 따라 자동', suffix: '결항합니다.' }
+];
+const VISIBILITY_LIMIT_UPDATE_POINTS = [
+  {
+    file: 'C:\\Users\\USER\\Desktop\\자동 밴드\\webapp\\app.js',
+    title: '문구 생성 로직',
+    detail: '상황/상태 목록, 기본 사유, 최종 문구 조합을 수정하는 핵심 파일입니다.'
+  },
+  {
+    file: 'C:\\Users\\USER\\Desktop\\자동 밴드\\band_settings.json',
+    title: '항로/선박/출항 데이터',
+    detail: '항로 6개, 선박 7척, 출항 시각과 기본 상태 문구를 여기서 관리합니다.'
+  },
+  {
+    file: 'C:\\Users\\USER\\Desktop\\자동 밴드\\webapp\\index.html',
+    title: '입력 화면 구성',
+    detail: '상황, 상태, 항로, 선박, 출항 선택 UI의 마크업을 바꾸는 위치입니다.'
+  },
+  {
+    file: 'C:\\Users\\USER\\Desktop\\자동 밴드\\webapp\\styles.css',
+    title: '표시 형태 조정',
+    detail: '버튼, 목록, 결과 문구 레이아웃과 색상 같은 화면 스타일을 바꾸는 파일입니다.'
+  }
+];
+
+// 비밀번호 초기화 (localStorage 사용)
+/* (삭제) - 이제 이 기능은 Firestore에서 처리합니다.
+*/
+
+const DATASETS = [
+      { key: 'lawData',            title: '법령' },
+      { key: 'shipData',           title: '여객선' },
+      { key: 'dangerousGoodsData', title: '위험물' },
+      { key: 'inspectionData',     title: '지적사항' },
+      { key: 'safetyRulesData',    title: '설비 최소 비치 수량' }
+    ];
+
+    // Firestore 문서 경로: datasets/{key}
+    const dataDoc = (key) => doc(db, 'datasets', key);
+    const metaDoc = () => doc(db, 'datasets', '_meta');
+
+    // ===============================
+    // 3) Firestore에서 초기 로드 + 실시간 구독
+    // ===============================
+    async function loadInitialDatasets() {
+      try {
+        await Promise.all(DATASETS.map(async ({ key }) => {
+          const snap = await getDoc(dataDoc(key));
+          const rows = snap.exists() ? (snap.data().rows || []) : [];
+          assignDataset(key, rows);
+        }));
+        updateFooterFromMeta();
+      } catch (err) {
+        console.error('[Firestore 초기 로드 오류]', err);
+      }
+    }
+
+    function subscribeRealtime() {
+      DATASETS.forEach(({ key }) => {
+        onSnapshot(dataDoc(key), (snap) => {
+          if (snap.exists()) {
+            const rows = snap.data().rows || [];
+            assignDataset(key, rows);
+            // 현재 화면이 검색 결과/상세 등이라면 재렌더링 위해 섹션 갱신
+            rerenderIfVisible(key);
+          }
+        }, (err) => console.error(`[${key}] 실시간 구독 오류`, err));
+      });
+
+      onSnapshot(metaDoc(), (snap) => {
+        if (snap.exists()) updateFooter(snap.data().lastUpdated?.toDate?.() || new Date());
+      });
+    }
+
+    function assignDataset(key, rows) {
+      switch (key) {
+        case 'lawData': lawData = rows; break;
+        case 'shipData':
+          shipData = rows;
+          pruneFavoriteShipIds();
+          break;
+        case 'dangerousGoodsData': dangerousGoodsData = rows; break;
+        case 'inspectionData': inspectionData = rows; break;
+        case 'safetyRulesData': safetyRulesData = rows; break;
+      }
+    }
+
+    function loadFavoriteShipIds() {
+      try {
+        const raw = localStorage.getItem(FAVORITE_SHIPS_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return [...new Set(parsed.map(id => String(id)).filter(Boolean))];
+      } catch (error) {
+        console.warn('[favorites] load failed', error);
+        return [];
+      }
+    }
+
+    function saveFavoriteShipIds() {
+      try {
+        localStorage.setItem(FAVORITE_SHIPS_STORAGE_KEY, JSON.stringify(favoriteShipIds));
+      } catch (error) {
+        console.warn('[favorites] save failed', error);
+      }
+    }
+
+    function pruneFavoriteShipIds() {
+      const validShipIds = new Set((shipData || []).map(ship => String(ship.id)));
+      const nextFavoriteShipIds = favoriteShipIds.filter(id => validShipIds.has(String(id)));
+      if (nextFavoriteShipIds.length !== favoriteShipIds.length) {
+        favoriteShipIds = nextFavoriteShipIds;
+        saveFavoriteShipIds();
+      }
+    }
+
+    function isFavoriteShip(shipId) {
+      return favoriteShipIds.includes(String(shipId));
+    }
+
+    function getFavoriteShips() {
+      const shipMap = new Map((shipData || []).map(ship => [String(ship.id), ship]));
+      return favoriteShipIds.map(id => shipMap.get(String(id))).filter(Boolean);
+    }
+
+    function getOtherShips() {
+      return (shipData || []).filter(ship => !isFavoriteShip(ship.id));
+    }
+
+    function getShipSearchResults(term = '') {
+      const normalizedTerm = String(term || '').toLowerCase().trim();
+      const otherShips = getOtherShips();
+      if (!normalizedTerm) return otherShips;
+
+      const filteredShipIds = new Set();
+      otherShips.forEach(ship => {
+        if ((ship.name || '').toLowerCase().includes(normalizedTerm) || (ship.type || '').toLowerCase().includes(normalizedTerm)) {
+          filteredShipIds.add(String(ship.id));
+        }
+      });
+      (inspectionData || []).forEach(finding => {
+        if ((finding.details || '').toLowerCase().includes(normalizedTerm)) {
+          filteredShipIds.add(String(finding.shipId));
+        }
+      });
+      return otherShips.filter(ship => filteredShipIds.has(String(ship.id)));
+    }
+
+    function refreshShipViews() {
+      if (!sections['ship-search-section'].classList.contains('hidden')) {
+        renderSection('ship-search-section');
+      }
+      if (!sections['ship-detail-section'].classList.contains('hidden')) {
+        renderSection('ship-detail-section', { shipId: sections['ship-detail-section'].dataset.currentShipId });
+      }
+    }
+
+    function toggleFavoriteShip(shipId) {
+      const normalizedShipId = String(shipId);
+      if (isFavoriteShip(normalizedShipId)) {
+        favoriteShipIds = favoriteShipIds.filter(id => id !== normalizedShipId);
+      } else {
+        favoriteShipIds = [...favoriteShipIds, normalizedShipId];
+      }
+      saveFavoriteShipIds();
+      refreshShipViews();
+    }
+
+    function setOtherShipSearchVisibility(isVisible) {
+      shipSearchState.showOtherSearch = Boolean(isVisible);
+      if (!shipSearchState.showOtherSearch) {
+        shipSearchState.term = '';
+      }
+      if (!sections['ship-search-section'].classList.contains('hidden')) {
+        renderSection('ship-search-section');
+      }
+    }
+
+    let weatherSectionRequestId = 0;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getWeatherApiBase() {
+      const isLocalPreview = window.location.protocol === 'file:' || ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+      const isNetlifyHost = window.location.hostname.endsWith('netlify.app');
+      if (isLocalPreview) return WEATHER_REMOTE_ORIGIN;
+      return isNetlifyHost ? `${window.location.origin}${WEATHER_PROXY_PREFIX}` : WEATHER_REMOTE_ORIGIN;
+    }
+
+    function buildWeatherApiUrl(path, { bustCache = false } = {}) {
+      const base = `${getWeatherApiBase().replace(/\/+$/, '')}/`;
+      const url = new URL(String(path || '').replace(/^\/+/, ''), base);
+      if (bustCache) {
+        url.searchParams.set('_ts', Date.now().toString());
+      }
+      return url.toString();
+    }
+
+    function formatWeatherIsoTimestamp(value) {
+      const text = String(value || '').trim();
+      if (!text) return '-';
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) return text;
+      return new Intl.DateTimeFormat('ko-KR', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).format(parsed);
+    }
+
+    function formatWeatherCompactTimestamp(value) {
+      const text = String(value || '').trim();
+      if (!text) return '-';
+      if (text.length === 12 && /^\d+$/.test(text)) {
+        return `${text.slice(4, 6)}/${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}`;
+      }
+      return formatWeatherIsoTimestamp(text);
+    }
+
+    function formatWeatherHhmm(value) {
+      const text = String(value || '').trim();
+      if (text.length === 4 && /^\d+$/.test(text)) {
+        return `${text.slice(0, 2)}:${text.slice(2)}`;
+      }
+      return text || '-';
+    }
+
+    function getObservationTypeLabel(value) {
+      const text = String(value || '').trim();
+      return text.includes(':') ? text.split(':', 2)[1] : text;
+    }
+
+    function hasWeatherMetricValue(value) {
+      const text = String(value || '').trim();
+      return text !== '' && text !== '-';
+    }
+
+    function buildWeatherSelectionKey(row) {
+      return `${row.observationType}|${row.stationId}|${row.stationName}`;
+    }
+
+    function buildWeatherMetrics(row) {
+      const typeLabel = getObservationTypeLabel(row.observationType);
+      if (typeLabel === '파고BUOY') {
+        return hasWeatherMetricValue(row.waveHeight) ? [{ label: '파고', value: String(row.waveHeight).trim() }] : [];
+      }
+
+      const metrics = [];
+      if (hasWeatherMetricValue(row.windDirection)) metrics.push({ label: '풍향', value: String(row.windDirection).trim() });
+      if (hasWeatherMetricValue(row.windSpeed)) metrics.push({ label: '풍속', value: String(row.windSpeed).trim() });
+      if (['BUOY', '조위관측소', '연안방재', '기상1호'].includes(typeLabel) && hasWeatherMetricValue(row.gust)) {
+        metrics.push({ label: '돌풍', value: String(row.gust).trim() });
+      }
+      if (typeLabel === 'BUOY') {
+        if (hasWeatherMetricValue(row.waveHeight)) metrics.push({ label: '파고', value: String(row.waveHeight).trim() });
+        if (hasWeatherMetricValue(row.waveHeightMax)) metrics.push({ label: '최대파고', value: String(row.waveHeightMax).trim() });
+      }
+      if (['등표', '등대/등표'].includes(typeLabel) && hasWeatherMetricValue(row.visibility)) {
+        metrics.push({ label: '가시거리', value: String(row.visibility).trim() });
+      }
+      return metrics;
+    }
+
+    function getWarningTone(level) {
+      const text = String(level || '');
+      if (text.includes('경보')) return 'danger';
+      if (text.includes('주의')) return 'warning';
+      if (text.includes('예비')) return 'info';
+      return 'normal';
+    }
+
+    function buildWarningStatusClasses(tone) {
+      if (tone === 'danger') return 'bg-red-500/15 text-red-200 border border-red-400/30';
+      if (tone === 'warning') return 'bg-amber-500/15 text-amber-200 border border-amber-400/30';
+      if (tone === 'info') return 'bg-sky-500/15 text-sky-200 border border-sky-400/30';
+      return 'bg-emerald-500/15 text-emerald-200 border border-emerald-400/30';
+    }
+
+    function buildWarningDetailClasses(tone) {
+      if (tone === 'danger') return 'border-red-400/20 bg-red-500/10';
+      if (tone === 'warning') return 'border-amber-400/20 bg-amber-500/10';
+      return 'border-slate-600 bg-slate-900/70';
+    }
+
+    function formatWeatherMetricValue(metric) {
+      const value = String(metric?.value || '').trim();
+      return value;
+    }
+
+    function formatObservationTypeDisplay(typeLabel) {
+      return String(typeLabel || '').replace(/BUOY/g, '부이');
+    }
+
+    function buildWeatherInlineSummary(row) {
+      const typeLabel = getObservationTypeLabel(row.observationType);
+      return {
+        typeLabel,
+        displayTypeLabel: formatObservationTypeDisplay(typeLabel),
+        metrics: buildWeatherMetrics(row),
+        timeText: formatWeatherHhmm(row.hhmm)
+      };
+    }
+
+    function buildWeatherSummaryPanels(areaSnapshot, querySnapshot) {
+      const areaEntries = new Map((areaSnapshot?.entries || []).map(entry => [entry.selectionKey, entry]));
+      const queryRows = new Map((querySnapshot?.rows || []).map(row => [buildWeatherSelectionKey(row), row]));
+      const areaGeneratedAt = formatWeatherIsoTimestamp(areaSnapshot?.meta?.generatedAt);
+      const queryGeneratedAt = formatWeatherIsoTimestamp(querySnapshot?.meta?.generatedAt);
+
+      const warningCards = SHIPINFO_FIXED_AREA_SELECTION_KEYS.map((selectionKey) => {
+        const entry = areaEntries.get(selectionKey);
+        const areaLabel = entry?.areaLabel || SHIPINFO_FIXED_AREA_LABELS[selectionKey] || selectionKey;
+        const warnings = Array.isArray(entry?.warnings) ? entry.warnings : [];
+        const primaryWarning = warnings[0];
+        const tone = primaryWarning ? getWarningTone(primaryWarning.level) : 'normal';
+        const statusText = primaryWarning ? `${primaryWarning.warningType}${primaryWarning.level}` : '특보 없음';
+
+        return `
+          <article class="rounded-2xl border border-slate-700 bg-slate-800/80 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h4 class="text-lg font-bold text-white">${escapeHtml(areaLabel)}</h4>
+              </div>
+              <span class="rounded-full px-3 py-1 text-xs font-semibold ${buildWarningStatusClasses(tone)}">${escapeHtml(statusText)}</span>
+            </div>
+            ${warnings.length
+              ? `<div class="mt-4 space-y-3">
+                  ${warnings.map((warning) => {
+                    const warningTone = getWarningTone(warning.level);
+                    return `
+                      <div class="rounded-2xl border p-4 ${buildWarningDetailClasses(warningTone)}">
+                        <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
+                        <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
+                        <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
+                      </div>`;
+                  }).join('')}
+                </div>`
+              : ''}
+          </article>`;
+      }).join('');
+
+      const weatherCards = SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.map((selectionKey) => {
+        const row = queryRows.get(selectionKey);
+        if (!row) {
+          return `
+            <article class="rounded-2xl border border-slate-700 bg-slate-800/80 p-5">
+              <div class="text-lg font-bold text-white">${escapeHtml(selectionKey)}</div>
+              <div class="mt-3 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-400">현재 관측값을 불러오지 못했습니다.</div>
+            </article>`;
+        }
+
+        const { displayTypeLabel, metrics, timeText } = buildWeatherInlineSummary(row);
+        return `
+          <article class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-3 sm:px-4 sm:py-4">
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold leading-tight text-slate-100 sm:text-base">
+                  <span class="text-white">${escapeHtml(row.stationName)}<span class="text-slate-400">(${escapeHtml(timeText)})</span></span>
+                  <span class="text-cyan-200">${escapeHtml(displayTypeLabel)}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 sm:gap-3">
+                  ${metrics.length
+                    ? metrics.map((metric) => `
+                        <div class="text-center">
+                          <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">${escapeHtml(metric.label)}</div>
+                          <div class="mt-1 text-sm font-bold leading-none text-emerald-200 sm:text-lg">${escapeHtml(formatWeatherMetricValue(metric))}</div>
+                        </div>`).join('')
+                    : `<div class="text-center">
+                         <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">상태</div>
+                         <div class="mt-1 text-xs font-bold leading-none text-slate-300 sm:text-sm">없음</div>
+                       </div>`}
+              </div>
+            </div>
+          </article>`;
+      }).join('');
+
+      return `
+        <section class="rounded-3xl border border-slate-700 bg-slate-800/70 overflow-hidden">
+          <div class="border-b border-slate-700 px-5 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xl font-bold text-emerald-300">운항 특보 요약</h3>
+                <p class="mt-1 text-sm text-slate-400">선택한 해역만 고정으로 표시합니다.</p>
+              </div>
+              <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300">업데이트 ${escapeHtml(areaGeneratedAt)}</span>
+            </div>
+          </div>
+          <div class="p-5 space-y-4">${warningCards}</div>
+        </section>
+        <section class="rounded-3xl border border-slate-700 bg-slate-800/70 overflow-hidden">
+          <div class="border-b border-slate-700 px-5 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xl font-bold text-cyan-300">운항 관측 요약</h3>
+                <p class="mt-1 text-sm text-slate-400">관측소별 정보를 한 줄로 압축해 표시합니다.</p>
+              </div>
+              <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300">업데이트 ${escapeHtml(queryGeneratedAt)}</span>
+            </div>
+          </div>
+          <div class="p-5 space-y-4">${weatherCards}</div>
+        </section>`;
+    }
+
+    async function loadWeatherSectionSummary(section, { bustCache = false } = {}) {
+      const statusEl = section.querySelector('#weather-summary-status');
+      const panelsEl = section.querySelector('#weather-summary-panels');
+      if (!statusEl || !panelsEl) return;
+
+      const requestId = ++weatherSectionRequestId;
+      statusEl.innerHTML = `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-300">운항 날씨 데이터를 불러오는 중입니다...</div>`;
+      panelsEl.innerHTML = '';
+
+      try {
+        const [areaResponse, queryResponse] = await Promise.all([
+          fetch(buildWeatherApiUrl('api/area-warnings/snapshot', { bustCache })),
+          fetch(buildWeatherApiUrl('api/query1/snapshot', { bustCache }))
+        ]);
+
+        if (!areaResponse.ok || !queryResponse.ok) {
+          throw new Error(`날씨 데이터를 불러오지 못했습니다. (${areaResponse.status}/${queryResponse.status})`);
+        }
+
+        const [areaSnapshot, querySnapshot] = await Promise.all([areaResponse.json(), queryResponse.json()]);
+        if (requestId !== weatherSectionRequestId) return;
+
+        statusEl.innerHTML = '';
+        panelsEl.innerHTML = buildWeatherSummaryPanels(areaSnapshot, querySnapshot);
+      } catch (error) {
+        if (requestId !== weatherSectionRequestId) return;
+        statusEl.innerHTML = `
+          <div class="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-100">
+            운항 날씨 요약을 불러오지 못했습니다. 잠시 후 다시 불러오거나 새로고침 후 다시 확인해 주세요.
+          </div>`;
+        panelsEl.innerHTML = '';
+      }
+    }
+
+    function rerenderIfVisible(key) {
+      // 간단: 현재 보이는 섹션에 따라 재렌더
+      if (!document.hidden) {
+        const ids = Object.keys(sections).filter(id => !sections[id].classList.contains('hidden'));
+        if (ids.includes('weather-section')) renderSection('weather-section');
+        if (ids.includes('ship-search-section')) renderSection('ship-search-section');
+        if (ids.includes('timetable-section')) renderSection('timetable-section');
+        if (ids.includes('field-duty-section')) renderSection('field-duty-section');
+        if (ids.includes('dangerous-goods-search-section')) renderSection('dangerous-goods-search-section');
+        if (ids.includes('ship-detail-section')) renderSection('ship-detail-section', { shipId: sections['ship-detail-section'].dataset.currentShipId });
+      }
+    }
+
+    async function saveDatasetToFirestore(key, rows) {
+      await setDoc(dataDoc(key), { rows }, { merge: true });
+    }
+
+    async function bumpMetaTimestamp() {
+      await setDoc(metaDoc(), { lastUpdated: serverTimestamp() }, { merge: true });
+    }
+
+    async function saveAllDatasets(payload) {
+      // payload: { lawData?, shipData?, dangerousGoodsData?, inspectionData?, safetyRulesData? }
+      const saves = [];
+      for (const { key } of DATASETS) {
+        if (payload[key]) {
+          saves.push(saveDatasetToFirestore(key, payload[key]));
+        }
+      }
+      await Promise.all(saves);
+      await bumpMetaTimestamp();
+    }
+
+    // ===============================
+    // 4) UI 요소 및 네비게이션
+    // ===============================
+    const appContainer = document.getElementById('app-container');
+    const mainMenu = document.getElementById('main-menu');
+    const headerSubtitle = document.getElementById('header-subtitle');
+    const modalContainer = document.getElementById('modal-container');
+    const modalContent = document.getElementById('modal-content');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const timetableViewer = document.getElementById('timetable-viewer');
+    const timetableViewerTitle = document.getElementById('timetable-viewer-title');
+    const timetableViewerDescription = document.getElementById('timetable-viewer-description');
+    const timetableViewerStage = document.getElementById('timetable-viewer-stage');
+    const timetableViewerImage = document.getElementById('timetable-viewer-image');
+    const timetableViewerCloseBtn = document.getElementById('timetable-viewer-close-btn');
+    const timetableViewerResetBtn = document.getElementById('timetable-viewer-reset-btn');
+    const timetableViewerState = {
+      scale: 1,
+      minScale: 1,
+      maxScale: 4,
+      translateX: 0,
+      translateY: 0,
+      isDragging: false,
+      lastTouchX: 0,
+      lastTouchY: 0,
+      pinchStartDistance: 0,
+      pinchStartScale: 1
+    };
+    const legacyWeatherSection = document.getElementById('law-search-section');
+    if (legacyWeatherSection) legacyWeatherSection.id = 'weather-section';
+    const dangerousGoodsSection = document.getElementById('dangerous-goods-search-section');
+    if (!document.getElementById('timetable-section') && dangerousGoodsSection?.parentElement) {
+      const timetableSection = document.createElement('main');
+      timetableSection.id = 'timetable-section';
+      timetableSection.className = 'hidden fade-in';
+      dangerousGoodsSection.parentElement.insertBefore(timetableSection, dangerousGoodsSection);
+    }
+    if (!document.getElementById('field-duty-section') && dangerousGoodsSection?.parentElement) {
+      const fieldDutySection = document.createElement('main');
+      fieldDutySection.id = 'field-duty-section';
+      fieldDutySection.className = 'hidden fade-in';
+      dangerousGoodsSection.parentElement.insertBefore(fieldDutySection, dangerousGoodsSection);
+    }
+    if (!document.getElementById('visibility-limit-section') && dangerousGoodsSection?.parentElement) {
+      const visibilityLimitSection = document.createElement('main');
+      visibilityLimitSection.id = 'visibility-limit-section';
+      visibilityLimitSection.className = 'hidden fade-in';
+      dangerousGoodsSection.parentElement.insertBefore(visibilityLimitSection, dangerousGoodsSection);
+    }
+    document.title = APP_TITLE;
+    const appTitleHeading = document.querySelector('header h1');
+    if (appTitleHeading) appTitleHeading.textContent = APP_TITLE;
+    mainMenu.innerHTML = `
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 md:gap-6">
+        <div id="ship-info-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-sky-500">
+          <i class="fa-solid fa-circle-info text-3xl text-sky-400 mb-3"></i>
+          <h2 class="text-xl font-semibold">여객선 정보</h2>
+          <p class="text-slate-400 text-sm">즐겨찾기 선박과 타선박 검색</p>
+        </div>
+        <div id="weather-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-emerald-500">
+          <i class="fa-solid fa-cloud-sun text-3xl text-emerald-400 mb-3"></i>
+          <h2 class="text-xl font-semibold">날씨</h2>
+          <p class="text-slate-400 text-sm">운항 전 기상 확인 영역</p>
+        </div>
+        <div id="timetable-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-fuchsia-500">
+          <i class="fa-solid fa-route text-3xl text-fuchsia-400 mb-3"></i>
+          <h2 class="text-xl font-semibold">시간표</h2>
+          <p class="text-slate-400 text-sm">항로별 시간표 이미지 관리</p>
+        </div>
+        <div id="field-duty-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-cyan-500">
+          <i class="fa-solid fa-clipboard-list text-3xl text-cyan-400 mb-3"></i>
+          <h2 class="text-xl font-semibold">현장업무 지정표</h2>
+          <p class="text-slate-400 text-sm">사무소별 담당 선박 지정표</p>
+        </div>
+        <div id="visibility-limit-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-violet-500">
+          <i class="fa-solid fa-eye-low-vision text-3xl text-violet-400 mb-3"></i>
+          <h2 class="text-xl font-semibold">시계제한</h2>
+          <p class="text-slate-400 text-sm">자동 밴드 로직 점검 메모</p>
+        </div>
+        <div id="dangerous-goods-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-amber-500">
+          <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-3"></i>
+          <h2 class="text-xl font-semibold">위험물 검색</h2>
+          <p class="text-slate-400 text-sm">선박 위험물 정보 조회</p>
+        </div>
+      </div>`;
+
+    const sections = {
+      'main-menu': mainMenu,
+      'weather-section': document.getElementById('weather-section'),
+      'ship-search-section': document.getElementById('ship-search-section'),
+      'ship-detail-section': document.getElementById('ship-detail-section'),
+      'timetable-section': document.getElementById('timetable-section'),
+      'field-duty-section': document.getElementById('field-duty-section'),
+      'visibility-limit-section': document.getElementById('visibility-limit-section'),
+      'dangerous-goods-search-section': document.getElementById('dangerous-goods-search-section'),
+      'data-management-section': document.getElementById('data-management-section')
+    };
+
+    function updateFooter(dateObj) {
+      const timestampSpan = document.getElementById('app-footer-timestamp');
+      if (timestampSpan) {
+        const formatted = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'long', timeStyle: 'short' }).format(dateObj);
+        timestampSpan.textContent = `데이터 최종 업데이트: ${formatted}`;
+      }
+    }
+
+    async function updateFooterFromMeta() {
+      const snap = await getDoc(metaDoc());
+      if (snap.exists()) {
+        const ts = snap.data().lastUpdated?.toDate?.();
+        if (ts) updateFooter(ts);
+      } else {
+        const timestampSpan = document.getElementById('app-footer-timestamp');
+        if (timestampSpan) {
+          timestampSpan.textContent = '데이터가 없습니다. 관리자 메뉴에서 업로드해주세요.';
+        }
+      }
+    }
+
+    function switchView(targetId, params = null) {
+      closeTimetableViewer();
+      Object.values(sections).forEach(section => section.classList.add('hidden'));
+      sections[targetId]?.classList.remove('hidden');
+      renderSection(targetId, params);
+    }
+
+    function renderSection(sectionId, params) {
+      const section = sections[sectionId];
+      if (!section || sectionId === 'main-menu') {
+        if (sectionId === 'main-menu') headerSubtitle.textContent = MAIN_MENU_SUBTITLE;
+        return;
+      }
+      section.innerHTML = '';
+
+      switch (sectionId) {
+        case 'data-management-section':
+          headerSubtitle.textContent = '데이터 관리 (엑셀 업로드 / 보안 설정)';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu" title="뒤로 가기"><i class="fa-solid fa-arrow-left"></i></button>
+            </div>
+            
+            <!-- Upload Card -->
+            <div class="bg-slate-800 p-6 rounded-lg border border-slate-700 text-center mb-6">
+              <i class="fa-solid fa-file-excel text-5xl text-green-400 mb-4"></i>
+              <h3 class="text-xl font-semibold mb-2">데이터 파일 업로드</h3>
+              <p class="text-slate-400 mb-6">"법령", "여객선", "위험물", "지적사항", "설비 최소 비치 수량" 시트를 포함한 엑셀(.xlsx) 파일을 선택하세요.</p>
+              <label for="excel-upload" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 cursor-pointer">
+                <i class="fa-solid fa-upload mr-2"></i> 엑셀 파일 선택
+              </label>
+              <input type="file" id="excel-upload" class="hidden" accept=".xlsx, .xls" />
+              <div id="upload-status" class="mt-4 text-sm"></div>
+            </div>
+            
+            <!-- Password Change Card -->
+            <div class="bg-slate-800 p-6 rounded-lg border border-slate-700 text-center">
+              <i class="fa-solid fa-key text-5xl text-cyan-400 mb-4"></i>
+              <h3 class="text-xl font-semibold mb-2">보안 설정</h3>
+              <p class="text-slate-400 mb-6">관리자 접근 비밀번호를 변경합니다.</p>
+              <button id="password-change-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                <i class="fa-solid fa-lock mr-2"></i> 비밀번호 변경하기
+              </button>
+            </div>`;
+          break;
+
+        case 'law-search-section':
+          headerSubtitle.textContent = '법령 검색';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div class="relative w-full">
+                <input type="text" id="lawSearchInput" class="input-style" placeholder="법령, 조항, 내용 검색..." />
+                <i class="fa-solid fa-search input-icon"></i>
+              </div>
+            </div>
+            <div id="law-results-container" class="grid grid-cols-1 gap-4"></div>`;
+          setTimeout(() => displayLawResults(lawData, section.querySelector('#law-results-container')), 0);
+          break;
+
+        case 'weather-section':
+          headerSubtitle.textContent = '날씨';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div>
+                <h2 class="text-2xl font-bold text-emerald-400">운항 날씨</h2>
+                <p class="text-sm text-slate-400 mt-1">선택한 특보와 관측소만 앱 안에서 카드형으로 바로 확인할 수 있게 구성했습니다.</p>
+              </div>
+            </div>
+            <div id="weather-summary-status" class="mb-5"></div>
+            <div id="weather-summary-panels" class="space-y-5"></div>
+            <div class="mt-5 rounded-2xl border border-slate-700 bg-slate-900/60 p-5">
+              <h3 class="text-lg font-bold text-emerald-300 mb-2">연결 안내</h3>
+              <div class="space-y-2 text-sm text-slate-300">
+                <p>1. Render 무료 플랜은 처음 접속 시 수 초 정도 깨어나는 시간이 걸릴 수 있습니다.</p>
+                <p>2. 화면이 늦게 뜨면 새로고침 버튼을 눌러 다시 불러오면 됩니다.</p>
+                <p>3. 연결이 지연되면 잠시 후 다시 들어오면 최신 데이터로 갱신됩니다.</p>
+              </div>
+            </div>`;
+          if (window.location.hostname.endsWith('github.io')) {
+            section.innerHTML = `
+              <div class="flex items-center gap-4 mb-8">
+                <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+                <div>
+                  <h2 class="text-2xl font-bold text-emerald-400">운항 날씨</h2>
+                  <p class="text-sm text-slate-400 mt-1">GitHub Pages 배포본에서는 고정 요약 화면을 바로 표시합니다.</p>
+                </div>
+              </div>
+              <div class="overflow-hidden rounded-2xl border border-slate-700 bg-white">
+                <iframe
+                  src="${WEATHER_REMOTE_ORIGIN}/shipinfo-summary?embed=1"
+                  title="운항 날씨 요약"
+                  class="block w-full"
+                  style="height: calc(100vh - 16rem); min-height: 780px;"
+                ></iframe>
+              </div>`;
+          } else {
+            setTimeout(() => loadWeatherSectionSummary(section), 0);
+          }
+          break;
+
+        case 'ship-search-section':
+          headerSubtitle.textContent = '여객선 정보';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div class="relative w-full">
+                <input type="text" id="shipSearchInput" class="input-style" placeholder="여객선 이름, 선종, 지적사항 검색..." />
+                <i class="fa-solid fa-search input-icon"></i>
+              </div>
+            </div>
+            <div id="ship-results-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>`;
+          setTimeout(() => {
+            const favoriteShips = getFavoriteShips();
+            const otherShipResults = getShipSearchResults(shipSearchState.term);
+
+            section.innerHTML = `
+              <div class="flex items-center gap-4 mb-6">
+                <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+                <div class="flex w-full justify-end">
+                  <button id="toggle-other-ship-search-btn" class="inline-flex items-center gap-2 rounded-full border border-slate-600 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-sky-400 hover:text-sky-300">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>타선박 검색</span>
+                  </button>
+                </div>
+              </div>
+              <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 mb-6">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-xl font-bold text-sky-400">즐겨찾기 여객선</h3>
+                    <p class="text-sm text-slate-400 mt-1">여기에는 즐겨찾기에 추가한 선박만 표시됩니다.</p>
+                  </div>
+                  <span class="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-200">${favoriteShips.length}척</span>
+                </div>
+              </div>
+              <div id="favorite-ship-results-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+              <div id="other-ship-search-panel" class="${shipSearchState.showOtherSearch ? '' : 'hidden'} mt-8">
+                <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5">
+                  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-4">
+                    <div>
+                      <h3 class="text-lg font-bold text-slate-100">타선박 검색</h3>
+                      <p class="text-sm text-slate-400 mt-1">즐겨찾기에 없는 선박을 검색하고 별표로 바로 추가할 수 있습니다.</p>
+                    </div>
+                    <button id="close-other-ship-search-btn" class="inline-flex items-center justify-center rounded-full border border-slate-600 bg-slate-700/60 px-3 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-white">
+                      닫기
+                    </button>
+                  </div>
+                  <div class="relative mb-4">
+                    <input type="text" id="shipSearchInput" class="input-style" placeholder="선박명, 선종, 지적사항으로 타선박 검색..." />
+                    <i class="fa-solid fa-search input-icon"></i>
+                  </div>
+                  <div id="ship-results-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+              </div>`;
+
+            displayShipResults(favoriteShips, section.querySelector('#favorite-ship-results-container'), '', {
+              emptyMessage: '아직 즐겨찾기한 여객선이 없습니다. 돋보기 버튼으로 타선박을 검색해 추가해 주세요.'
+            });
+
+            if (shipSearchState.showOtherSearch) {
+              const shipSearchInput = section.querySelector('#shipSearchInput');
+              if (shipSearchInput) {
+                shipSearchInput.value = shipSearchState.term;
+                shipSearchInput.focus();
+                shipSearchInput.setSelectionRange(shipSearchInput.value.length, shipSearchInput.value.length);
+              }
+              displayShipResults(otherShipResults, section.querySelector('#ship-results-container'), shipSearchState.term, {
+                emptyMessage: shipSearchState.term ? '검색된 타선박이 없습니다.' : '즐겨찾기를 제외하면 표시할 타선박이 없습니다.'
+              });
+            }
+          }, 0);
+          break;
+
+        case 'timetable-section':
+          headerSubtitle.textContent = '시간표';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div>
+                <h2 class="text-2xl font-bold text-fuchsia-400">항로별 시간표</h2>
+                <p class="text-sm text-slate-400 mt-1">항로를 추가하고 사진으로 시간표를 넣을 수 있게 구성했습니다.</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              ${TIMETABLE_ROUTES.map((route, index) => `
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+                  <div class="px-5 py-4 border-b border-slate-700">
+                    <h3 class="text-xl font-bold text-fuchsia-300">${route.name}</h3>
+                    <p class="text-sm text-slate-400 mt-1">${route.description}</p>
+                  </div>
+                  <div class="p-5">
+                    ${route.image.trim()
+                      ? `<button type="button" class="timetable-preview-btn" data-timetable-index="${index}" aria-label="${route.name} 시간표 전체화면 보기"><div class="rounded-2xl overflow-hidden border border-slate-700 bg-white">
+                           <img src="${route.image}" alt="${route.name} 시간표" class="w-full h-auto object-cover" />
+                         </div></button>`
+                      : `<div class="min-h-[280px] rounded-2xl border-2 border-dashed border-slate-600 bg-slate-900/40 flex items-center justify-center p-6 text-center">
+                           <div>
+                             <i class="fa-regular fa-image text-4xl text-fuchsia-300/80 mb-4"></i>
+                             <p class="text-base font-semibold text-white">시간표 이미지를 넣어주세요</p>
+                             <p class="text-sm text-slate-400 mt-2">이미지 경로를 추가하면 이 자리에 항로 시간표 사진이 표시됩니다.</p>
+                           </div>
+                         </div>`}
+                  </div>
+                </div>`).join('')}
+            </div>`;
+          break;
+
+        case 'field-duty-section':
+          headerSubtitle.textContent = '현장업무 지정표';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div>
+                <h2 class="text-2xl font-bold text-cyan-400">현장업무 지정표</h2>
+                <p class="text-sm text-slate-400 mt-1">시간표처럼 지정표 이미지를 눌러 전체화면으로 확인할 수 있습니다.</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              ${FIELD_DUTY_BOARDS.map((board, index) => `
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
+                  <div class="px-5 py-4 border-b border-slate-700">
+                    <h3 class="text-xl font-bold text-cyan-300">${board.name}</h3>
+                    <p class="text-sm text-slate-400 mt-1">${board.description}</p>
+                  </div>
+                  <div class="p-5">
+                    ${board.image.trim()
+                      ? `<button type="button" class="field-duty-preview-btn" data-field-duty-index="${index}" aria-label="${board.name} 현장업무 지정표 전체화면 보기"><div class="rounded-2xl overflow-hidden border border-slate-700 bg-white">
+                           <img src="${board.image}" alt="${board.name} 현장업무 지정표" class="w-full h-auto object-cover" />
+                         </div></button>`
+                      : `<div class="min-h-[280px] rounded-2xl border-2 border-dashed border-slate-600 bg-slate-900/40 flex items-center justify-center p-6 text-center">
+                           <div>
+                             <i class="fa-regular fa-image text-4xl text-cyan-300/80 mb-4"></i>
+                             <p class="text-base font-semibold text-white">지정표 이미지를 넣어주세요</p>
+                             <p class="text-sm text-slate-400 mt-2">이미지 경로를 추가하면 이 자리에 현장업무 지정표가 표시됩니다.</p>
+                           </div>
+                         </div>`}
+                  </div>
+                </div>`).join('')}
+            </div>`;
+          break;
+
+        case 'visibility-limit-section':
+          headerSubtitle.textContent = '시계제한';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div>
+                <h2 class="text-2xl font-bold text-violet-400">시계제한</h2>
+                <p class="text-sm text-slate-400 mt-1">자동 밴드 현재 로직과 수정 포인트를 먼저 정리해둔 메모 화면입니다.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5 xl:grid-cols-4 mb-6">
+              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상황</p>
+                <p class="mt-3 text-lg font-bold text-white">시계제한 · 기상악화 · 그 외 비운항</p>
+                <p class="mt-2 text-sm text-slate-400">현재 자동 밴드는 세 가지 상황값 중 하나를 먼저 선택하게 되어 있습니다.</p>
+              </div>
+              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상태</p>
+                <p class="mt-3 text-lg font-bold text-white">출항 대기 · 통제 · 정상운항 · 결항</p>
+                <p class="mt-2 text-sm text-slate-400">상태에 따라 기본 사유와 문장 끝 suffix가 자동으로 붙는 구조입니다.</p>
+              </div>
+              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">데이터 규모</p>
+                <p class="mt-3 text-lg font-bold text-white">항로 6개 · 선박 7척</p>
+                <p class="mt-2 text-sm text-slate-400">각 선박별 기본 공지 출항시각과 전체 출항 목록이 JSON으로 저장되어 있습니다.</p>
+              </div>
+              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">출력 방식</p>
+                <p class="mt-3 text-lg font-bold text-white">1건은 한 줄 · 여러 건은 번호 목록</p>
+                <p class="mt-2 text-sm text-slate-400">확정 항목이 여러 개면 “아래 항로 …” 헤더와 번호 목록으로 자동 전환됩니다.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)] gap-6">
+              <div class="space-y-6">
+                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+                  <h3 class="text-xl font-bold text-violet-300">현재 문구 생성 순서</h3>
+                  <div class="mt-5 space-y-3">
+                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p class="text-sm font-semibold text-white">1. 상황 선택</p>
+                      <p class="mt-1 text-sm text-slate-400">시계제한, 기상악화, 그 외 비운항 중 하나를 고릅니다.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p class="text-sm font-semibold text-white">2. 상태 선택</p>
+                      <p class="mt-1 text-sm text-slate-400">출항 대기, 통제, 정상운항, 결항에 따라 suffix가 달라집니다.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p class="text-sm font-semibold text-white">3. 항로 → 선박 → 출항 선택</p>
+                      <p class="mt-1 text-sm text-slate-400">선택된 항목은 개별 1건 또는 여러 건으로 확정 목록에 쌓을 수 있습니다.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p class="text-sm font-semibold text-white">4. 자동 사유 입력</p>
+                      <p class="mt-1 text-sm text-slate-400">시계제한은 시계제한으로, 정상운항은 시계호전되어처럼 기본 사유가 자동 설정됩니다.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                      <p class="text-sm font-semibold text-white">5. 결과 문구 생성</p>
+                      <p class="mt-1 text-sm text-slate-400">1건이면 단일 문장, 여러 건이면 아래 항로 헤더와 번호 목록으로 결과가 만들어집니다.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+                  <h3 class="text-xl font-bold text-violet-300">현재 등록 항로</h3>
+                  <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
+                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                        <p class="text-sm font-semibold text-white">${item.route}</p>
+                        <p class="mt-2 text-sm text-slate-400">${item.ships}</p>
+                      </div>`).join('')}
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-6">
+                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+                  <h3 class="text-xl font-bold text-violet-300">상태별 기본 문구</h3>
+                  <div class="mt-5 space-y-3">
+                    ${VISIBILITY_LIMIT_STATUS_SUMMARY.map((item) => `
+                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                        <div class="flex items-start justify-between gap-3">
+                          <p class="text-sm font-semibold text-white">${item.name}</p>
+                          <span class="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-200">${item.suffix}</span>
+                        </div>
+                        <p class="mt-2 text-sm text-slate-400">기본 사유: ${item.reason}</p>
+                      </div>`).join('')}
+                  </div>
+                </div>
+
+                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+                  <h3 class="text-xl font-bold text-violet-300">로직 수정할 파일</h3>
+                  <div class="mt-5 space-y-3">
+                    ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
+                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                        <p class="text-sm font-semibold text-white">${item.title}</p>
+                        <p class="mt-2 break-all text-xs text-violet-200">${item.file}</p>
+                        <p class="mt-2 text-sm text-slate-400">${item.detail}</p>
+                      </div>`).join('')}
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          break;
+
+        case 'dangerous-goods-search-section':
+          headerSubtitle.textContent = '위험물 검색';
+          section.innerHTML = `
+            <div class="flex items-center gap-4 mb-8">
+              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+              <div class="relative w-full">
+                <input type="text" id="dangerousGoodsSearchInput" class="input-style" placeholder="UN번호, 품명 검색..." />
+                <i class="fa-solid fa-search input-icon"></i>
+              </div>
+            </div>
+            <div id="dangerous-goods-results-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>`;
+          setTimeout(() => displayDangerousGoodsResults(dangerousGoodsData, section.querySelector('#dangerous-goods-results-container')), 0);
+          break;
+
+case 'ship-detail-section':
+  const ship = shipData.find(s => String(s.id) === String(params?.shipId));
+  if (ship) {
+    section.dataset.currentShipId = ship.id;
+    headerSubtitle.textContent = `'${ship.name}' 상세 정보`;
+    const shipAge = getShipAge(ship.launchDate);
+    const isFavorite = isFavoriteShip(ship.id);
+    const findings = inspectionData.filter(item => String(item.shipId) === String(ship.id));
+
+            const shipDetailsHtml = `
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-slate-300">
+                <p><i class="fa-solid fa-ship icon-style"></i> <span class="font-semibold text-slate-400">선명:</span> ${ship.name || 'N/A'}</p>
+                <p><i class="fa-solid fa-tag icon-style"></i> <span class="font-semibold text-slate-400">선종:</span> ${ship.type || 'N/A'}</p>
+                <p><i class="fa-solid fa-calendar-check icon-style"></i> <span class="font-semibold text-slate-400">취항일:</span> ${formatShipDate(ship.serviceStartDate)}</p>
+                <p><i class="fa-solid fa-weight-hanging icon-style"></i> <span class="font-semibold text-slate-400">총톤수:</span> ${formatNumber(ship.gt, ' ton')}</p>
+                <p><i class="fa-solid fa-users icon-style"></i> <span class="font-semibold text-slate-400">여객정원:</span> ${formatNumber(ship.capacity, '명')}</p>
+                <p><i class="fa-solid fa-user-shield icon-style"></i> <span class="font-semibold text-slate-400">최소승무정원:</span> ${formatNumber(ship.minCrew, '명')}</p>
+                <p><i class="fa-solid fa-gauge-high icon-style"></i> <span class="font-semibold text-slate-400">항해속력:</span> ${formatSpeed(ship.speed)}</p>
+                <p><i class="fa-solid fa-calendar-days icon-style"></i> <span class="font-semibold text-slate-400">진수일:</span> ${formatShipDate(ship.launchDate)}</p>
+                <p><i class="fa-solid fa-water icon-style"></i> <span class="font-semibold text-slate-400">선령:</span> ${shipAge}</p>
+                <p><i class="fa-solid fa-cogs icon-style"></i> <span class="font-semibold text-slate-400">추진력:</span> ${formatNumber(ship.propulsion, ' Kw')}</p>
+                <p><i class="fa-solid fa-gears icon-style"></i> <span class="font-semibold text-slate-400">기관수:</span> ${formatNumber(ship.engines)}</p>
+                <p><i class="fa-solid fa-ruler-horizontal icon-style"></i> <span class="font-semibold text-slate-400">길이:</span> ${formatNumber(ship.length, 'm')}</p>
+                <p><i class="fa-solid fa-ruler-combined icon-style"></i> <span class="font-semibold text-slate-400">너비:</span> ${formatNumber(ship.beam, 'm')}</p>
+                <p><i class="fa-solid fa-ruler-vertical icon-style"></i> <span class="font-semibold text-slate-400">깊이:</span> ${formatNumber(ship.depth, 'm')}</p>
+              </div>`;
+
+            let findingsHtml = '<div class="mt-8"><h3 class="text-2xl font-bold mb-4 text-amber-400">최근 지적사항</h3>';
+            if (findings.length > 0) {
+              const groupedFindings = findings.reduce((acc, item) => {
+                (acc[item.category] = acc[item.category] || []).push(item);
+                return acc;
+              }, {});
+
+              findingsHtml += '<div class="space-y-4">';
+              for (const category in groupedFindings) {
+                const itemsInCategory = groupedFindings[category];
+                itemsInCategory.sort((a, b) => new Date(formatShipDate(b.date)) - new Date(formatShipDate(a.date)));
+
+                findingsHtml += `<div><h4 class="text-lg font-semibold text-slate-300 mb-2">${category} (${itemsInCategory.length}건)</h4><div class="space-y-2">`;
+                itemsInCategory.forEach(item => {
+                  const inspectionType = item.inspectionType || '정보 없음';
+                  findingsHtml += `<div class="finding-item bg-slate-700/50 rounded-lg border border-slate-600">
+                    <div class="finding-toggle p-4 cursor-pointer flex justify-between items-center">
+                      <p class="font-semibold text-sky-400">${item.details || '내용 없음'}</p>
+                      <i class="fa-solid fa-chevron-down chevron-icon text-slate-400"></i>
+                    </div>
+                    <div class="finding-details px-4">
+                      <p class="py-4 border-t border-slate-600 text-slate-400 text-sm">${formatShipDate(item.date)} [${inspectionType}]</p>
+                    </div>
+                  </div>`;
+                });
+                findingsHtml += '</div></div>';
+              }
+              findingsHtml += '</div>';
+            } else {
+              findingsHtml += '<div class="text-center p-6 bg-slate-800 rounded-lg text-slate-400">최근 지적사항이 없습니다.</div>';
+            }
+            findingsHtml += '</div>';
+
+            const calculatorHtml = `
+              <div id="safety-calculator-section" class="mt-8">
+                <h3 class="text-2xl font-bold mb-4 text-green-400">설비 최소 비치 수량</h3>
+                <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                  <div class="mb-4">
+                    <label for="navigation-area" class="block text-sm font-medium text-slate-300 mb-2">항해 구역 선택</label>
+                    <select id="navigation-area" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                      <option value="smooth">평수구역</option>
+                      <option value="coastal">연해구역</option>
+                    </select>
+                  </div>
+                  <button id="calculate-safety-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                    <i class="fa-solid fa-calculator mr-2"></i> 최소 수량 계산하기
+                  </button>
+                  <div id="safety-results-container" class="mt-6 space-y-3"></div>
+                </div>
+              </div>`;
+
+ section.innerHTML = `
+      <div class="flex items-center gap-4 mb-8">
+        <button class="back-btn" data-target="ship-search-section"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 class="text-xl font-bold text-sky-400">${ship.name}</h2>
+          <button class="inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${isFavorite ? 'border-amber-400/60 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20' : 'border-slate-600 bg-slate-800 text-slate-200 hover:border-amber-400/60 hover:text-amber-200'}" data-favorite-toggle="true" data-ship-id="${ship.id}">
+            <i class="${isFavorite ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+            <span>${isFavorite ? '즐겨찾기 해제' : '즐겨찾기 등록'}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Container -->
+      <div class="tab-container">
+        <!-- Tab Button List -->
+        <div class="border-b border-slate-700 mb-6" role="tablist">
+          <button class="tab-btn active" data-target="#panel-specs" role="tab">여객선 제원</button>
+          <button class="tab-btn" data-target="#panel-findings" role="tab">최근 지적사항</button>
+          <button class="tab-btn" data-target="#panel-equipment" role="tab">설비 최소 수량</button>
+        </div>
+
+        <!-- Tab Panels -->
+        <div>
+          <!-- Panel 1: Specs (Active by default) -->
+          <div id="panel-specs" role="tabpanel">
+            <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">${shipDetailsHtml}</div>
+          </div>
+          <!-- Panel 2: Findings (Hidden by default) -->
+          <div id="panel-findings" role="tabpanel" class="hidden">
+            ${findingsHtml}
+          </div>
+          <!-- Panel 3: Equipment (Hidden by default) -->
+          <div id="panel-equipment" role="tabpanel" class="hidden">
+            ${calculatorHtml}
+          </div>
+        </div>
+      </div>`;
+      // --- ---
+  }
+  break;
+      }
+    }
+
+    // ===============================
+    // 5) Helper Functions (Highlight, Formatters)
+    // ===============================
+    function highlight(text, term) {
+      if (!term || !text) return text;
+      const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${safe})`, 'gi');
+      return String(text).replace(regex, '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>');
+    }
+
+    function formatNumber(value, unit = '') {
+      if (value === null || value === undefined || String(value).trim() === '') return 'N/A';
+      const num = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+      if (isNaN(num)) return value;
+      return num.toLocaleString('ko-KR') + (unit ? `${unit}` : '');
+    }
+    function formatSpeed(value) {
+      if (value === null || value === undefined || String(value).trim() === '') return 'N/A';
+      const num = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+      if (isNaN(num)) return value;
+      return `${num.toFixed(1)} kts`;
+    }
+    function excelDateToJSDate(serial) {
+      if (typeof serial === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(serial)) return new Date(serial);
+      }
+      if (typeof serial !== 'number') return null;
+      const excelEpoch = new Date(1899, 11, 30);
+      return new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
+    }
+    function formatShipDate(dateInput) {
+      if (!dateInput) return 'N/A';
+      let date = dateInput instanceof Date ? dateInput : excelDateToJSDate(dateInput);
+      if (date && !isNaN(date)) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      if (typeof dateInput === 'string') return dateInput;
+      return 'N/A';
+    }
+    function getShipAge(launchDateInput) {
+      const launchDateStr = formatShipDate(launchDateInput);
+      if (launchDateStr === 'N/A') return '계산 불가';
+      const t = new Date();
+      const a = new Date(launchDateStr);
+      if (isNaN(a.getTime())) return '계산 불가';
+      let e = t.getFullYear() - a.getFullYear();
+      const n = t.getMonth() - a.getMonth();
+      if (n < 0 || (n === 0 && t.getDate() < a.getDate())) e--;
+      const d = new Date(a.getFullYear() + e, a.getMonth(), a.getDate());
+      return `${e}년 ${Math.floor((t - d) / 86400000)}일`;
+    }
+
+    // ===============================
+    // 6) Display Functions (Search Results)
+    // ===============================
+    function displayLawResults(data, container) {
+      if (!container) return;
+      container.innerHTML = data?.length ? data.map((item) => {
+        const contentSnippet = (item.content || '').substring(0, 100);
+        return `<div class="law-card bg-slate-800 p-5 rounded-lg border border-slate-700 cursor-pointer" data-law-id="${item.id}">
+          <div class="flex justify-between items-center mb-2">
+            <h2 class="text-lg font-bold text-cyan-400">${item.category} - ${item.title}</h2>
+            <span class="text-xs font-mono bg-slate-700 px-2 py-1 rounded">${item.article}</span>
+          </div>
+          <p class="text-slate-400 text-sm">${contentSnippet}${(item.content || '').length > 100 ? '...' : ''}</p>
+        </div>`;
+      }).join('') : `<div class="text-center p-6 bg-slate-800 rounded-lg">검색 결과가 없습니다.</div>`;
+    }
+
+    function displayShipResultsLegacy(data, container, term = '') {
+      if (!container) return;
+      if (!data?.length) { container.innerHTML = `<div class="text-center p-6 bg-slate-800 rounded-lg col-span-full">검색된 여객선이 없습니다.</div>`; return; }
+      container.innerHTML = data.map(s => {
+        let matchContext = '';
+        if (term) {
+          const nameMatch = (s.name || '').toLowerCase().includes(term);
+          const typeMatch = (s.type || '').toLowerCase().includes(term);
+          if (!nameMatch && !typeMatch) {
+            const matchingFinding = (inspectionData || []).find(f => String(f.shipId) === String(s.id) && (f.details || '').toLowerCase().includes(term));
+            if (matchingFinding) matchContext = `<p class="text-xs text-amber-400 mt-2 bg-amber-900/50 p-2 rounded-md"><i class=\"fa-solid fa-magnifying-glass-plus mr-1\"></i>지적사항에서 발견: \"${highlight((matchingFinding.details || '').substring(0,50), term)}...\"</p>`;
+          }
+        }
+        return `<div class="ship-card bg-slate-800 p-5 rounded-lg border border-slate-700 cursor-pointer" data-ship-id="${s.id}"><h3 class="text-xl font-bold text-sky-400 mb-2">${highlight(s.name || '', term)}</h3><p class="text-sm text-slate-300"><i class="fa-solid fa-tag icon-style"></i>${highlight(s.type || '', term)}</p>${matchContext}</div>`;
+      }).join('');
+    }
+
+    function getShipMatchContext(ship, term = '') {
+      if (!term) return '';
+      const nameMatch = (ship.name || '').toLowerCase().includes(term);
+      const typeMatch = (ship.type || '').toLowerCase().includes(term);
+      if (nameMatch || typeMatch) return '';
+
+      const matchingFinding = (inspectionData || []).find(f =>
+        String(f.shipId) === String(ship.id) && (f.details || '').toLowerCase().includes(term)
+      );
+      if (!matchingFinding) return '';
+
+      return `<p class="text-xs text-amber-400 mt-3 bg-amber-900/50 p-2 rounded-md"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>지적사항에서 발견: "${highlight((matchingFinding.details || '').substring(0, 50), term)}..."</p>`;
+    }
+
+    function renderShipCard(ship, { term = '' } = {}) {
+      const favorite = isFavoriteShip(ship.id);
+      const favoriteLabel = favorite ? '즐겨찾기 해제' : '즐겨찾기 등록';
+      const favoriteButtonClasses = favorite
+        ? 'border-amber-400/60 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'
+        : 'border-slate-600 bg-slate-700/70 text-slate-200 hover:border-amber-400/60 hover:text-amber-200';
+
+      return `<div class="ship-card bg-slate-800 p-5 rounded-lg border border-slate-700 cursor-pointer" data-ship-id="${ship.id}">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <h3 class="text-xl font-bold text-sky-400">${highlight(ship.name || '', term)}</h3>
+              ${favorite ? '<span class="rounded-full bg-amber-500/20 px-2 py-1 text-[11px] font-semibold text-amber-200">즐겨찾기</span>' : ''}
+            </div>
+            <p class="text-sm text-slate-300"><i class="fa-solid fa-tag icon-style"></i>${highlight(ship.type || '', term)}</p>
+          </div>
+          <button class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition ${favoriteButtonClasses}" data-favorite-toggle="true" data-ship-id="${ship.id}" title="${favoriteLabel}" aria-label="${favoriteLabel}">
+            <i class="${favorite ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+          </button>
+        </div>
+        ${getShipMatchContext(ship, term)}
+      </div>`;
+    }
+
+    function displayShipResults(data, container, term = '', options = {}) {
+      if (!container) return;
+      const emptyMessage = options.emptyMessage || '검색된 여객선이 없습니다.';
+      if (!data?.length) {
+        container.innerHTML = `<div class="text-center p-6 bg-slate-800 rounded-lg col-span-full">${emptyMessage}</div>`;
+        return;
+      }
+      container.innerHTML = data.map(ship => renderShipCard(ship, { term })).join('');
+    }
+
+    function displayDangerousGoodsResults(data, container, term = '') {
+      if (!container) return;
+      container.innerHTML = data?.length ? data.map(item => {
+        const stowageMethodDisplay = item['적재방법'] || '정보 없음';
+        const characteristicsDisplay = item['특성'] || '정보 없음';
+        let isProhibited = false;
+        const prohibitedCodes = ['04','08','12','14','15','D','E'];
+        const stowageRegex = /적재방법\s*([A-Z\d]+)\.?/i;
+        const match = stowageMethodDisplay.match(stowageRegex);
+        if (match) {
+          const code = match[1];
+          if (prohibitedCodes.includes(code.toUpperCase())) isProhibited = true;
+        }
+        const prohibitionNotice = isProhibited ? `
+          <div class="mt-4">
+            <span class="inline-flex items-center bg-red-800 text-red-100 text-sm font-bold px-3 py-1 rounded-full">
+              <i class="fa-solid fa-ban mr-2"></i> 여객선 선적 금지
+            </span>
+          </div>` : '';
+        const unNumberDisplay = item['UN No.'] ? String(item['UN No.']).padStart(4, '0') : 'N/A';
+        return `
+          <div class="dangerous-goods-card flex flex-col h-full bg-slate-800 p-6 rounded-lg border border-slate-700">
+            <div class="flex-grow space-y-4">
+              <div>
+                <h3 class="font-semibold text-slate-400 text-sm mb-1">UN No.</h3>
+                <p class="text-sm bg-slate-700 text-amber-300 font-mono py-1 px-2 rounded inline-block">${highlight(unNumberDisplay, term)}</p>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-400 text-sm mb-1">품목</h3>
+                <p class="text-lg font-bold text-amber-400 break-words" style="white-space: pre-wrap;">${highlight(item['품목'] || '정보 없음', term)}</p>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-400 text-sm mb-1">적재 방법</h3>
+                <p class="text-sm text-slate-200 leading-relaxed">${highlight(stowageMethodDisplay, term)}</p>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-400 text-sm mb-1">특성</h3>
+                <p class="text-sm text-slate-300 leading-relaxed" style="white-space: pre-wrap;">${highlight(characteristicsDisplay, term)}</p>
+              </div>
+            </div>
+            ${prohibitionNotice}
+          </div>`;
+      }).join('') : `<div class="text-center p-6 bg-slate-800 rounded-lg md:col-span-2">검색된 위험물이 없습니다.</div>`;
+    }
+
+    // ===============================
+    // 7) Modal Functions
+    // ===============================
+    function showModal(title, content) {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = content;
+      modalContainer.classList.remove('hidden');
+      modalContainer.classList.add('modal-enter');
+      modalContent.classList.add('fade-in');
+    }
+    function hideModal() {
+      modalContainer.classList.add('modal-leave');
+      modalContent.classList.remove('fade-in');
+      setTimeout(() => {
+        modalContainer.classList.add('hidden');
+        modalContainer.classList.remove('modal-enter','modal-leave');
+      }, 300);
+    }
+    modalCloseBtn.addEventListener('click', hideModal);
+    modalContainer.addEventListener('click', (e) => { if (e.target === modalContainer) hideModal(); });
+
+    // --- 비밀번호 변경 모달 ---
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function getTouchDistance(touches) {
+      const [firstTouch, secondTouch] = touches;
+      return Math.hypot(secondTouch.clientX - firstTouch.clientX, secondTouch.clientY - firstTouch.clientY);
+    }
+
+    function getTouchMidpoint(touches) {
+      const [firstTouch, secondTouch] = touches;
+      return {
+        clientX: (firstTouch.clientX + secondTouch.clientX) / 2,
+        clientY: (firstTouch.clientY + secondTouch.clientY) / 2
+      };
+    }
+
+    function updateTimetableViewerCursor() {
+      timetableViewerStage.classList.toggle('can-pan', timetableViewerState.scale > 1);
+      timetableViewerStage.classList.toggle('is-dragging', timetableViewerState.isDragging);
+    }
+
+    function constrainTimetableViewerTranslation() {
+      const stageRect = timetableViewerStage.getBoundingClientRect();
+      const imageWidth = timetableViewerImage.offsetWidth;
+      const imageHeight = timetableViewerImage.offsetHeight;
+
+      if (!stageRect.width || !stageRect.height || !imageWidth || !imageHeight) return;
+
+      const maxTranslateX = Math.max(0, ((imageWidth * timetableViewerState.scale) - stageRect.width) / 2);
+      const maxTranslateY = Math.max(0, ((imageHeight * timetableViewerState.scale) - stageRect.height) / 2);
+
+      timetableViewerState.translateX = clamp(timetableViewerState.translateX, -maxTranslateX, maxTranslateX);
+      timetableViewerState.translateY = clamp(timetableViewerState.translateY, -maxTranslateY, maxTranslateY);
+    }
+
+    function applyTimetableViewerTransform(isInteracting = false) {
+      if (timetableViewerState.scale <= 1) {
+        timetableViewerState.translateX = 0;
+        timetableViewerState.translateY = 0;
+      } else {
+        constrainTimetableViewerTranslation();
+      }
+
+      timetableViewerImage.classList.toggle('is-interacting', isInteracting);
+      timetableViewerImage.style.transform = `translate3d(${timetableViewerState.translateX}px, ${timetableViewerState.translateY}px, 0) scale(${timetableViewerState.scale})`;
+      updateTimetableViewerCursor();
+    }
+
+    function resetTimetableViewerTransform() {
+      timetableViewerState.scale = 1;
+      timetableViewerState.translateX = 0;
+      timetableViewerState.translateY = 0;
+      timetableViewerState.isDragging = false;
+      timetableViewerState.pinchStartDistance = 0;
+      timetableViewerState.pinchStartScale = 1;
+      applyTimetableViewerTransform(false);
+    }
+
+    function zoomTimetableViewer(nextScale, pointer = null) {
+      const previousScale = timetableViewerState.scale;
+      const newScale = clamp(nextScale, timetableViewerState.minScale, timetableViewerState.maxScale);
+      if (newScale === previousScale) return;
+
+      if (pointer) {
+        const stageRect = timetableViewerStage.getBoundingClientRect();
+        const pointerOffsetX = pointer.clientX - stageRect.left - (stageRect.width / 2) - timetableViewerState.translateX;
+        const pointerOffsetY = pointer.clientY - stageRect.top - (stageRect.height / 2) - timetableViewerState.translateY;
+        const scaleRatio = newScale / previousScale;
+
+        timetableViewerState.translateX -= pointerOffsetX * (scaleRatio - 1);
+        timetableViewerState.translateY -= pointerOffsetY * (scaleRatio - 1);
+      }
+
+      timetableViewerState.scale = newScale;
+      applyTimetableViewerTransform(true);
+    }
+
+    function openTimetableViewer(route) {
+      if (!route?.image?.trim()) return;
+
+      timetableViewerTitle.textContent = route.name || '시간표';
+      timetableViewerDescription.textContent = `${route.description} · 두 손가락 확대/축소, 한 손가락 이동`;
+      timetableViewerImage.src = route.image;
+      timetableViewerImage.alt = `${route.name || '시간표'} 전체 화면`;
+      timetableViewer.classList.remove('hidden');
+      document.body.classList.add('timetable-viewer-open');
+
+      const handleImageReady = () => {
+        resetTimetableViewerTransform();
+        timetableViewerImage.removeEventListener('load', handleImageReady);
+      };
+
+      if (timetableViewerImage.complete) {
+        requestAnimationFrame(() => resetTimetableViewerTransform());
+      } else {
+        timetableViewerImage.addEventListener('load', handleImageReady);
+      }
+    }
+
+    function closeTimetableViewer() {
+      if (timetableViewer.classList.contains('hidden')) return;
+      timetableViewer.classList.add('hidden');
+      document.body.classList.remove('timetable-viewer-open');
+      resetTimetableViewerTransform();
+    }
+
+    timetableViewerCloseBtn.addEventListener('click', closeTimetableViewer);
+    timetableViewerResetBtn.addEventListener('click', resetTimetableViewerTransform);
+    window.addEventListener('resize', () => {
+      if (!timetableViewer.classList.contains('hidden')) {
+        requestAnimationFrame(() => applyTimetableViewerTransform(false));
+      }
+    });
+    timetableViewerStage.addEventListener('wheel', (e) => {
+      if (timetableViewer.classList.contains('hidden')) return;
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.25 : -0.25;
+      zoomTimetableViewer(timetableViewerState.scale + delta, { clientX: e.clientX, clientY: e.clientY });
+    }, { passive: false });
+    timetableViewerStage.addEventListener('dblclick', (e) => {
+      if (timetableViewer.classList.contains('hidden')) return;
+      e.preventDefault();
+      const nextScale = timetableViewerState.scale > 1 ? 1 : 2;
+      zoomTimetableViewer(nextScale, { clientX: e.clientX, clientY: e.clientY });
+      if (nextScale === 1) applyTimetableViewerTransform(false);
+    });
+    timetableViewerStage.addEventListener('mousedown', (e) => {
+      if (timetableViewerState.scale <= 1 || timetableViewer.classList.contains('hidden')) return;
+      e.preventDefault();
+      timetableViewerState.isDragging = true;
+      timetableViewerState.lastTouchX = e.clientX;
+      timetableViewerState.lastTouchY = e.clientY;
+      applyTimetableViewerTransform(true);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!timetableViewerState.isDragging) return;
+      timetableViewerState.translateX += e.clientX - timetableViewerState.lastTouchX;
+      timetableViewerState.translateY += e.clientY - timetableViewerState.lastTouchY;
+      timetableViewerState.lastTouchX = e.clientX;
+      timetableViewerState.lastTouchY = e.clientY;
+      applyTimetableViewerTransform(true);
+    });
+    window.addEventListener('mouseup', () => {
+      if (!timetableViewerState.isDragging) return;
+      timetableViewerState.isDragging = false;
+      applyTimetableViewerTransform(false);
+    });
+    timetableViewerStage.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        timetableViewerState.pinchStartDistance = getTouchDistance(e.touches);
+        timetableViewerState.pinchStartScale = timetableViewerState.scale;
+        timetableViewerState.isDragging = false;
+        applyTimetableViewerTransform(true);
+        return;
+      }
+
+      if (e.touches.length === 1 && timetableViewerState.scale > 1) {
+        const touch = e.touches[0];
+        timetableViewerState.lastTouchX = touch.clientX;
+        timetableViewerState.lastTouchY = touch.clientY;
+        timetableViewerState.isDragging = true;
+        applyTimetableViewerTransform(true);
+      }
+    }, { passive: false });
+    timetableViewerStage.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        if (!timetableViewerState.pinchStartDistance) {
+          timetableViewerState.pinchStartDistance = getTouchDistance(e.touches);
+          timetableViewerState.pinchStartScale = timetableViewerState.scale;
+        }
+        const pinchScale = timetableViewerState.pinchStartScale * (getTouchDistance(e.touches) / timetableViewerState.pinchStartDistance);
+        zoomTimetableViewer(pinchScale, getTouchMidpoint(e.touches));
+        return;
+      }
+
+      if (e.touches.length === 1 && timetableViewerState.isDragging && timetableViewerState.scale > 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        timetableViewerState.translateX += touch.clientX - timetableViewerState.lastTouchX;
+        timetableViewerState.translateY += touch.clientY - timetableViewerState.lastTouchY;
+        timetableViewerState.lastTouchX = touch.clientX;
+        timetableViewerState.lastTouchY = touch.clientY;
+        applyTimetableViewerTransform(true);
+      }
+    }, { passive: false });
+    timetableViewerStage.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        timetableViewerState.pinchStartDistance = 0;
+        timetableViewerState.pinchStartScale = timetableViewerState.scale;
+      }
+      if (e.touches.length === 1 && timetableViewerState.scale > 1) {
+        timetableViewerState.lastTouchX = e.touches[0].clientX;
+        timetableViewerState.lastTouchY = e.touches[0].clientY;
+        timetableViewerState.isDragging = true;
+        applyTimetableViewerTransform(true);
+        return;
+      }
+
+      timetableViewerState.isDragging = false;
+      applyTimetableViewerTransform(false);
+    });
+    timetableViewerStage.addEventListener('touchcancel', () => {
+      timetableViewerState.isDragging = false;
+      timetableViewerState.pinchStartDistance = 0;
+      timetableViewerState.pinchStartScale = timetableViewerState.scale;
+      applyTimetableViewerTransform(false);
+    });
+
+    function showPasswordChangePrompt() {
+      showModal('비밀번호 변경', `
+        <div class="space-y-4">
+          <div>
+            <label for="current-pw" class="block text-sm font-medium text-slate-300">현재 비밀번호:</label>
+            <input type="password" id="current-pw" class="input-style w-full mt-1 !pr-5" />
+          </div>
+          <div>
+            <label for="new-pw" class="block text-sm font-medium text-slate-300">새 비밀번호 (4자리 이상):</label>
+            <input type="password" id="new-pw" class="input-style w-full mt-1 !pr-5" />
+          </div>
+          <div>
+            <label for="confirm-pw" class="block text-sm font-medium text-slate-300">새 비밀번호 확인:</label>
+            <input type="password" id="confirm-pw" class="input-style w-full mt-1 !pr-5" />
+          </div>
+          <button id="password-change-submit-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+            <i class="fa-solid fa-save mr-2"></i> 변경하기
+          </button>
+          <p id="password-change-status" class="text-sm text-center"></p>
+        </div>
+      `);
+      setTimeout(() => document.getElementById('current-pw')?.focus(), 100);
+    }
+    // --- ---
+
+    // ===============================
+// 8) Main Event Listeners (Click, Input, Keydown)
+    // ===============================
+    document.addEventListener('click', async (e) => {
+      const toggle = e.target.closest('.finding-toggle'); if (toggle) { toggle.parentElement.classList.toggle('open'); return; }
+      
+      const lawCard = e.target.closest('.law-card');
+      if (lawCard) {
+        const lawId = parseInt(lawCard.dataset.lawId);
+        const law = (lawData || []).find(l => String(l.id) === String(lawId));
+        if (law) showModal(`${law.category} - ${law.article}`, `<strong class="text-base text-white">${law.title}</strong><br><br><p class="text-slate-300 whitespace-pre-wrap leading-relaxed">${law.content}</p>`);
+        return;
+      }
+
+      const safetyResultItem = e.target.closest('.result-item');
+      if (safetyResultItem && safetyResultItem.dataset.provision) {
+        const provision = safetyResultItem.dataset.provision;
+        showModal('법적 근거', provision);
+        return;
+      }
+      
+      // --- 탭 버튼 클릭 로직 (추가) ---
+      const tabBtn = e.target.closest('.tab-btn[role="tab"]');
+      if (tabBtn) {
+        e.preventDefault();
+        const targetPanelId = tabBtn.dataset.target; // e.g., "#panel-specs"
+        const panelContainer = tabBtn.closest('.tab-container');
+        if (!panelContainer) return;
+
+        // 1. 모든 버튼 비활성화
+        panelContainer.querySelectorAll('.tab-btn[role="tab"]').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        
+        // 2. 클릭한 버튼 활성화
+        tabBtn.classList.add('active');
+
+        // 3. 모든 패널 숨기기
+        panelContainer.querySelectorAll('[role="tabpanel"]').forEach(panel => {
+          panel.classList.add('hidden');
+        });
+
+        // 4. 타겟 패널 보여주기
+        const targetPanel = panelContainer.querySelector(targetPanelId);
+        if (targetPanel) {
+          targetPanel.classList.remove('hidden');
+        }
+        return;
+      }
+      // --- ---
+
+      const favoriteToggleBtn = e.target.closest('[data-favorite-toggle]');
+      if (favoriteToggleBtn) {
+        toggleFavoriteShip(favoriteToggleBtn.dataset.shipId);
+        return;
+      }
+
+      const timetablePreviewBtn = e.target.closest('.timetable-preview-btn');
+      if (timetablePreviewBtn) {
+        const routeIndex = Number(timetablePreviewBtn.dataset.timetableIndex);
+        const route = TIMETABLE_ROUTES[routeIndex];
+        if (route) openTimetableViewer(route);
+        return;
+      }
+
+      const fieldDutyPreviewBtn = e.target.closest('.field-duty-preview-btn');
+      if (fieldDutyPreviewBtn) {
+        const boardIndex = Number(fieldDutyPreviewBtn.dataset.fieldDutyIndex);
+        const board = FIELD_DUTY_BOARDS[boardIndex];
+        if (board) openTimetableViewer(board);
+        return;
+      }
+
+      const target = e.target.closest('div, button'); if (!target) return;
+      if (target.id === 'ship-info-btn') switchView('ship-search-section');
+      if (target.id === 'weather-btn') switchView('weather-section');
+      if (target.id === 'timetable-btn') switchView('timetable-section');
+      if (target.id === 'field-duty-btn') switchView('field-duty-section');
+      if (target.id === 'visibility-limit-btn') {
+        window.open(VISIBILITY_LIMIT_APP_URL, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if (target.id === 'dangerous-goods-btn') switchView('dangerous-goods-search-section');
+      if (target.id === 'weather-overview-open-btn') {
+        window.open(WEATHER_OVERVIEW_URL, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if (target.id === 'weather-overview-refresh-btn') {
+        const weatherSection = sections['weather-section'];
+        if (weatherSection && !weatherSection.classList.contains('hidden')) {
+          loadWeatherSectionSummary(weatherSection, { bustCache: true });
+        }
+        return;
+      }
+      if (target.id === 'toggle-other-ship-search-btn') {
+        setOtherShipSearchVisibility(!shipSearchState.showOtherSearch);
+        return;
+      }
+      if (target.id === 'close-other-ship-search-btn') {
+        setOtherShipSearchVisibility(false);
+        return;
+      }
+      
+      // 데이터 관리 버튼 (이제 비밀번호 확인 안 함)
+      if (target.id === 'data-manage-btn') {
+        switchView('data-management-section');
+        return;
+      }
+      
+      const backBtn = e.target.closest('.back-btn');
+      if (backBtn) {
+        switchView(backBtn.dataset.target);
+        return;
+      }
+
+      const shipCard = e.target.closest('.ship-card');
+      if (shipCard) {
+        switchView('ship-detail-section', { shipId: shipCard.dataset.shipId });
+        return;
+      }
+      if (target.id === 'calculate-safety-btn') {
+        const detailSection = document.getElementById('ship-detail-section');
+        const currentShipId = detailSection.dataset.currentShipId;
+        const currentShip = (shipData || []).find(s => String(s.id) === String(currentShipId));
+        if (currentShip) calculateAndDisplaySafetyEquipment(currentShip);
+        return;
+      }
+
+      // --- 비밀번호 변경 모달 버튼 핸들러 ---
+      if (e.target.id === 'password-change-btn') { // "비밀번호 변경하기" 버튼
+        showPasswordChangePrompt();
+        return;
+      }
+
+ if (e.target.id === 'password-change-submit-btn') { // "변경하기" (제출) 버튼
+        const currentPw = document.getElementById('current-pw').value;
+        const newPw = document.getElementById('new-pw').value;
+        const confirmPw = document.getElementById('confirm-pw').value;
+        const statusP = document.getElementById('password-change-status');
+        
+        // --- 수정 ---
+        const metaSnap = await getDoc(metaDoc());
+        const storedPassword = (metaSnap.exists() && metaSnap.data().password) ? metaSnap.data().password : '1234';
+        // ---
+
+        if (currentPw !== storedPassword) {
+          statusP.textContent = '현재 비밀번호가 일치하지 않습니다.';
+          statusP.className = 'text-sm text-center text-red-400';
+          return;
+        }
+        if (!newPw || newPw.length < 4) {
+          statusP.textContent = '새 비밀번호는 4자리 이상이어야 합니다.';
+          statusP.className = 'text-sm text-center text-red-400';
+          return;
+        }
+        if (newPw !== confirmPw) {
+          statusP.textContent = '새 비밀번호가 일치하지 않습니다.';
+          statusP.className = 'text-sm text-center text-red-400';
+          return;
+        }
+
+        // --- 수정 ---
+        await setDoc(metaDoc(), { password: newPw }, { merge: true });
+        // ---
+        statusP.textContent = '비밀번호가 성공적으로 변경되었습니다.';
+        statusP.className = 'text-sm text-center text-green-400';
+        setTimeout(hideModal, 1500);
+        return;
+      }
+      // --- ---
+    });
+
+    // 엔터 키 (비밀번호 변경 모달에서만)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !timetableViewer.classList.contains('hidden')) {
+        closeTimetableViewer();
+        return;
+      }
+      if (e.key === 'Enter') {
+        const changeSubmit = document.getElementById('password-change-submit-btn');
+        if (changeSubmit && (
+            document.getElementById('current-pw')?.matches(':focus') ||
+            document.getElementById('new-pw')?.matches(':focus') ||
+            document.getElementById('confirm-pw')?.matches(':focus')
+        )) {
+          changeSubmit.click();
+        }
+      }
+    });
+
+    document.addEventListener('input', async (e) => {
+      if (e.target.id === 'excel-upload') handleFileUpload(e);
+      const term = (e.target.value || '').toLowerCase().trim();
+      if (e.target.id === 'shipSearchInput') {
+        shipSearchState.term = term;
+        const container = sections['ship-search-section'].querySelector('#ship-results-container');
+        const results = getShipSearchResults(term);
+        displayShipResults(results, container, term, {
+          emptyMessage: term ? '검색된 타선박이 없습니다.' : '즐겨찾기를 제외하면 표시할 타선박이 없습니다.'
+        });
+      }
+      if (e.target.id === 'dangerousGoodsSearchInput') {
+        const container = sections['dangerous-goods-search-section'].querySelector('#dangerous-goods-results-container');
+        const filtered = term ? (dangerousGoodsData || []).filter(i =>
+          (i['UN No.'] && String(i['UN No.']).padStart(4, '0').toLowerCase().includes(term)) ||
+          (i['품목'] && i['품목'].toLowerCase().includes(term))
+        ) : dangerousGoodsData;
+        displayDangerousGoodsResults(filtered, container, term);
+      }
+    });
+
+    // ===============================
+    // 9) 업로드: 엑셀 → Firestore
+    // ===============================
+    function sanitizeValue(v) {
+      if (v === undefined) return null;
+      if (typeof v === 'number' && (!isFinite(v) || isNaN(v))) return null;
+      return v;
+    }
+    function sanitizeObject(obj) {
+      if (Array.isArray(obj)) return obj.map(sanitizeObject);
+      if (obj && typeof obj === 'object') {
+        const o = {}; for (const k of Object.keys(obj)) { o[k] = sanitizeObject(obj[k]); }
+        return o;
+      }
+      return sanitizeValue(obj);
+    }
+    function isRowEmpty(row) {
+      if (!row || typeof row !== 'object') return true;
+      return Object.values(row).every(v => v === null || String(v).trim?.() === '');
+    }
+    function sanitizeRows(rows) {
+      const out = [];
+      for (const r of rows || []) {
+        const s = sanitizeObject(r);
+        if (!isRowEmpty(s)) out.push(s);
+      }
+      return out;
+    }
+    function handleFileUpload(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      const statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = `'${file.name}' 파일을 읽는 중...`; statusDiv.className = 'mt-4 text-sm text-yellow-400';
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result); const workbook = XLSX.read(data, { type: 'array' });
+          const sheetNames = { '법령': 'lawData', '여객선': 'shipData', '위험물': 'dangerousGoodsData', '지적사항': 'inspectionData', '설비 최소 비치 수량': 'safetyRulesData' };
+          const payload = {};
+          for (const sheetName in sheetNames) {
+            if (workbook.Sheets[sheetName]) {
+              let jsonData;
+              if (sheetName === '지적사항') {
+                const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+                jsonData = rawData.map(row => ({
+                  shipId: row['shipId'] ?? row['ShipId'] ?? row['선박ID'] ?? null,
+                  date: row['날짜'] ?? row['date'] ?? null,
+                  inspectionType: row['점검구분'] ?? row['inspectionType'] ?? null,
+                  category: row['지적구분'] ?? row['category'] ?? null,
+                  details: row['지적사항'] ?? row['내용'] ?? row['details'] ?? null,
+                }));
+              } else {
+                jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+              }
+              if (jsonData) {
+                jsonData = sanitizeRows(jsonData);
+                payload[sheetNames[sheetName]] = jsonData;
+              }
+            }
+          }
+          await saveAllDatasets(payload);
+          statusDiv.textContent = '데이터가 성공적으로 업데이트되었습니다! (실시간 배포 완료)';
+          statusDiv.className = 'mt-4 text-sm text-green-400';
+          setTimeout(() => switchView('main-menu'), 1200);
+        } catch (error) {
+          console.error(error);
+          statusDiv.textContent = `오류: ${error.message}`;
+          statusDiv.className = 'mt-4 text-sm text-red-400';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // ===============================
+    // 10) 설비 최소 비치 수량 계산 (기존 로직 유지)
+    // ===============================
+    function checkCondition(ship, navArea, rule) {
+      const shipContext = { ...ship, navigation_area: navArea, totalPersons: (ship.capacity || 0) + (ship.minCrew || 0), L: ship.length };
+      for (let i = 1; i <= 3; i++) {
+        const prop = rule[`condition${i}_prop`];
+        const op = rule[`condition${i}_op`];
+        let val = rule[`condition${i}_val`];
+        if (!prop) continue;
+        const shipVal = shipContext[prop];
+        if (shipVal === undefined || shipVal === null) return false;
+        if (typeof shipVal === 'number' && typeof val !== 'number') val = parseFloat(val);
+        let conditionMet = false;
+        switch (op) {
+          case '>': conditionMet = shipVal > val; break;
+          case '<': conditionMet = shipVal < val; break;
+          case '>=': conditionMet = shipVal >= val; break;
+          case '<=': conditionMet = shipVal <= val; break;
+          case '==': conditionMet = String(shipVal).toLowerCase() == String(val).toLowerCase(); break;
+          case '!=': conditionMet = String(shipVal).toLowerCase() != String(val).toLowerCase(); break;
+          default: return false;
+        }
+        if (!conditionMet) return false;
+      }
+      return true;
+    }
+
+    function calculateAndDisplaySafetyEquipment(ship) {
+      const navArea = document.getElementById('navigation-area').value;
+      const resultsContainer = document.getElementById('safety-results-container');
+      if (!ship || !navArea || !resultsContainer || !safetyRulesData) {
+        resultsContainer.innerHTML = `<p class="text-red-400 text-center">계산에 필요한 데이터가 부족합니다.</p>`;
+        return;
+      }
+      const equipmentResults = {};
+      const shipContext = { ...ship, navigation_area: navArea, totalPersons: (ship.capacity || 0) + (ship.minCrew || 0), L: ship.length };
+      (safetyRulesData || []).forEach(rule => {
+        if (checkCondition(ship, navArea, rule)) {
+          if (!equipmentResults[rule.equipment]) {
+            try {
+              const { totalPersons, capacity, gt, length, minCrew } = shipContext;
+              const quantity = eval(rule.quantity_formula);
+              equipmentResults[rule.equipment] = { quantity, unit: rule.unit, description: rule.description, law_provision: rule.law_provision };
+            } catch (e) { console.error('Error evaluating formula:', rule.quantity_formula, e); }
+          }
+        }
+      });
+      const finalResults = {};
+      (safetyRulesData || []).forEach(rule => {
+        if (checkCondition(ship, navArea, rule)) {
+          try {
+            const { totalPersons, capacity, gt, length, minCrew } = shipContext;
+            const quantity = eval(rule.quantity_formula);
+            const key = rule.equipment.split('(')[0].trim();
+            if (!finalResults[key]) finalResults[key] = { items: [], total: 0, provisions: new Set() };
+            finalResults[key].items.push({ name: rule.equipment, quantity });
+            finalResults[key].total += quantity;
+            if (rule.law_provision) finalResults[key].provisions.add(rule.law_provision);
+          } catch (e) { /* ignore */ }
+        }
+      });
+      let html = '';
+      for (const key in finalResults) {
+        const group = finalResults[key];
+        const firstItem = (safetyRulesData || []).find(r => r.equipment.startsWith(key));
+        // FIX: Join with <br> instead of \n\n because the content is HTML
+        const provisionsText = Array.from(group.provisions).join('<br><br>');
+        const provisionDataAttr = provisionsText ? `data-provision="${provisionsText.replace(/"/g, '&quot;')}"` : '';
+        const clickableClass = provisionsText ? 'cursor-pointer hover:bg-slate-600 transition-colors' : '';
+        let label;
+        if (group.items.length > 1) {
+          const description = group.items.map(item => `${item.name.replace(key, '').trim()} ${item.quantity}`).join(', ').replace(/\(\)/g, '');
+          label = `${key} ${description}`;
+        } else {
+          label = group.items[0].name;
+        }
+        html += `<div class="result-item ${clickableClass}" ${provisionDataAttr} title="${provisionsText ? '클릭하여 법적 근거 보기' : ''}">
+          <span class="result-item-label">${label}</span>
+          <span class="result-item-value">${group.total} ${firstItem?.unit || ''}</span>
+        </div>`;
+      }
+      resultsContainer.innerHTML = html || `<p class="text-slate-400 text-center">적용되는 설비 기준이 없습니다.</p>`;
+      const style = document.createElement('style');
+      style.textContent = `.result-item{display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;background-color:#334155;border-radius:.5rem}.result-item-label{color:#cbd5e1;font-size:.9rem; padding-right: 1rem;}.result-item-value{font-weight:bold;color:#f1f5f9;background-color:#475569;padding:.25rem .75rem;border-radius:9999px;font-size:.875rem; flex-shrink: 0;}`;
+      resultsContainer.append(style);
+    }
+
+    // ===============================
+    // 11) 앱 시작 및 키패드 로직
+    // ===============================
+    
+    // 앱 잠금 해제 및 메인 앱 초기화 함수
+    async function unlockAndInitializeApp() {
+      // 1. 키패드 숨기기
+      const lockscreen = document.getElementById('keypad-lockscreen');
+      lockscreen.classList.add('modal-leave'); // fadeOut
+      setTimeout(() => lockscreen.classList.add('hidden'), 300);
+
+      // 2. 메인 앱 보이기
+      appContainer.classList.remove('hidden');
+      appContainer.classList.add('modal-enter'); // fadeIn
+
+      // 3. (중요) 메인 앱 데이터 로드 및 시작
+      await loadInitialDatasets();
+      subscribeRealtime();
+      switchView('main-menu');
+    }
+
+// --- 키패드 로직 ---
+    const keypadDisplay = document.getElementById('keypad-display');
+    const keypadMessage = document.getElementById('keypad-message');
+    let enteredPassword = "";
+
+    function updateKeypadDisplay() {
+      keypadDisplay.textContent = '•'.repeat(enteredPassword.length);
+    }
+
+    async function handleKeypadInput(key) { // 1. async 추가
+      keypadDisplay.classList.remove('error'); // 에러 효과 제거
+      
+      if (key === 'clear') {
+        enteredPassword = "";
+      } else if (key === 'enter') {
+        await checkPassword(); // 2. await 추가
+      } else {
+        // 비밀번호 길이 제한 (예: 16자리)
+        if (enteredPassword.length < 16) {
+          enteredPassword += key;
+        }
+      }
+      updateKeypadDisplay();
+    }
+
+    async function checkPassword() { // 3. async 추가
+      // const storedPassword = localStorage.getItem('adminPassword') || '1234'; // --- (삭제) ---
+      
+      // --- 추가 ---
+      const metaSnap = await getDoc(metaDoc());
+      const storedPassword = (metaSnap.exists() && metaSnap.data().password) ? metaSnap.data().password : '1234';
+      // ---
+
+      if (enteredPassword === storedPassword) {
+        keypadMessage.textContent = '인증 성공. 앱을 시작합니다...';
+        keypadMessage.className = 'text-green-400 text-sm h-5 mb-4';
+        setTimeout(unlockAndInitializeApp, 500); // 0.5초 후 앱 시작
+      } else {
+        keypadMessage.textContent = '비밀번호가 일치하지 않습니다.';
+        keypadMessage.className = 'text-red-400 text-sm h-5 mb-4';
+        keypadDisplay.classList.add('error'); // 흔들기 효과
+        enteredPassword = "";
+        setTimeout(updateKeypadDisplay, 400); // 흔들린 후 비우기
+      }
+    }
+
+    // 키패드 버튼 이벤트 리스너
+    document.getElementById('keypad-lockscreen').addEventListener('click', async (e) => { // 4. async 추가
+      const button = e.target.closest('.keypad-btn');
+      if (button && button.dataset.key) {
+        await handleKeypadInput(button.dataset.key); // 5. await 추가
+      }
+    });
+
+    // 키보드 입력으로도 키패드 조작
+    document.addEventListener('keydown', async (e) => { // 6. async 추가
+      // 앱이 잠겨있을 때만 키보드 입력 받기
+      if (appContainer.classList.contains('hidden')) {
+        e.preventDefault();
+        if (e.key >= '0' && e.key <= '9') {
+          await handleKeypadInput(e.key); // 7. await 추가
+        } else if (e.key === 'Backspace') {
+          await handleKeypadInput('clear'); // 8. await 추가 (clear는 동기지만 일관성을 위해)
+        } else if (e.key === 'Enter') {
+          await handleKeypadInput('enter'); // 9. await 추가
+        }
+      }
+    });
+
+    // (중요) 앱 자동 시작 로직 제거.
+    // await loadInitialDatasets();
+    // subscribeRealtime();
+    // switchView('main-menu');
+    // --> 이 로직들은 unlockAndInitializeApp() 함수 내부로 이동됨.
+  </script>
+</body>
+</html>
