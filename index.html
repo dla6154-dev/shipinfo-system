@@ -428,6 +428,8 @@
     // ===============================
 let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
 let captainDutyConfig;
+let _appHistoryReady = false;  // History API 초기화 여부
+let _historyNavigation = false; // popstate 처리 중 여부 (pushState 방지)
 const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
 let favoriteShipIds = loadFavoriteShipIds();
 const shipSearchState = {
@@ -1913,7 +1915,28 @@ const DATASETS = [
       Object.values(sections).forEach(section => section.classList.add('hidden'));
       sections[targetId]?.classList.remove('hidden');
       renderSection(targetId, params);
+      // History API 연동: 뒤로가기(하드웨어) 지원
+      if (!_historyNavigation) {
+        const state = { section: targetId, params: params || null };
+        if (!_appHistoryReady) {
+          history.replaceState(state, ''); // 앱 최초 진입 시 현재 엔트리 교체
+          _appHistoryReady = true;
+        } else {
+          history.pushState(state, '');
+        }
+      }
     }
+
+    // 브라우저/하드웨어 뒤로가기 처리
+    window.addEventListener('popstate', (e) => {
+      if (!_appHistoryReady) return;
+      if (!e.state) return; // 앱 진입 이전 히스토리 → 브라우저가 알아서 처리
+      const section = e.state.section || 'main-menu';
+      const params = e.state.params || null;
+      _historyNavigation = true;
+      switchView(section, params);
+      _historyNavigation = false;
+    });
 
     function renderSection(sectionId, params) {
       const section = sections[sectionId];
@@ -3019,7 +3042,13 @@ case 'ship-detail-section':
       
       const backBtn = e.target.closest('.back-btn');
       if (backBtn) {
-        switchView(backBtn.dataset.target);
+        // history.back()을 사용해 브라우저 히스토리와 동기화
+        // (하드웨어 뒤로가기와 동일한 경로로 처리됨)
+        if (_appHistoryReady && history.length > 1) {
+          history.back();
+        } else {
+          switchView(backBtn.dataset.target);
+        }
         return;
       }
 
