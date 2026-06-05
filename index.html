@@ -176,14 +176,14 @@
     }
 
     .captain-duty-table-wrap {
-      overflow-x: auto;
       border: 1px solid rgba(244, 114, 182, 0.18);
       border-radius: 1.5rem;
       background: rgba(15, 23, 42, 0.7);
+      overflow: hidden;
     }
     .captain-duty-table {
       width: 100%;
-      min-width: 880px;
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0;
     }
@@ -191,9 +191,10 @@
     .captain-duty-table td {
       border-right: 1px solid rgba(148, 163, 184, 0.16);
       border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-      padding: 0.85rem 0.75rem;
+      padding: 0.6rem 0.4rem;
       text-align: center;
       vertical-align: middle;
+      word-break: keep-all;
     }
     .captain-duty-table thead th {
       position: sticky;
@@ -201,16 +202,6 @@
       z-index: 2;
       background: rgba(30, 41, 59, 0.96);
       color: #f8fafc;
-    }
-    .captain-duty-table thead th:first-child,
-    .captain-duty-table tbody th {
-      position: sticky;
-      left: 0;
-      z-index: 1;
-      background: rgba(15, 23, 42, 0.98);
-    }
-    .captain-duty-table thead th:first-child {
-      z-index: 3;
     }
     .captain-duty-table thead th:last-child,
     .captain-duty-table tbody td:last-child {
@@ -220,30 +211,32 @@
     .captain-duty-table tbody tr:last-child td {
       border-bottom: none;
     }
+    .captain-duty-table tbody tr {
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .captain-duty-table tbody tr.row-selected th,
+    .captain-duty-table tbody tr.row-selected td {
+      background: rgba(251, 191, 36, 0.22) !important;
+      color: #fde68a !important;
+    }
     .captain-duty-ship-name {
       display: block;
-      font-size: 0.98rem;
+      font-size: 0.85rem;
       font-weight: 800;
       color: #f8fafc;
     }
-    .captain-duty-ship-meta {
-      display: block;
-      margin-top: 0.35rem;
-      font-size: 0.72rem;
-      line-height: 1.35;
-      color: #cbd5e1;
-    }
     .captain-duty-date-cell {
-      width: 88px;
+      width: 3rem;
       font-weight: 800;
       color: #f8fafc;
       white-space: nowrap;
     }
     .captain-duty-name-cell {
-      min-width: 132px;
       font-weight: 700;
       color: #e2e8f0;
       background: rgba(15, 23, 42, 0.35);
+      font-size: 0.85rem;
     }
     .captain-duty-name-cell.is-relief {
       background: rgba(244, 63, 94, 0.14);
@@ -276,10 +269,8 @@
     @media (max-width: 768px) {
       .captain-duty-table th,
       .captain-duty-table td {
-        padding: 0.75rem 0.55rem;
-      }
-      .captain-duty-name-cell {
-        min-width: 118px;
+        padding: 0.45rem 0.25rem;
+        font-size: 0.78rem;
       }
     }
 
@@ -436,7 +427,7 @@
     // 2) 전역 상태 (Firestore 동기화)
     // ===============================
 let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
-let captainDutyConfig = getDefaultCaptainDutyConfig();
+let captainDutyConfig;
 const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
 let favoriteShipIds = loadFavoriteShipIds();
 const shipSearchState = {
@@ -660,6 +651,7 @@ const DEFAULT_CAPTAIN_DUTY_ROWS = [
   { shipName: '한림페리11호', mainCaptain: '이수행', reliefCaptain: '김종현', startDay: 21, endDay: 25 },
   { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
 ];
+captainDutyConfig = getDefaultCaptainDutyConfig();
 
 const DATASETS = [
       { key: 'lawData',            title: '법령' },
@@ -1179,7 +1171,6 @@ const DATASETS = [
           : '교대 없음';
         return `<th scope="col">
           <span class="captain-duty-ship-name">${escapeHtml(row.shipName || '미정')}</span>
-          <span class="captain-duty-ship-meta">본선 ${escapeHtml(row.mainCaptain || '-')} / 예비 ${escapeHtml(row.reliefCaptain || '-')} / ${escapeHtml(periodText)}</span>
         </th>`;
       }).join('');
       const bodyRows = Array.from({ length: daysInMonth }, (_, index) => {
@@ -2779,6 +2770,14 @@ case 'ship-detail-section':
       const favoriteToggleBtn = e.target.closest('[data-favorite-toggle]');
       if (favoriteToggleBtn) {
         toggleFavoriteShip(favoriteToggleBtn.dataset.shipId);
+        return;
+      }
+
+      const captainDutyRow = e.target.closest('.captain-duty-table tbody tr');
+      if (captainDutyRow) {
+        const isSelected = captainDutyRow.classList.contains('row-selected');
+        captainDutyRow.closest('tbody').querySelectorAll('tr').forEach(r => r.classList.remove('row-selected'));
+        if (!isSelected) captainDutyRow.classList.add('row-selected');
         return;
       }
 
