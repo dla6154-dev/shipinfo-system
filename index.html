@@ -175,6 +175,114 @@
       transition: none;
     }
 
+    .captain-duty-table-wrap {
+      overflow-x: auto;
+      border: 1px solid rgba(244, 114, 182, 0.18);
+      border-radius: 1.5rem;
+      background: rgba(15, 23, 42, 0.7);
+    }
+    .captain-duty-table {
+      width: 100%;
+      min-width: 880px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .captain-duty-table th,
+    .captain-duty-table td {
+      border-right: 1px solid rgba(148, 163, 184, 0.16);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      padding: 0.85rem 0.75rem;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .captain-duty-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(30, 41, 59, 0.96);
+      color: #f8fafc;
+    }
+    .captain-duty-table thead th:first-child,
+    .captain-duty-table tbody th {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: rgba(15, 23, 42, 0.98);
+    }
+    .captain-duty-table thead th:first-child {
+      z-index: 3;
+    }
+    .captain-duty-table thead th:last-child,
+    .captain-duty-table tbody td:last-child {
+      border-right: none;
+    }
+    .captain-duty-table tbody tr:last-child th,
+    .captain-duty-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .captain-duty-ship-name {
+      display: block;
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+    .captain-duty-ship-meta {
+      display: block;
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: #cbd5e1;
+    }
+    .captain-duty-date-cell {
+      width: 88px;
+      font-weight: 800;
+      color: #f8fafc;
+      white-space: nowrap;
+    }
+    .captain-duty-name-cell {
+      min-width: 132px;
+      font-weight: 700;
+      color: #e2e8f0;
+      background: rgba(15, 23, 42, 0.35);
+    }
+    .captain-duty-name-cell.is-relief {
+      background: rgba(244, 63, 94, 0.14);
+      color: #fecdd3;
+    }
+    .captain-duty-settings-grid {
+      display: grid;
+      gap: 1rem;
+    }
+    .captain-duty-settings-row {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 1rem;
+    }
+    .captain-duty-settings-input {
+      width: 100%;
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      border-radius: 0.85rem;
+      background: rgba(15, 23, 42, 0.88);
+      color: #f8fafc;
+      padding: 0.75rem 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .captain-duty-settings-input:focus {
+      border-color: rgba(244, 114, 182, 0.75);
+      box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.18);
+    }
+    @media (max-width: 768px) {
+      .captain-duty-table th,
+      .captain-duty-table td {
+        padding: 0.75rem 0.55rem;
+      }
+      .captain-duty-name-cell {
+        min-width: 118px;
+      }
+    }
+
   </style>
 </head>
 <body class="bg-slate-900 text-white antialiased">
@@ -328,6 +436,7 @@
     // 2) 전역 상태 (Firestore 동기화)
     // ===============================
 let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
+let captainDutyConfig = getDefaultCaptainDutyConfig();
 const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
 let favoriteShipIds = loadFavoriteShipIds();
 const shipSearchState = {
@@ -377,6 +486,50 @@ const WEATHER_INFO_CARDS = [
     title: '특보 확인',
     description: '운항 전 해상 특보와 경보 발효 여부를 정리하세요.',
     checks: ['풍랑 특보', '호우·강풍 특보', '운항 제한 여부']
+  }
+];
+const TIDE_DRAFT_PREVIEW_CARDS = [
+  {
+    station: '목포',
+    currentLevel: 331.6,
+    phase: '썰물',
+    nextLabel: '저조까지 03시간 40분',
+    currentTime: '06:48',
+    currentPointIndex: 0,
+    points: [
+      { time: '05:09', level: 427, type: '고조' },
+      { time: '10:29', level: 123, type: '저조' },
+      { time: '16:59', level: 345, type: '고조' },
+      { time: '22:17', level: 64, type: '저조' }
+    ]
+  },
+  {
+    station: '계마',
+    currentLevel: 506.5,
+    phase: '썰물',
+    nextLabel: '저조까지 05시간 15분',
+    currentTime: '06:49',
+    currentPointIndex: 0,
+    points: [
+      { time: '05:35', level: 584, type: '고조' },
+      { time: '12:04', level: 179, type: '저조' },
+      { time: '17:39', level: 491, type: '고조' },
+      { time: '23:48', level: 114, type: '저조' }
+    ]
+  },
+  {
+    station: '서망',
+    currentLevel: 208.6,
+    phase: '썰물',
+    nextLabel: '저조까지 02시간 36분',
+    currentTime: '06:49',
+    currentPointIndex: 0,
+    points: [
+      { time: '03:36', level: 320, type: '고조' },
+      { time: '09:25', level: 119, type: '저조' },
+      { time: '15:10', level: 242, type: '고조' },
+      { time: '20:59', level: 69, type: '저조' }
+    ]
   }
 ];
 const LEGACY_TIMETABLE_ROUTES = [
@@ -500,6 +653,14 @@ const VISIBILITY_LIMIT_UPDATE_POINTS = [
 /* (삭제) - 이제 이 기능은 Firestore에서 처리합니다.
 */
 
+const DEFAULT_CAPTAIN_DUTY_ROWS = [
+  { shipName: '새섬두레', mainCaptain: '박승호', reliefCaptain: '김석종', startDay: 1, endDay: 10 },
+  { shipName: '새섬관매', mainCaptain: '김태일', reliefCaptain: '김석종', startDay: 11, endDay: 20 },
+  { shipName: '가사페리', mainCaptain: '양기훈', reliefCaptain: '박지원', startDay: 1, endDay: 10 },
+  { shipName: '한림페리11호', mainCaptain: '이수행', reliefCaptain: '김종현', startDay: 21, endDay: 25 },
+  { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
+];
+
 const DATASETS = [
       { key: 'lawData',            title: '법령' },
       { key: 'shipData',           title: '여객선' },
@@ -510,6 +671,7 @@ const DATASETS = [
 
     // Firestore 문서 경로: datasets/{key}
     const dataDoc = (key) => doc(db, 'datasets', key);
+    const captainDutyDoc = () => doc(db, 'datasets', 'captainDutyData');
     const metaDoc = () => doc(db, 'datasets', '_meta');
 
     // ===============================
@@ -522,6 +684,7 @@ const DATASETS = [
           const rows = snap.exists() ? (snap.data().rows || []) : [];
           assignDataset(key, rows);
         }));
+        await loadCaptainDutyConfig();
         updateFooterFromMeta();
       } catch (err) {
         console.error('[Firestore 초기 로드 오류]', err);
@@ -540,6 +703,15 @@ const DATASETS = [
         }, (err) => console.error(`[${key}] 실시간 구독 오류`, err));
       });
 
+      onSnapshot(captainDutyDoc(), (snap) => {
+        if (snap.exists()) {
+          captainDutyConfig = normalizeCaptainDutyConfig(snap.data());
+        } else {
+          captainDutyConfig = getDefaultCaptainDutyConfig();
+        }
+        rerenderIfVisible('captainDutyData');
+      }, (err) => console.error('[captainDutyData] 실시간 구독 오류', err));
+
       onSnapshot(metaDoc(), (snap) => {
         if (snap.exists()) updateFooter(snap.data().lastUpdated?.toDate?.() || new Date());
       });
@@ -556,6 +728,13 @@ const DATASETS = [
         case 'inspectionData': inspectionData = rows; break;
         case 'safetyRulesData': safetyRulesData = rows; break;
       }
+    }
+
+    async function loadCaptainDutyConfig() {
+      const snap = await getDoc(captainDutyDoc());
+      captainDutyConfig = snap.exists()
+        ? normalizeCaptainDutyConfig(snap.data())
+        : getDefaultCaptainDutyConfig();
     }
 
     function loadFavoriteShipIds() {
@@ -770,6 +949,386 @@ const DATASETS = [
       return value;
     }
 
+    function buildTideDraftGraphSvg(card) {
+      const width = 720;
+      const height = 260;
+      const padding = { top: 30, right: 18, bottom: 56, left: 18 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const baseY = height - padding.bottom;
+      const parseHmToMinutes = (value) => {
+        const [hh, mm] = String(value || '00:00').split(':').map(Number);
+        return ((hh || 0) * 60) + (mm || 0);
+      };
+      const minutesToX = (minutes) => padding.left + (minutes / 1440) * plotWidth;
+      const visibleMinutesToX = (minutes) => minutesToX(Math.max(0, Math.min(1440, minutes)));
+      const levels = card.points.map(point => point.level);
+      const minLevel = Math.min(...levels);
+      const maxLevel = Math.max(...levels);
+      const range = Math.max(1, maxLevel - minLevel);
+      const levelToY = (level) => padding.top + ((maxLevel - level) / range) * plotHeight;
+      const points = card.points
+        .map((point) => ({
+          ...point,
+          minutes: parseHmToMinutes(point.time),
+          x: visibleMinutesToX(parseHmToMinutes(point.time)),
+          y: levelToY(point.level)
+        }))
+        .sort((a, b) => a.minutes - b.minutes);
+      if (!points.length) return '';
+
+      const wrappedPoints = [
+        { ...points[points.length - 1], minutes: points[points.length - 1].minutes - 1440 },
+        ...points,
+        { ...points[0], minutes: points[0].minutes + 1440 }
+      ];
+      const currentMinutes = parseHmToMinutes(card.currentTime);
+
+      const getCosineLevel = (fromLevel, toLevel, progress) => {
+        const midpoint = (fromLevel + toLevel) / 2;
+        const amplitude = (fromLevel - toLevel) / 2;
+        return midpoint + (amplitude * Math.cos(Math.PI * progress));
+      };
+
+      const buildSegmentSamples = (fromPoint, toPoint) => {
+        const duration = Math.max(1, toPoint.minutes - fromPoint.minutes);
+        const visibleStart = Math.max(0, fromPoint.minutes);
+        const visibleEnd = Math.min(1440, toPoint.minutes);
+        if (visibleStart > visibleEnd) return [];
+        const tStart = (visibleStart - fromPoint.minutes) / duration;
+        const tEnd = (visibleEnd - fromPoint.minutes) / duration;
+        const segmentCount = Math.max(24, Math.ceil((visibleEnd - visibleStart) / 10));
+        const samples = [];
+        for (let step = 0; step <= segmentCount; step += 1) {
+          const progress = tStart + (((tEnd - tStart) * step) / segmentCount);
+          const minutes = fromPoint.minutes + (duration * progress);
+          const level = getCosineLevel(fromPoint.level, toPoint.level, progress);
+          samples.push({
+            x: visibleMinutesToX(minutes),
+            y: levelToY(level)
+          });
+        }
+        return samples;
+      };
+
+      const sampledCurve = [];
+      wrappedPoints.forEach((point, index) => {
+        if (index === wrappedPoints.length - 1) return;
+        const segmentSamples = buildSegmentSamples(point, wrappedPoints[index + 1]);
+        if (!segmentSamples.length) return;
+        if (sampledCurve.length) segmentSamples.shift();
+        sampledCurve.push(...segmentSamples);
+      });
+
+      const curvePath = sampledCurve.length
+        ? `M ${sampledCurve.map(point => `${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' L ')}`
+        : '';
+      const areaPath = sampledCurve.length
+        ? `${curvePath} L ${sampledCurve[sampledCurve.length - 1].x.toFixed(2)} ${baseY} L ${sampledCurve[0].x.toFixed(2)} ${baseY} Z`
+        : '';
+
+      const currentSegmentIndex = wrappedPoints.findIndex((point, index) => (
+        index < wrappedPoints.length - 1
+        && currentMinutes >= point.minutes
+        && currentMinutes <= wrappedPoints[index + 1].minutes
+      ));
+      let currentDotY = sampledCurve[0]?.y ?? (padding.top + plotHeight / 2);
+      if (currentSegmentIndex >= 0) {
+        const fromPoint = wrappedPoints[currentSegmentIndex];
+        const toPoint = wrappedPoints[currentSegmentIndex + 1];
+        const duration = Math.max(1, toPoint.minutes - fromPoint.minutes);
+        const progress = (currentMinutes - fromPoint.minutes) / duration;
+        currentDotY = levelToY(getCosineLevel(fromPoint.level, toPoint.level, progress));
+      }
+      const currentX = visibleMinutesToX(currentMinutes);
+      const tickMinutes = [0, 360, 720, 1080, 1440];
+      const tickLabels = ['00', '06', '12', '18', '24'];
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" class="block w-full">
+          <defs>
+            <linearGradient id="tide-draft-fill-${escapeHtml(card.station)}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(59,130,246,0.26)"></stop>
+              <stop offset="100%" stop-color="rgba(59,130,246,0.03)"></stop>
+            </linearGradient>
+          </defs>
+          ${tickMinutes.map((tick, index) => `
+            <g>
+              <line x1="${visibleMinutesToX(tick)}" y1="${padding.top}" x2="${visibleMinutesToX(tick)}" y2="${baseY}" stroke="${tick === 0 || tick === 1440 ? '#e2e8f0' : '#edf2f7'}" stroke-width="2"></line>
+              <text x="${visibleMinutesToX(tick)}" y="${height - 16}" text-anchor="${index === 0 ? 'start' : index === tickMinutes.length - 1 ? 'end' : 'middle'}" font-size="13" font-weight="800" fill="#64748b">${tickLabels[index]}시</text>
+            </g>
+          `).join('')}
+          <line x1="${padding.left}" y1="${baseY}" x2="${width - padding.right}" y2="${baseY}" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round"></line>
+          <path d="${areaPath}" fill="url(#tide-draft-fill-${escapeHtml(card.station)})"></path>
+          <path d="${curvePath}" fill="none" stroke="#0f4c81" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+          <line x1="${currentX}" y1="${padding.top - 6}" x2="${currentX}" y2="${baseY + 10}" stroke="#f59e0b" stroke-width="3" stroke-dasharray="6 6"></line>
+          <text x="${currentX}" y="${padding.top - 10}" text-anchor="middle" font-size="13" font-weight="800" fill="#f59e0b">${escapeHtml(card.currentTime)}</text>
+          ${points.map((point) => {
+            const isHigh = point.type === '고조';
+            const labelY = isHigh ? point.y - 16 : point.y + 28;
+            const levelColor = isHigh ? '#ef4444' : '#2563eb';
+            return `
+              <g>
+                <circle cx="${point.x}" cy="${point.y}" r="7" fill="${levelColor}" stroke="#ffffff" stroke-width="4"></circle>
+                <text x="${point.x}" y="${labelY}" text-anchor="middle" font-size="15" font-weight="800" fill="${levelColor}">${escapeHtml(String(point.level))}cm</text>
+                <text x="${point.x}" y="${baseY + 26}" text-anchor="middle" font-size="13" font-weight="700" fill="#64748b">${escapeHtml(point.time)}</text>
+              </g>`;
+          }).join('')}
+          <circle cx="${currentX}" cy="${currentDotY}" r="8" fill="#f59e0b" stroke="#ffffff" stroke-width="4"></circle>
+        </svg>`;
+    }
+
+    function buildTideDraftPreviewCards() {
+      return `
+        <div class="space-y-4">
+          ${TIDE_DRAFT_PREVIEW_CARDS.map((card) => `
+            <article class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_16px_36px_rgba(15,23,42,0.12)]">
+              <div class="border-b border-slate-100 px-5 py-4">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-[11px] font-black tracking-[0.28em] text-slate-400">TIDE GRAPH DRAFT</p>
+                    <h3 class="mt-2 text-2xl font-black text-slate-900">${escapeHtml(card.station)}</h3>
+                    <p class="mt-1 text-sm font-semibold text-slate-500">현재 ${escapeHtml(String(card.currentLevel))}cm · ${escapeHtml(card.phase)}</p>
+                  </div>
+                  <span class="rounded-full bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">${escapeHtml(card.nextLabel)}</span>
+                </div>
+              </div>
+              <div class="px-4 pb-4 pt-5">
+                ${buildTideDraftGraphSvg(card)}
+              </div>
+            </article>
+          `).join('')}
+        </div>`;
+    }
+
+    function getCurrentCaptainDutyYearMonth() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getDefaultCaptainDutyConfig() {
+      return {
+        yearMonth: getCurrentCaptainDutyYearMonth(),
+        rows: DEFAULT_CAPTAIN_DUTY_ROWS.map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }))
+      };
+    }
+
+    function clampCaptainDutyDay(value) {
+      if (value === '' || value == null) return null;
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return null;
+      return Math.min(31, Math.max(1, Math.trunc(parsed)));
+    }
+
+    function normalizeCaptainDutyRow(row, index) {
+      return {
+        id: String(row?.id || `captain-duty-${index + 1}`),
+        shipName: String(row?.shipName || '').trim(),
+        mainCaptain: String(row?.mainCaptain || '').trim(),
+        reliefCaptain: String(row?.reliefCaptain || '').trim(),
+        startDay: clampCaptainDutyDay(row?.startDay),
+        endDay: clampCaptainDutyDay(row?.endDay)
+      };
+    }
+
+    function normalizeCaptainDutyConfig(rawConfig) {
+      const fallback = getDefaultCaptainDutyConfig();
+      const yearMonth = /^\d{4}-\d{2}$/.test(String(rawConfig?.yearMonth || '').trim())
+        ? String(rawConfig.yearMonth).trim()
+        : fallback.yearMonth;
+      const baseRows = Array.isArray(rawConfig?.rows) && rawConfig.rows.length
+        ? rawConfig.rows
+        : fallback.rows;
+      return {
+        yearMonth,
+        rows: baseRows.map((row, index) => normalizeCaptainDutyRow(row, index))
+      };
+    }
+
+    function formatCaptainDutyYearMonth(yearMonth) {
+      const [year, month] = String(yearMonth || '').split('-');
+      if (!year || !month) return '-';
+      return `${year}년 ${Number(month)}월`;
+    }
+
+    function getCaptainDutyDaysInMonth(yearMonth) {
+      const [year, month] = String(yearMonth || '').split('-').map(Number);
+      if (!year || !month) return 31;
+      return new Date(year, month, 0).getDate();
+    }
+
+    function isCaptainDutyReliefActive(row, day) {
+      if (!row?.reliefCaptain) return false;
+      if (row.startDay == null || row.endDay == null) return false;
+      return day >= row.startDay && day <= row.endDay;
+    }
+
+    function getCaptainDutyNameForDay(row, day) {
+      if (isCaptainDutyReliefActive(row, day)) {
+        return row.reliefCaptain || row.mainCaptain || '-';
+      }
+      return row.mainCaptain || row.reliefCaptain || '-';
+    }
+
+    function buildCaptainDutySectionHtml() {
+      const config = normalizeCaptainDutyConfig(captainDutyConfig);
+      const daysInMonth = getCaptainDutyDaysInMonth(config.yearMonth);
+      const headCells = config.rows.map((row) => {
+        const periodText = row.startDay != null && row.endDay != null
+          ? `${row.startDay}~${row.endDay}일`
+          : '교대 없음';
+        return `<th scope="col">
+          <span class="captain-duty-ship-name">${escapeHtml(row.shipName || '미정')}</span>
+          <span class="captain-duty-ship-meta">본선 ${escapeHtml(row.mainCaptain || '-')} / 예비 ${escapeHtml(row.reliefCaptain || '-')} / ${escapeHtml(periodText)}</span>
+        </th>`;
+      }).join('');
+      const bodyRows = Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1;
+        const cells = config.rows.map((row) => {
+          const isRelief = isCaptainDutyReliefActive(row, day);
+          return `<td class="captain-duty-name-cell${isRelief ? ' is-relief' : ''}">${escapeHtml(getCaptainDutyNameForDay(row, day))}</td>`;
+        }).join('');
+        return `<tr><th scope="row" class="captain-duty-date-cell">${day}일</th>${cells}</tr>`;
+      }).join('');
+
+      return `
+        <div class="flex items-center gap-4 mb-8">
+          <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="min-w-0">
+            <h2 class="text-2xl font-bold text-rose-400">선장교대</h2>
+            <p class="text-sm text-slate-400 mt-1">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))} 기준으로 교대기간에는 예비선장이 표시됩니다.</p>
+          </div>
+          <button id="captain-duty-settings-btn" type="button" class="ml-auto inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 hover:bg-rose-500/20">
+            <i class="fa-solid fa-gear"></i>
+            설정
+          </button>
+        </div>
+        <div class="mb-4 flex flex-wrap items-center gap-3">
+          <span class="inline-flex items-center rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 border border-slate-700">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))}</span>
+          <span class="inline-flex items-center rounded-full bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 border border-rose-400/20">분홍색 칸은 예비선장 근무일입니다.</span>
+        </div>
+        <div class="captain-duty-table-wrap">
+          <table class="captain-duty-table">
+            <thead>
+              <tr>
+                <th scope="col" class="captain-duty-date-cell">날짜</th>
+                ${headCells}
+              </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function buildCaptainDutySettingsModal() {
+      const config = normalizeCaptainDutyConfig(captainDutyConfig);
+      const rowsHtml = config.rows.map((row, index) => `
+        <div class="captain-duty-settings-row" data-captain-duty-row="${index}">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">선박명</label>
+              <input type="text" class="captain-duty-settings-input" data-field="shipName" value="${escapeHtml(row.shipName)}" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">본선 선장</label>
+              <input type="text" class="captain-duty-settings-input" data-field="mainCaptain" value="${escapeHtml(row.mainCaptain)}" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-2">예비 선장</label>
+              <input type="text" class="captain-duty-settings-input" data-field="reliefCaptain" value="${escapeHtml(row.reliefCaptain)}" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">교대 시작일</label>
+                <input type="number" min="1" max="31" class="captain-duty-settings-input" data-field="startDay" value="${row.startDay ?? ''}" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">교대 종료일</label>
+                <input type="number" min="1" max="31" class="captain-duty-settings-input" data-field="endDay" value="${row.endDay ?? ''}" />
+              </div>
+            </div>
+          </div>
+        </div>`).join('');
+
+      return `
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-semibold text-slate-300 mb-2">적용 월</label>
+            <input type="month" id="captain-duty-month-input" class="captain-duty-settings-input" value="${escapeHtml(config.yearMonth)}" />
+          </div>
+          <div class="captain-duty-settings-grid">${rowsHtml}</div>
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
+            교대기간 안에는 예비 선장이 표시되고, 기간 밖에는 본선 선장이 표시됩니다.
+          </div>
+          <button id="captain-duty-settings-save-btn" type="button" class="w-full rounded-2xl bg-rose-600 px-5 py-3 font-bold text-white hover:bg-rose-700">
+            <i class="fa-solid fa-save mr-2"></i> 저장하고 바로 적용
+          </button>
+          <p id="captain-duty-settings-status" class="text-sm text-center"></p>
+        </div>`;
+    }
+
+    function openCaptainDutySettingsModal() {
+      showModal('선장교대 설정', buildCaptainDutySettingsModal());
+    }
+
+    async function handleCaptainDutySettingsSave() {
+      const monthInput = document.getElementById('captain-duty-month-input');
+      const statusEl = document.getElementById('captain-duty-settings-status');
+      const saveBtn = document.getElementById('captain-duty-settings-save-btn');
+      const rows = [...document.querySelectorAll('[data-captain-duty-row]')].map((rowEl, index) => ({
+        id: `captain-duty-${index + 1}`,
+        shipName: rowEl.querySelector('[data-field="shipName"]')?.value || '',
+        mainCaptain: rowEl.querySelector('[data-field="mainCaptain"]')?.value || '',
+        reliefCaptain: rowEl.querySelector('[data-field="reliefCaptain"]')?.value || '',
+        startDay: rowEl.querySelector('[data-field="startDay"]')?.value || '',
+        endDay: rowEl.querySelector('[data-field="endDay"]')?.value || ''
+      }));
+
+      const normalized = normalizeCaptainDutyConfig({
+        yearMonth: monthInput?.value || getCurrentCaptainDutyYearMonth(),
+        rows
+      });
+
+      const invalidRow = normalized.rows.find((row) => {
+        if (!row.shipName || !row.mainCaptain) return true;
+        const hasAnyReliefInput = row.reliefCaptain || row.startDay != null || row.endDay != null;
+        if (!hasAnyReliefInput) return false;
+        if (!row.reliefCaptain || row.startDay == null || row.endDay == null) return true;
+        return row.startDay > row.endDay;
+      });
+
+      if (statusEl && invalidRow) {
+        statusEl.textContent = '선박명과 본선 선장은 필수입니다. 교대기간을 입력할 때는 예비선장과 시작일·종료일을 모두 입력하세요.';
+        statusEl.className = 'text-sm text-center text-red-400';
+        return;
+      }
+
+      if (saveBtn) saveBtn.setAttribute('disabled', 'disabled');
+      if (statusEl) {
+        statusEl.textContent = '저장 중입니다...';
+        statusEl.className = 'text-sm text-center text-amber-300';
+      }
+
+      try {
+        await saveCaptainDutyConfig(normalized);
+        if (!sections['captain-duty-section'].classList.contains('hidden')) {
+          renderSection('captain-duty-section');
+        }
+        if (statusEl) {
+          statusEl.textContent = '저장되었습니다. 화면에 바로 반영했습니다.';
+          statusEl.className = 'text-sm text-center text-green-400';
+        }
+        setTimeout(() => hideModal(), 500);
+      } catch (error) {
+        if (statusEl) {
+          statusEl.textContent = `저장 실패: ${error.message}`;
+          statusEl.className = 'text-sm text-center text-red-400';
+        }
+      } finally {
+        if (saveBtn) saveBtn.removeAttribute('disabled');
+      }
+    }
+
     function formatObservationTypeDisplay(typeLabel) {
       return String(typeLabel || '').replace(/BUOY/g, '부이');
     }
@@ -927,6 +1486,7 @@ const DATASETS = [
         if (ids.includes('ship-search-section')) renderSection('ship-search-section');
         if (ids.includes('timetable-section')) renderSection('timetable-section');
         if (ids.includes('field-duty-section')) renderSection('field-duty-section');
+        if (ids.includes('captain-duty-section')) renderSection('captain-duty-section');
         if (ids.includes('dangerous-goods-search-section')) renderSection('dangerous-goods-search-section');
         if (ids.includes('ship-detail-section')) renderSection('ship-detail-section', { shipId: sections['ship-detail-section'].dataset.currentShipId });
       }
@@ -938,6 +1498,13 @@ const DATASETS = [
 
     async function bumpMetaTimestamp() {
       await setDoc(metaDoc(), { lastUpdated: serverTimestamp() }, { merge: true });
+    }
+
+    async function saveCaptainDutyConfig(config) {
+      const normalized = normalizeCaptainDutyConfig(config);
+      captainDutyConfig = normalized;
+      await setDoc(captainDutyDoc(), normalized, { merge: true });
+      await bumpMetaTimestamp();
     }
 
     async function saveAllDatasets(payload) {
@@ -1160,6 +1727,12 @@ const DATASETS = [
         return;
       }
       section.innerHTML = '';
+
+      if (sectionId === 'captain-duty-section') {
+        headerSubtitle.textContent = '선장교대';
+        section.innerHTML = buildCaptainDutySectionHtml();
+        return;
+      }
 
       switch (sectionId) {
         case 'data-management-section':
@@ -1494,23 +2067,26 @@ const DATASETS = [
 
         case 'tide-section':
           headerSubtitle.textContent = '조석표';
+          const isLocalDraftPreview = ['127.0.0.1', 'localhost'].includes(window.location.hostname) && new URLSearchParams(window.location.search).get('preview') === '1';
           section.innerHTML = `
             <div class="flex items-center gap-4 mb-8">
               <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
               <div>
                 <h2 class="text-2xl font-bold text-blue-400">조석표</h2>
-                <p class="text-sm text-slate-400 mt-1">항만별 조석 변화를 선형 그래프로 확인할 수 있습니다.</p>
+                <p class="text-sm text-slate-400 mt-1">${isLocalDraftPreview ? '배포 전 확인용 1열 그래프 시안입니다.' : '항만별 조석 변화를 선형 그래프로 확인할 수 있습니다.'}</p>
               </div>
             </div>
-            <div class="overflow-hidden rounded-3xl border border-blue-500/20 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
-              <iframe
-                src="${WEATHER_REMOTE_ORIGIN}/tides?embed=1&refresh=20260605c"
-                title="조석표"
-                class="block w-full"
-                style="height: calc(100vh - 15rem); min-height: 760px;"
-                loading="eager"
-              ></iframe>
-            </div>`;
+            ${isLocalDraftPreview
+              ? buildTideDraftPreviewCards()
+              : `<div class="overflow-hidden rounded-3xl border border-blue-500/20 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
+                  <iframe
+                    src="${WEATHER_REMOTE_ORIGIN}/tides?embed=1&refresh=20260605c"
+                    title="조석표"
+                    class="block w-full"
+                    style="height: calc(100vh - 15rem); min-height: 760px;"
+                    loading="eager"
+                  ></iframe>
+                </div>`}`;
           break;
 
         case 'captain-duty-section':
@@ -2223,6 +2799,14 @@ case 'ship-detail-section':
       }
 
       const target = e.target.closest('div, button'); if (!target) return;
+      if (target.id === 'captain-duty-settings-btn') {
+        openCaptainDutySettingsModal();
+        return;
+      }
+      if (target.id === 'captain-duty-settings-save-btn') {
+        await handleCaptainDutySettingsSave();
+        return;
+      }
       if (target.id === 'ship-info-btn') switchView('ship-search-section');
       if (target.id === 'weather-btn') switchView('weather-section');
       if (target.id === 'timetable-btn') switchView('timetable-section');
