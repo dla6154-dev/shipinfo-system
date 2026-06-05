@@ -1095,6 +1095,188 @@ const DATASETS = [
         </div>`;
     }
 
+    /* ── 조석 네이티브 렌더링 (다크 테마) ──────────────────────────────── */
+    function buildTideDarkSvg(card) {
+      const width = 720, height = 220;
+      const pad = { top: 28, right: 18, bottom: 48, left: 18 };
+      const plotW = width - pad.left - pad.right;
+      const plotH = height - pad.top - pad.bottom;
+      const baseY = height - pad.bottom;
+      const parseHm = (v) => { const [h,m] = String(v||'00:00').split(':').map(Number); return (h||0)*60+(m||0); };
+      const minToX = (m) => pad.left + (Math.max(0,Math.min(1440,m))/1440)*plotW;
+      const levels = card.points.map(p=>p.level);
+      const minL = Math.min(...levels), maxL = Math.max(...levels);
+      const range = Math.max(1, maxL - minL);
+      const lvlToY = (l) => pad.top + ((maxL-l)/range)*plotH;
+      const pts = card.points.map(p=>({...p, minutes:parseHm(p.time), x:minToX(parseHm(p.time)), y:lvlToY(p.level)}))
+        .sort((a,b)=>a.minutes-b.minutes);
+      if (!pts.length) return '';
+      const wrapped = [
+        {...pts[pts.length-1], minutes:pts[pts.length-1].minutes-1440},
+        ...pts,
+        {...pts[0], minutes:pts[0].minutes+1440}
+      ];
+      const curMin = parseHm(card.currentTime);
+      const cosLvl = (f,t,p) => { const mid=(f+t)/2, amp=(f-t)/2; return mid+amp*Math.cos(Math.PI*p); };
+      const segSamples = (from, to) => {
+        const dur=Math.max(1,to.minutes-from.minutes);
+        const vs=Math.max(0,from.minutes), ve=Math.min(1440,to.minutes);
+        if(vs>ve) return [];
+        const ts=(vs-from.minutes)/dur, te=(ve-from.minutes)/dur;
+        const n=Math.max(24,Math.ceil((ve-vs)/10));
+        return Array.from({length:n+1},(_,i)=>{
+          const prog=ts+((te-ts)*i)/n;
+          const mm=from.minutes+dur*prog;
+          return {x:minToX(mm), y:lvlToY(cosLvl(from.level,to.level,prog))};
+        });
+      };
+      const curve = [];
+      wrapped.forEach((p,i)=>{ if(i===wrapped.length-1) return; const s=segSamples(p,wrapped[i+1]); if(!s.length) return; if(curve.length) s.shift(); curve.push(...s); });
+      const curvePath = curve.length ? `M ${curve.map(p=>`${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' L ')}` : '';
+      const areaPath = curve.length ? `${curvePath} L ${curve[curve.length-1].x.toFixed(2)} ${baseY} L ${curve[0].x.toFixed(2)} ${baseY} Z` : '';
+      let curDotY = curve[0]?.y ?? (pad.top+plotH/2);
+      const segIdx = wrapped.findIndex((p,i)=>i<wrapped.length-1 && curMin>=p.minutes && curMin<=wrapped[i+1].minutes);
+      if(segIdx>=0){
+        const f=wrapped[segIdx], t=wrapped[segIdx+1];
+        curDotY = lvlToY(cosLvl(f.level,t.level,(curMin-f.minutes)/Math.max(1,t.minutes-f.minutes)));
+      }
+      const curX = minToX(curMin);
+      const ticks = [0,360,720,1080,1440], tlbls=['00','06','12','18','24'];
+      const gid = `tdark-${escapeHtml(card.station)}`;
+      return `<svg viewBox="0 0 ${width} ${height}" class="block w-full">
+        <defs>
+          <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(96,165,250,0.22)"></stop>
+            <stop offset="100%" stop-color="rgba(96,165,250,0.03)"></stop>
+          </linearGradient>
+        </defs>
+        ${ticks.map((t,i)=>`<g>
+          <line x1="${minToX(t)}" y1="${pad.top}" x2="${minToX(t)}" y2="${baseY}" stroke="${t===0||t===1440?'#334155':'#1e293b'}" stroke-width="2"></line>
+          <text x="${minToX(t)}" y="${height-10}" text-anchor="${i===0?'start':i===ticks.length-1?'end':'middle'}" font-size="13" font-weight="800" fill="#94a3b8">${tlbls[i]}시</text>
+        </g>`).join('')}
+        <line x1="${pad.left}" y1="${baseY}" x2="${width-pad.right}" y2="${baseY}" stroke="#334155" stroke-width="4" stroke-linecap="round"></line>
+        <path d="${areaPath}" fill="url(#${gid})"></path>
+        <path d="${curvePath}" fill="none" stroke="#60a5fa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <line x1="${curX}" y1="${pad.top-6}" x2="${curX}" y2="${baseY+10}" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 6"></line>
+        <text x="${curX}" y="${pad.top-10}" text-anchor="middle" font-size="13" font-weight="800" fill="#fbbf24">${escapeHtml(card.currentTime)}</text>
+        ${pts.map(p=>{
+          const isH=p.type==='고조', lY=isH?p.y-16:p.y+28, clr=isH?'#f87171':'#93c5fd';
+          return `<g>
+            <circle cx="${p.x}" cy="${p.y}" r="7" fill="${clr}" stroke="#1e293b" stroke-width="4"></circle>
+            <text x="${p.x}" y="${lY}" text-anchor="middle" font-size="15" font-weight="800" fill="${clr}">${escapeHtml(String(p.level))}cm</text>
+            <text x="${p.x}" y="${baseY+26}" text-anchor="middle" font-size="13" font-weight="700" fill="#94a3b8">${escapeHtml(p.time)}</text>
+          </g>`;
+        }).join('')}
+        <circle cx="${curX}" cy="${curDotY}" r="8" fill="#fbbf24" stroke="#1e293b" stroke-width="4"></circle>
+      </svg>`;
+    }
+
+    function tideEntriesToCards(entries, now) {
+      const STATION_ORDER = ['목포','암태','향화','옥도','서망','계마'];
+      const byStation = {};
+      for (const e of entries) {
+        if (!byStation[e.stationName]) byStation[e.stationName] = [];
+        byStation[e.stationName].push(e);
+      }
+      const currentTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const curMin = now.getHours()*60 + now.getMinutes();
+      const parseHm = (v) => { const [h,m]=String(v||'00:00').split(':').map(Number); return (h||0)*60+(m||0); };
+      const cosLvl = (f,t,p) => { const mid=(f+t)/2, amp=(f-t)/2; return mid+amp*Math.cos(Math.PI*p); };
+      const fmtDur = (m) => { const h=Math.floor(m/60), mn=Math.round(m%60); return h>0?`${h}시간 ${mn}분`:`${mn}분`; };
+      return STATION_ORDER.filter(s=>byStation[s]).map(stationName => {
+        const pts = byStation[stationName]
+          .map(e=>({time:e.timeStr, level:Math.round(e.levelCm||0), type:e.tideType, minutes:parseHm(e.timeStr)}))
+          .sort((a,b)=>a.minutes-b.minutes);
+        if (!pts.length) return null;
+        const wrapped = [
+          {...pts[pts.length-1], minutes:pts[pts.length-1].minutes-1440},
+          ...pts,
+          {...pts[0], minutes:pts[0].minutes+1440}
+        ];
+        let currentLevel = pts[0].level, phase = '정조', nextLabel = '';
+        for (let i=0; i<wrapped.length-1; i++) {
+          const f=wrapped[i], t=wrapped[i+1];
+          if (curMin>=f.minutes && curMin<=t.minutes) {
+            const dur=Math.max(1,t.minutes-f.minutes), prog=(curMin-f.minutes)/dur;
+            currentLevel = Math.round(cosLvl(f.level,t.level,prog));
+            phase = t.type==='고조'?'밀물':'썰물';
+            nextLabel = `${t.type}까지 ${fmtDur(t.minutes-curMin)}`;
+            break;
+          }
+        }
+        return { station:stationName, currentLevel, phase, nextLabel, currentTime, points:pts.map(p=>({time:p.time,level:p.level,type:p.type})) };
+      }).filter(Boolean);
+    }
+
+    function buildTideCardDark(card) {
+      const isRising = card.phase==='밀물';
+      const phaseClr = isRising?'text-blue-400':'text-cyan-300';
+      const phaseIcon = isRising?'↑':'↓';
+      return `<article class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 shadow-lg">
+        <div class="border-b border-slate-700/60 px-5 py-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-xl font-bold text-white">${escapeHtml(card.station)}</h3>
+              <p class="mt-0.5 text-sm font-medium text-slate-300">현재 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> · <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span></p>
+            </div>
+            <span class="shrink-0 rounded-full bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200">${escapeHtml(card.nextLabel)}</span>
+          </div>
+        </div>
+        <div class="px-4 pt-3 pb-1">${buildTideDarkSvg(card)}</div>
+        <div class="grid grid-cols-${card.points.length} divide-x divide-slate-700/60 border-t border-slate-700/60">
+          ${card.points.map(p=>`<div class="py-3 text-center">
+            <p class="text-[10px] font-bold ${p.type==='고조'?'text-red-400':'text-blue-400'} tracking-wide">${escapeHtml(p.type)}</p>
+            <p class="text-sm font-bold text-white mt-0.5">${escapeHtml(p.time)}</p>
+            <p class="text-xs text-slate-400">${escapeHtml(String(p.level))}cm</p>
+          </div>`).join('')}
+        </div>
+      </article>`;
+    }
+
+    async function loadTideCards(container) {
+      container.innerHTML = `<div class="flex items-center justify-center py-20">
+        <div class="text-center">
+          <i class="fa-solid fa-water text-4xl text-blue-400 mb-4 animate-pulse"></i>
+          <p class="text-slate-400 text-sm">조석 데이터 불러오는 중...</p>
+        </div>
+      </div>`;
+      try {
+        const sbH = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.kma-tide-snapshot&select=payload,fetchedAt`, { headers: sbH });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows = await res.json();
+        if (!rows.length || !rows[0].payload) throw new Error('조석 데이터 캐시 없음');
+        const snap = rows[0].payload;
+        const entries = snap.entries || snap.Entries || [];
+        if (!entries.length) throw new Error('조석 데이터가 비어 있습니다');
+        const now = new Date();
+        const cards = tideEntriesToCards(entries, now);
+        const stale = snap.meta?.stale || snap.Meta?.stale || false;
+        const dateStr = snap.dateStr || snap.DateStr || '';
+        container.innerHTML = `
+          <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-slate-400">${escapeHtml(dateStr)}${stale?'&nbsp;<span class="text-amber-400 text-xs">갱신 대기 중</span>':''}</p>
+            <button id="tide-refresh-btn" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 px-2 py-1 rounded border border-blue-500/30 hover:border-blue-400/50">
+              <i class="fa-solid fa-rotate-right"></i> 새로고침
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${cards.map(c=>buildTideCardDark(c)).join('')}
+          </div>`;
+        document.getElementById('tide-refresh-btn')?.addEventListener('click', () => loadTideCards(container));
+      } catch (err) {
+        container.innerHTML = `<div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-8 text-center">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400 text-3xl mb-3"></i>
+          <p class="text-sm text-amber-300 font-semibold">조석 데이터를 불러오지 못했습니다</p>
+          <p class="text-xs text-slate-400 mt-1">${escapeHtml(String(err))}</p>
+          <button onclick="loadTideCards(document.getElementById('tide-cards-container'))" class="mt-4 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded">
+            <i class="fa-solid fa-rotate-right mr-1"></i>다시 시도
+          </button>
+        </div>`;
+      }
+    }
+    /* ── End 조석 네이티브 렌더링 ──────────────────────────────────────── */
+
     function getCurrentCaptainDutyYearMonth() {
       const now = new Date();
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -2056,26 +2238,16 @@ const DATASETS = [
 
         case 'tide-section':
           headerSubtitle.textContent = '조석표';
-          const isLocalDraftPreview = ['127.0.0.1', 'localhost'].includes(window.location.hostname) && new URLSearchParams(window.location.search).get('preview') === '1';
           section.innerHTML = `
-            <div class="flex items-center gap-4 mb-8">
+            <div class="flex items-center gap-4 mb-6">
               <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
               <div>
                 <h2 class="text-2xl font-bold text-blue-400">조석표</h2>
-                <p class="text-sm text-slate-400 mt-1">${isLocalDraftPreview ? '배포 전 확인용 1열 그래프 시안입니다.' : '항만별 조석 변화를 선형 그래프로 확인할 수 있습니다.'}</p>
+                <p class="text-sm text-slate-400 mt-1">항만별 조석 변화를 그래프로 확인합니다.</p>
               </div>
             </div>
-            ${isLocalDraftPreview
-              ? buildTideDraftPreviewCards()
-              : `<div class="overflow-hidden rounded-3xl border border-blue-500/20 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
-                  <iframe
-                    src="${WEATHER_REMOTE_ORIGIN}/tides?embed=1&refresh=${new Date().toISOString().slice(0,10).replace(/-/g,'')}"
-                    title="조석표"
-                    class="block w-full"
-                    style="height: calc(100vh - 15rem); min-height: 760px;"
-                    loading="eager"
-                  ></iframe>
-                </div>`}`;
+            <div id="tide-cards-container"></div>`;
+          loadTideCards(section.querySelector('#tide-cards-container'));
           break;
 
         case 'captain-duty-section':
