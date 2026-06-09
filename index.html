@@ -1098,6 +1098,50 @@ const DATASETS = [
     }
 
     /* ── 조석 네이티브 렌더링 (다크 테마) ──────────────────────────────── */
+    function buildTideBoundaryPoints(points) {
+      const pts = (points || []).map(point => ({ ...point })).sort((a,b)=>a.minutes-b.minutes);
+      if (pts.length < 2) return pts;
+      const segments = [];
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        segments.push({
+          from: pts[i],
+          to: pts[i + 1],
+          duration: Math.max(1, pts[i + 1].minutes - pts[i].minutes)
+        });
+      }
+      const averageDuration = Math.round(
+        segments.reduce((sum, segment) => sum + segment.duration, 0) / Math.max(1, segments.length)
+      ) || 360;
+      const oppositeType = (type) => (type === '고조' ? '저조' : '고조');
+      const matchDuration = (fromType, toType, fallback) => {
+        const matches = segments
+          .filter(segment => segment.from.type === fromType && segment.to.type === toType)
+          .map(segment => segment.duration);
+        return matches.length
+          ? Math.round(matches.reduce((sum, value) => sum + value, 0) / matches.length)
+          : fallback;
+      };
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      if (first.type !== last.type) {
+        return [
+          { ...last, minutes: last.minutes - 1440, isVirtual: true },
+          ...pts,
+          { ...first, minutes: first.minutes + 1440, isVirtual: true }
+        ];
+      }
+      const boundaryType = oppositeType(first.type);
+      const previousDuration = matchDuration(boundaryType, first.type, averageDuration);
+      const nextDuration = matchDuration(last.type, boundaryType, averageDuration);
+      const previousPoint = [...pts].reverse().find(point => point.type === boundaryType) || first;
+      const nextPoint = pts.find(point => point.type === boundaryType) || last;
+      return [
+        { ...previousPoint, minutes: first.minutes - previousDuration, isVirtual: true },
+        ...pts,
+        { ...nextPoint, minutes: last.minutes + nextDuration, isVirtual: true }
+      ];
+    }
+
     function buildTideDarkSvg(card) {
       const width = 720, height = 220;
       const pad = { top: 28, right: 18, bottom: 48, left: 18 };
@@ -1106,18 +1150,24 @@ const DATASETS = [
       const baseY = height - pad.bottom;
       const parseHm = (v) => { const [h,m] = String(v||'00:00').split(':').map(Number); return (h||0)*60+(m||0); };
       const minToX = (m) => pad.left + (Math.max(0,Math.min(1440,m))/1440)*plotW;
-      const levels = card.points.map(p=>p.level);
+      const renderPoints = buildTideBoundaryPoints(
+        (card.graphPoints && card.graphPoints.length ? card.graphPoints : card.points).map(point => ({
+          ...point,
+          minutes: Number.isFinite(point.minutes) ? point.minutes : parseHm(point.time)
+        }))
+      );
+      const levels = renderPoints.map(p=>p.level);
       const minL = Math.min(...levels), maxL = Math.max(...levels);
       const range = Math.max(1, maxL - minL);
       const lvlToY = (l) => pad.top + ((maxL-l)/range)*plotH;
       const pts = card.points.map(p=>({...p, minutes:parseHm(p.time), x:minToX(parseHm(p.time)), y:lvlToY(p.level)}))
         .sort((a,b)=>a.minutes-b.minutes);
-      if (!pts.length) return '';
-      const wrapped = [
-        {...pts[pts.length-1], minutes:pts[pts.length-1].minutes-1440},
-        ...pts,
-        {...pts[0], minutes:pts[0].minutes+1440}
-      ];
+      if (!pts.length || !renderPoints.length) return '';
+      const curvePoints = renderPoints.map(p=>({
+        ...p,
+        x:minToX(p.minutes),
+        y:lvlToY(p.level)
+      }));
       const curMin = parseHm(card.currentTime);
       const cosLvl = (f,t,p) => { const mid=(f+t)/2, amp=(f-t)/2; return mid+amp*Math.cos(Math.PI*p); };
       const segSamples = (from, to) => {
@@ -1133,13 +1183,13 @@ const DATASETS = [
         });
       };
       const curve = [];
-      wrapped.forEach((p,i)=>{ if(i===wrapped.length-1) return; const s=segSamples(p,wrapped[i+1]); if(!s.length) return; if(curve.length) s.shift(); curve.push(...s); });
+      curvePoints.forEach((p,i)=>{ if(i===curvePoints.length-1) return; const s=segSamples(p,curvePoints[i+1]); if(!s.length) return; if(curve.length) s.shift(); curve.push(...s); });
       const curvePath = curve.length ? `M ${curve.map(p=>`${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' L ')}` : '';
       const areaPath = curve.length ? `${curvePath} L ${curve[curve.length-1].x.toFixed(2)} ${baseY} L ${curve[0].x.toFixed(2)} ${baseY} Z` : '';
       let curDotY = curve[0]?.y ?? (pad.top+plotH/2);
-      const segIdx = wrapped.findIndex((p,i)=>i<wrapped.length-1 && curMin>=p.minutes && curMin<=wrapped[i+1].minutes);
+      const segIdx = curvePoints.findIndex((p,i)=>i<curvePoints.length-1 && curMin>=p.minutes && curMin<=curvePoints[i+1].minutes);
       if(segIdx>=0){
-        const f=wrapped[segIdx], t=wrapped[segIdx+1];
+        const f=curvePoints[segIdx], t=curvePoints[segIdx+1];
         curDotY = lvlToY(cosLvl(f.level,t.level,(curMin-f.minutes)/Math.max(1,t.minutes-f.minutes)));
       }
       const curX = minToX(curMin);
@@ -1191,14 +1241,10 @@ const DATASETS = [
           .map(e=>({time:e.timeStr, level:Math.round(e.levelCm||0), type:e.tideType, minutes:parseHm(e.timeStr)}))
           .sort((a,b)=>a.minutes-b.minutes);
         if (!pts.length) return null;
-        const wrapped = [
-          {...pts[pts.length-1], minutes:pts[pts.length-1].minutes-1440},
-          ...pts,
-          {...pts[0], minutes:pts[0].minutes+1440}
-        ];
+        const graphPoints = buildTideBoundaryPoints(pts);
         let currentLevel = pts[0].level, phase = '정조', nextLabel = '';
-        for (let i=0; i<wrapped.length-1; i++) {
-          const f=wrapped[i], t=wrapped[i+1];
+        for (let i=0; i<graphPoints.length-1; i++) {
+          const f=graphPoints[i], t=graphPoints[i+1];
           if (curMin>=f.minutes && curMin<=t.minutes) {
             const dur=Math.max(1,t.minutes-f.minutes), prog=(curMin-f.minutes)/dur;
             currentLevel = Math.round(cosLvl(f.level,t.level,prog));
@@ -1207,7 +1253,15 @@ const DATASETS = [
             break;
           }
         }
-        return { station:stationName, currentLevel, phase, nextLabel, currentTime, points:pts.map(p=>({time:p.time,level:p.level,type:p.type})) };
+        return {
+          station:stationName,
+          currentLevel,
+          phase,
+          nextLabel,
+          currentTime,
+          graphPoints: graphPoints.map(p=>({ time:p.time, level:p.level, type:p.type, minutes:p.minutes })),
+          points:pts.map(p=>({time:p.time,level:p.level,type:p.type}))
+        };
       }).filter(Boolean);
     }
 
