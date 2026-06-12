@@ -1168,7 +1168,8 @@ const DATASETS = [
         x:minToX(p.minutes),
         y:lvlToY(p.level)
       }));
-      const curMin = parseHm(card.currentTime);
+      const showCurrentMarker = !!card.showCurrentMarker && !!card.currentTime;
+      const curMin = showCurrentMarker ? parseHm(card.currentTime) : null;
       const cosLvl = (f,t,p) => { const mid=(f+t)/2, amp=(f-t)/2; return mid+amp*Math.cos(Math.PI*p); };
       const segSamples = (from, to) => {
         const dur=Math.max(1,to.minutes-from.minutes);
@@ -1187,12 +1188,14 @@ const DATASETS = [
       const curvePath = curve.length ? `M ${curve.map(p=>`${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' L ')}` : '';
       const areaPath = curve.length ? `${curvePath} L ${curve[curve.length-1].x.toFixed(2)} ${baseY} L ${curve[0].x.toFixed(2)} ${baseY} Z` : '';
       let curDotY = curve[0]?.y ?? (pad.top+plotH/2);
-      const segIdx = curvePoints.findIndex((p,i)=>i<curvePoints.length-1 && curMin>=p.minutes && curMin<=curvePoints[i+1].minutes);
+      const segIdx = showCurrentMarker
+        ? curvePoints.findIndex((p,i)=>i<curvePoints.length-1 && curMin>=p.minutes && curMin<=curvePoints[i+1].minutes)
+        : -1;
       if(segIdx>=0){
         const f=curvePoints[segIdx], t=curvePoints[segIdx+1];
         curDotY = lvlToY(cosLvl(f.level,t.level,(curMin-f.minutes)/Math.max(1,t.minutes-f.minutes)));
       }
-      const curX = minToX(curMin);
+      const curX = showCurrentMarker ? minToX(curMin) : 0;
       const ticks = [0,360,720,1080,1440], tlbls=['00','06','12','18','24'];
       const gid = `tdark-${escapeHtml(card.station)}`;
       return `<svg viewBox="0 0 ${width} ${height}" class="block w-full">
@@ -1209,8 +1212,8 @@ const DATASETS = [
         <line x1="${pad.left}" y1="${baseY}" x2="${width-pad.right}" y2="${baseY}" stroke="#334155" stroke-width="4" stroke-linecap="round"></line>
         <path d="${areaPath}" fill="url(#${gid})"></path>
         <path d="${curvePath}" fill="none" stroke="#60a5fa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-        <line x1="${curX}" y1="${pad.top-6}" x2="${curX}" y2="${baseY+10}" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 6"></line>
-        <text x="${curX}" y="${pad.top-10}" text-anchor="middle" font-size="13" font-weight="800" fill="#fbbf24">${escapeHtml(card.currentTime)}</text>
+        ${showCurrentMarker ? `<line x1="${curX}" y1="${pad.top-6}" x2="${curX}" y2="${baseY+10}" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 6"></line>
+        <text x="${curX}" y="${pad.top-10}" text-anchor="middle" font-size="13" font-weight="800" fill="#fbbf24">${escapeHtml(card.currentTime)}</text>` : ''}
         ${pts.map(p=>{
           const isH=p.type==='고조', lY=isH?p.y-16:p.y+28, clr=isH?'#f87171':'#93c5fd';
           return `<g>
@@ -1219,20 +1222,22 @@ const DATASETS = [
             <text x="${p.x}" y="${baseY+26}" text-anchor="middle" font-size="13" font-weight="700" fill="#94a3b8">${escapeHtml(p.time)}</text>
           </g>`;
         }).join('')}
-        <circle cx="${curX}" cy="${curDotY}" r="8" fill="#fbbf24" stroke="#1e293b" stroke-width="4"></circle>
+        ${showCurrentMarker ? `<circle cx="${curX}" cy="${curDotY}" r="8" fill="#fbbf24" stroke="#1e293b" stroke-width="4"></circle>` : ''}
       </svg>`;
     }
 
-    function tideEntriesToCards(entries, now) {
+    function tideEntriesToCards(entries, now, options = {}) {
       const STATION_ORDER = ['목포','암태','향화','옥도','서망','계마'];
-      const DISPLAY_STATION_ORDER = ['서망','진도옥도','쉬미','서거차도'];
       const byStation = {};
+      const DISPLAY_STATION_ORDER = ['서망','진도옥도','쉬미','서거차도'];
       for (const e of entries) {
         if (!byStation[e.stationName]) byStation[e.stationName] = [];
         byStation[e.stationName].push(e);
       }
-      const currentTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      const curMin = now.getHours()*60 + now.getMinutes();
+      const showCurrentMarker = options.showCurrentMarker !== false;
+      const dayLabel = String(options.dayLabel || '').trim();
+      const currentTime = showCurrentMarker ? `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}` : '';
+      const curMin = showCurrentMarker ? now.getHours()*60 + now.getMinutes() : null;
       const parseHm = (v) => { const [h,m]=String(v||'00:00').split(':').map(Number); return (h||0)*60+(m||0); };
       const cosLvl = (f,t,p) => { const mid=(f+t)/2, amp=(f-t)/2; return mid+amp*Math.cos(Math.PI*p); };
       const fmtDur = (m) => { const h=Math.floor(m/60), mn=Math.round(m%60); return h>0?`${h}시간 ${mn}분`:`${mn}분`; };
@@ -1243,6 +1248,10 @@ const DATASETS = [
         if (!pts.length) return null;
         const graphPoints = buildTideBoundaryPoints(pts);
         let currentLevel = pts[0].level, phase = '정조', nextLabel = '';
+        if (!showCurrentMarker) {
+          phase = '?덈낫';
+          nextLabel = dayLabel ? `${dayLabel} ?덈낫` : '?덈낫';
+        } else {
         for (let i=0; i<graphPoints.length-1; i++) {
           const f=graphPoints[i], t=graphPoints[i+1];
           if (curMin>=f.minutes && curMin<=t.minutes) {
@@ -1253,12 +1262,15 @@ const DATASETS = [
             break;
           }
         }
+        }
         return {
           station:stationName,
           currentLevel,
           phase,
           nextLabel,
           currentTime,
+          dayLabel,
+          showCurrentMarker,
           graphPoints: graphPoints.map(p=>({ time:p.time, level:p.level, type:p.type, minutes:p.minutes })),
           points:pts.map(p=>({time:p.time,level:p.level,type:p.type}))
         };
@@ -1269,6 +1281,10 @@ const DATASETS = [
       const isRising = card.phase==='밀물';
       const phaseClr = isRising?'text-blue-400':'text-cyan-300';
       const phaseIcon = isRising?'↑':'↓';
+      const summaryText = card.showCurrentMarker
+        ? `?꾩옱 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> 쨌 <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span>`
+        : `${escapeHtml(card.dayLabel || '?덈낫')} 議곗꽍 ?덈낫`;
+      const badgeText = card.nextLabel || (card.dayLabel ? `${card.dayLabel} ?덈낫` : '?덈낫');
       return `<article class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 shadow-lg">
         <div class="border-b border-slate-700/60 px-5 py-4">
           <div class="flex items-center justify-between gap-3">
@@ -1304,12 +1320,43 @@ const DATASETS = [
         const rows = await res.json();
         if (!rows.length || !rows[0].payload) throw new Error('조석 데이터 캐시 없음');
         const snap = rows[0].payload;
-        const entries = snap.entries || snap.Entries || [];
+        const rawDays = snap.days || snap.Days || [];
+        const days = Array.isArray(rawDays) && rawDays.length
+          ? rawDays.map((day, index) => ({
+              label: day.label || day.Label || (index === 0 ? '?ㅻ뒛' : index === 1 ? '?대굹?? : '紐⑤젅'),
+              dateStr: day.dateStr || day.DateStr || '',
+              entries: day.entries || day.Entries || []
+            }))
+          : [{
+              label: '?ㅻ뒛',
+              dateStr: snap.dateStr || snap.DateStr || '',
+              entries: snap.entries || snap.Entries || []
+            }];
+        const entries = days[0]?.entries || [];
         if (!entries.length) throw new Error('조석 데이터가 비어 있습니다');
+        if (!days.some(day => Array.isArray(day.entries) && day.entries.length)) throw new Error('議곗꽍 ?곗씠?곌? 鍮꾩뼱 ?덉뒿?덈떎');
         const now = new Date();
-        const cards = tideEntriesToCards(entries, now);
         const stale = snap.meta?.stale || snap.Meta?.stale || false;
         const dateStr = snap.dateStr || snap.DateStr || '';
+        const cardsMarkup = days.map((day, index) => {
+          const dayCards = tideEntriesToCards(day.entries, now, {
+            showCurrentMarker: index === 0,
+            dayLabel: day.label
+          });
+          return `<section class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">${escapeHtml(day.label)}</p>
+                <p class="text-sm text-slate-400">${escapeHtml(day.dateStr)}</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${dayCards.length
+                ? dayCards.map(c=>buildTideCardDark(c)).join('')
+                : `<div class="rounded-2xl border border-slate-700/60 bg-slate-800/60 p-6 text-sm text-slate-400">議곗꽍 ?곗씠?곌? ?놁뒿?덈떎.</div>`}
+            </div>
+          </section>`;
+        }).join('');
         container.innerHTML = `
           <div class="flex items-center justify-between mb-4">
             <p class="text-sm text-slate-400">${escapeHtml(dateStr)}${stale?'&nbsp;<span class="text-amber-400 text-xs">갱신 대기 중</span>':''}</p>
@@ -1317,8 +1364,8 @@ const DATASETS = [
               <i class="fa-solid fa-rotate-right"></i> 새로고침
             </button>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            ${cards.map(c=>buildTideCardDark(c)).join('')}
+          <div class="space-y-6">
+            ${cardsMarkup}
           </div>`;
         document.getElementById('tide-refresh-btn')?.addEventListener('click', () => loadTideCards(container));
       } catch (err) {
