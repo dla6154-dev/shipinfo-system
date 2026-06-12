@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -1228,8 +1228,8 @@ const DATASETS = [
 
     function tideEntriesToCards(entries, now, options = {}) {
       const STATION_ORDER = ['목포','암태','향화','옥도','서망','계마'];
-      const byStation = {};
       const DISPLAY_STATION_ORDER = ['서망','진도옥도','쉬미','서거차도'];
+      const byStation = {};
       for (const e of entries) {
         if (!byStation[e.stationName]) byStation[e.stationName] = [];
         byStation[e.stationName].push(e);
@@ -1249,19 +1249,19 @@ const DATASETS = [
         const graphPoints = buildTideBoundaryPoints(pts);
         let currentLevel = pts[0].level, phase = '정조', nextLabel = '';
         if (!showCurrentMarker) {
-          phase = '?덈낫';
-          nextLabel = dayLabel ? `${dayLabel} ?덈낫` : '?덈낫';
+          phase = '예보';
+          nextLabel = dayLabel ? `${dayLabel} 조석 예보` : '조석 예보';
         } else {
-        for (let i=0; i<graphPoints.length-1; i++) {
-          const f=graphPoints[i], t=graphPoints[i+1];
-          if (curMin>=f.minutes && curMin<=t.minutes) {
-            const dur=Math.max(1,t.minutes-f.minutes), prog=(curMin-f.minutes)/dur;
-            currentLevel = Math.round(cosLvl(f.level,t.level,prog));
-            phase = t.type==='고조'?'밀물':'썰물';
-            nextLabel = `${t.type}까지 ${fmtDur(t.minutes-curMin)}`;
-            break;
+          for (let i=0; i<graphPoints.length-1; i++) {
+            const f=graphPoints[i], t=graphPoints[i+1];
+            if (curMin>=f.minutes && curMin<=t.minutes) {
+              const dur=Math.max(1,t.minutes-f.minutes), prog=(curMin-f.minutes)/dur;
+              currentLevel = Math.round(cosLvl(f.level,t.level,prog));
+              phase = t.type==='고조'?'밀물':'썰물';
+              nextLabel = `${t.type}까지 ${fmtDur(t.minutes-curMin)}`;
+              break;
+            }
           }
-        }
         }
         return {
           station:stationName,
@@ -1282,17 +1282,17 @@ const DATASETS = [
       const phaseClr = isRising?'text-blue-400':'text-cyan-300';
       const phaseIcon = isRising?'↑':'↓';
       const summaryText = card.showCurrentMarker
-        ? `?꾩옱 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> 쨌 <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span>`
-        : `${escapeHtml(card.dayLabel || '?덈낫')} 議곗꽍 ?덈낫`;
-      const badgeText = card.nextLabel || (card.dayLabel ? `${card.dayLabel} ?덈낫` : '?덈낫');
+        ? `현재 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> · <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span>`
+        : `${escapeHtml(card.dayLabel || '예보')} 조석 예보`;
+      const badgeText = card.nextLabel || (card.dayLabel ? `${card.dayLabel} 조석 예보` : '조석 예보');
       return `<article class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 shadow-lg">
         <div class="border-b border-slate-700/60 px-5 py-4">
           <div class="flex items-center justify-between gap-3">
             <div>
               <h3 class="text-xl font-bold text-white">${escapeHtml(card.station)}</h3>
-              <p class="mt-0.5 text-sm font-medium text-slate-300">현재 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> · <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span></p>
+              <p class="mt-0.5 text-sm font-medium text-slate-300">${summaryText}</p>
             </div>
-            <span class="shrink-0 rounded-full bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200">${escapeHtml(card.nextLabel)}</span>
+            <span class="shrink-0 rounded-full bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200">${escapeHtml(badgeText)}</span>
           </div>
         </div>
         <div class="px-4 pt-3 pb-1">${buildTideDarkSvg(card)}</div>
@@ -1323,18 +1323,18 @@ const DATASETS = [
         const rawDays = snap.days || snap.Days || [];
         const days = Array.isArray(rawDays) && rawDays.length
           ? rawDays.map((day, index) => ({
-              label: day.label || day.Label || (index === 0 ? '?ㅻ뒛' : index === 1 ? '?대굹?? : '紐⑤젅'),
+              label: day.label || day.Label || (index === 0 ? '오늘' : index === 1 ? '내일' : '모레'),
               dateStr: day.dateStr || day.DateStr || '',
               entries: day.entries || day.Entries || []
             }))
           : [{
-              label: '?ㅻ뒛',
+              label: '오늘',
               dateStr: snap.dateStr || snap.DateStr || '',
               entries: snap.entries || snap.Entries || []
             }];
         const entries = days[0]?.entries || [];
         if (!entries.length) throw new Error('조석 데이터가 비어 있습니다');
-        if (!days.some(day => Array.isArray(day.entries) && day.entries.length)) throw new Error('議곗꽍 ?곗씠?곌? 鍮꾩뼱 ?덉뒿?덈떎');
+        if (!days.some(day => Array.isArray(day.entries) && day.entries.length)) throw new Error('조석 데이터가 비어 있습니다');
         const now = new Date();
         const stale = snap.meta?.stale || snap.Meta?.stale || false;
         const dateStr = snap.dateStr || snap.DateStr || '';
@@ -1350,10 +1350,10 @@ const DATASETS = [
                 <p class="text-sm text-slate-400">${escapeHtml(day.dateStr)}</p>
               </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4">
               ${dayCards.length
                 ? dayCards.map(c=>buildTideCardDark(c)).join('')
-                : `<div class="rounded-2xl border border-slate-700/60 bg-slate-800/60 p-6 text-sm text-slate-400">議곗꽍 ?곗씠?곌? ?놁뒿?덈떎.</div>`}
+                : `<div class="rounded-2xl border border-slate-700/60 bg-slate-800/60 p-6 text-sm text-slate-400">조석 데이터가 없습니다.</div>`}
             </div>
           </section>`;
         }).join('');
@@ -3448,7 +3448,7 @@ case 'ship-detail-section':
     let enteredPassword = "";
 
     function updateKeypadDisplay() {
-      keypadDisplay.textContent = '*'.repeat(enteredPassword.length);
+      keypadDisplay.textContent = '•'.repeat(enteredPassword.length);
     }
 
     async function handleKeypadInput(key) { // 1. async 추가
