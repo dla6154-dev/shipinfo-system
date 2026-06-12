@@ -3448,7 +3448,7 @@ case 'ship-detail-section':
     let enteredPassword = "";
 
     function updateKeypadDisplay() {
-      keypadDisplay.textContent = '•'.repeat(enteredPassword.length);
+      keypadDisplay.textContent = '*'.repeat(enteredPassword.length);
     }
 
     async function handleKeypadInput(key) { // 1. async 추가
