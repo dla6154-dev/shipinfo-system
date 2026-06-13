@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="./vehicle_loading_data.js"></script>
   <style>
     body { font-family: 'Noto Sans KR', sans-serif; }
     ::-webkit-scrollbar { width: 8px; }
@@ -794,14 +795,10 @@ const DEFAULT_CAPTAIN_DUTY_ROWS = [
   { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
 ];
 captainDutyConfig = getDefaultCaptainDutyConfig();
-const VEHICLE_LOADING_SOURCE_URL = './jindo_vehicle_loading.html';
 const vehicleLoadingState = {
   ships: [],
   currentShipId: null,
   openCaseIndex: null,
-  sourceFrame: null,
-  sourceWindow: null,
-  sourcePromise: null,
   loadError: ''
 };
 
@@ -1026,17 +1023,10 @@ const DATASETS = [
     }
 
     function getVehicleLoadingImageData(shipId, caseIndex) {
-      if (!vehicleLoadingState.sourceWindow) return '';
-      try {
-        return String(
-          vehicleLoadingState.sourceWindow.eval(
-            `(typeof IMAGES !== 'undefined' && IMAGES[${JSON.stringify(String(shipId))}]) ? (IMAGES[${JSON.stringify(String(shipId))}][${Number(caseIndex)}] || '') : ''`
-          ) || ''
-        );
-      } catch (error) {
-        console.warn('[vehicle-loading] image load failed', error);
-        return '';
-      }
+      const images = window.VEHICLE_LOADING_IMAGES;
+      if (!images || typeof images !== 'object') return '';
+      const encoded = images[String(shipId)]?.[Number(caseIndex)];
+      return typeof encoded === 'string' ? encoded : '';
     }
 
     function getVehicleLoadingImageSrc(shipId, caseIndex) {
@@ -1045,81 +1035,23 @@ const DATASETS = [
     }
 
     async function ensureVehicleLoadingSource() {
-      if (vehicleLoadingState.ships.length && vehicleLoadingState.sourceWindow) {
-        return vehicleLoadingState.ships;
-      }
-      if (vehicleLoadingState.sourcePromise) {
-        return vehicleLoadingState.sourcePromise;
-      }
-
       vehicleLoadingState.loadError = '';
-      vehicleLoadingState.sourcePromise = new Promise((resolve, reject) => {
-        let iframe = vehicleLoadingState.sourceFrame;
-
-        const finalize = () => {
-          try {
-            const frameWindow = iframe?.contentWindow;
-            if (!frameWindow || typeof frameWindow.eval !== 'function') {
-              throw new Error('차량적재도 원본 창에 접근할 수 없습니다.');
-            }
-            const rawShips = frameWindow.eval('SHIPS');
-            if (!Array.isArray(rawShips)) {
-              throw new Error('차량적재도 데이터 형식을 읽지 못했습니다.');
-            }
-            vehicleLoadingState.sourceWindow = frameWindow;
-            vehicleLoadingState.ships = clonePlainData(rawShips).map(normalizeVehicleLoadingShip);
-            if (vehicleLoadingState.currentShipId && !vehicleLoadingState.ships.some((ship) => ship.id === vehicleLoadingState.currentShipId)) {
-              vehicleLoadingState.currentShipId = null;
-              vehicleLoadingState.openCaseIndex = null;
-            }
-            resolve(vehicleLoadingState.ships);
-          } catch (error) {
-            reject(error);
-          }
-        };
-
-        const handleError = () => {
-          reject(new Error('차량적재도 원본 파일을 불러오지 못했습니다.'));
-        };
-
-        if (!iframe) {
-          iframe = document.createElement('iframe');
-          iframe.src = VEHICLE_LOADING_SOURCE_URL;
-          iframe.setAttribute('aria-hidden', 'true');
-          iframe.tabIndex = -1;
-          iframe.style.position = 'fixed';
-          iframe.style.width = '0';
-          iframe.style.height = '0';
-          iframe.style.border = '0';
-          iframe.style.opacity = '0';
-          iframe.style.pointerEvents = 'none';
-          iframe.style.left = '-9999px';
-          iframe.style.bottom = '0';
-          iframe.addEventListener('load', finalize, { once: true });
-          iframe.addEventListener('error', handleError, { once: true });
-          document.body.appendChild(iframe);
-          vehicleLoadingState.sourceFrame = iframe;
-          return;
+      try {
+        const rawShips = window.VEHICLE_LOADING_SHIPS;
+        if (!Array.isArray(rawShips) || !rawShips.length) {
+          throw new Error('차량적재도 데이터 파일을 읽지 못했습니다.');
         }
-
-        iframe.addEventListener('load', finalize, { once: true });
-        iframe.addEventListener('error', handleError, { once: true });
-
-        if (iframe.contentDocument?.readyState === 'complete') {
-          finalize();
+        vehicleLoadingState.ships = clonePlainData(rawShips).map(normalizeVehicleLoadingShip);
+        if (vehicleLoadingState.currentShipId && !vehicleLoadingState.ships.some((ship) => ship.id === vehicleLoadingState.currentShipId)) {
+          vehicleLoadingState.currentShipId = null;
+          vehicleLoadingState.openCaseIndex = null;
         }
-      })
-        .catch((error) => {
-          vehicleLoadingState.loadError = error instanceof Error ? error.message : String(error);
-          vehicleLoadingState.sourceWindow = null;
-          vehicleLoadingState.ships = [];
-          throw error;
-        })
-        .finally(() => {
-          vehicleLoadingState.sourcePromise = null;
-        });
-
-      return vehicleLoadingState.sourcePromise;
+        return vehicleLoadingState.ships;
+      } catch (error) {
+        vehicleLoadingState.loadError = error instanceof Error ? error.message : String(error);
+        vehicleLoadingState.ships = [];
+        throw error;
+      }
     }
 
     function buildVehicleLoadingShipCards() {
@@ -3829,12 +3761,7 @@ case 'ship-detail-section':
       const target = e.target.closest('div, button'); if (!target) return;
       if (target.id === 'vehicle-loading-retry-btn') {
         vehicleLoadingState.loadError = '';
-        vehicleLoadingState.sourceWindow = null;
         vehicleLoadingState.ships = [];
-        if (vehicleLoadingState.sourceFrame) {
-          vehicleLoadingState.sourceFrame.remove();
-          vehicleLoadingState.sourceFrame = null;
-        }
         renderVehicleLoadingSection(document.getElementById('vehicle-loading-section'));
         return;
       }
