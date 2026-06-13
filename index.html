@@ -274,6 +274,144 @@
       }
     }
 
+    .vehicle-loading-ship-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.9rem;
+    }
+    .vehicle-loading-ship-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(132, 204, 22, 0.18);
+      border-radius: 1.25rem;
+      background:
+        linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
+      padding: 1rem;
+      text-align: left;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .vehicle-loading-ship-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(163, 230, 53, 0.55);
+      box-shadow: 0 18px 30px rgba(15, 23, 42, 0.22);
+    }
+    .vehicle-loading-ship-card::before {
+      content: '';
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(132, 204, 22, 0.24);
+    }
+    .vehicle-loading-ship-card.is-active {
+      border-color: rgba(163, 230, 53, 0.78);
+      background:
+        linear-gradient(180deg, rgba(39, 58, 12, 0.72), rgba(15, 23, 42, 0.96));
+      box-shadow: 0 20px 40px rgba(132, 204, 22, 0.14);
+    }
+    .vehicle-loading-ship-card.is-active::before {
+      background: linear-gradient(90deg, rgba(163, 230, 53, 0.95), rgba(190, 242, 100, 0.8));
+    }
+    .vehicle-loading-case-card {
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 1.25rem;
+      background: rgba(15, 23, 42, 0.82);
+      overflow: hidden;
+    }
+    .vehicle-loading-case-trigger {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      padding: 1rem 1.1rem;
+      text-align: left;
+      transition: background 0.16s ease;
+    }
+    .vehicle-loading-case-trigger:hover {
+      background: rgba(30, 41, 59, 0.74);
+    }
+    .vehicle-loading-case-card.is-open .vehicle-loading-case-trigger {
+      background: rgba(30, 41, 59, 0.92);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .vehicle-loading-case-index {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 9999px;
+      background: rgba(51, 65, 85, 0.95);
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.82rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .vehicle-loading-case-card.is-open .vehicle-loading-case-index {
+      background: rgba(132, 204, 22, 0.88);
+      color: #0f172a;
+    }
+    .vehicle-loading-case-arrow {
+      transition: transform 0.18s ease, color 0.18s ease;
+    }
+    .vehicle-loading-case-card.is-open .vehicle-loading-case-arrow {
+      transform: rotate(90deg);
+      color: #bef264;
+    }
+    .vehicle-loading-detail-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 1rem;
+    }
+    .vehicle-loading-preview-btn {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      background: #ffffff;
+    }
+    .vehicle-loading-preview-btn img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+      object-fit: contain;
+      background: #ffffff;
+    }
+    .vehicle-loading-vehicle-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 0.75rem;
+      align-items: start;
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      padding: 0.85rem 0.95rem;
+    }
+    .vehicle-loading-lashing-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .vehicle-loading-lashing-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .vehicle-loading-lashing-row:first-child {
+      padding-top: 0;
+    }
+    @media (max-width: 768px) {
+      .vehicle-loading-detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .vehicle-loading-preview-btn img {
+        max-height: 300px;
+      }
+    }
+
   </style>
 </head>
 <body class="bg-slate-900 text-white antialiased">
@@ -656,6 +794,16 @@ const DEFAULT_CAPTAIN_DUTY_ROWS = [
   { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
 ];
 captainDutyConfig = getDefaultCaptainDutyConfig();
+const VEHICLE_LOADING_SOURCE_URL = './jindo_vehicle_loading.html';
+const vehicleLoadingState = {
+  ships: [],
+  currentShipId: null,
+  openCaseIndex: null,
+  sourceFrame: null,
+  sourceWindow: null,
+  sourcePromise: null,
+  loadError: ''
+};
 
 const DATASETS = [
       { key: 'lawData',            title: '법령' },
@@ -834,6 +982,370 @@ const DATASETS = [
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function clonePlainData(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function normalizeVehicleLoadingShip(rawShip) {
+      const cases = Array.isArray(rawShip?.cases) ? rawShip.cases : [];
+      return {
+        id: String(rawShip?.id || ''),
+        name: String(rawShip?.name || ''),
+        meta: String(rawShip?.meta || ''),
+        cases_count: Number(rawShip?.cases_count || cases.length || 0),
+        limits: {
+          maxWeight: String(rawShip?.limits?.maxWeight || '-'),
+          axleLoad: String(rawShip?.limits?.axleLoad || '-')
+        },
+        cases: cases.map((rawCase) => ({
+          name: String(rawCase?.name || ''),
+          short: String(rawCase?.short || ''),
+          totalWeight: Number.isFinite(Number(rawCase?.totalWeight)) ? Number(rawCase.totalWeight) : null,
+          vehicles: Array.isArray(rawCase?.vehicles)
+            ? rawCase.vehicles.map((vehicle) => ({
+                icon: String(vehicle?.icon || '🚗'),
+                type: String(vehicle?.type || ''),
+                spec: String(vehicle?.spec || ''),
+                count: Number.isFinite(Number(vehicle?.count)) ? Number(vehicle.count) : String(vehicle?.count || '-')
+              }))
+            : [],
+          lashing: Array.isArray(rawCase?.lashing)
+            ? rawCase.lashing.map((item) => ({
+                label: String(item?.label || ''),
+                val: String(item?.val || '')
+              }))
+            : []
+        }))
+      };
+    }
+
+    function getVehicleLoadingCurrentShip() {
+      return vehicleLoadingState.ships.find((ship) => ship.id === vehicleLoadingState.currentShipId) || null;
+    }
+
+    function getVehicleLoadingImageData(shipId, caseIndex) {
+      if (!vehicleLoadingState.sourceWindow) return '';
+      try {
+        return String(
+          vehicleLoadingState.sourceWindow.eval(
+            `(typeof IMAGES !== 'undefined' && IMAGES[${JSON.stringify(String(shipId))}]) ? (IMAGES[${JSON.stringify(String(shipId))}][${Number(caseIndex)}] || '') : ''`
+          ) || ''
+        );
+      } catch (error) {
+        console.warn('[vehicle-loading] image load failed', error);
+        return '';
+      }
+    }
+
+    function getVehicleLoadingImageSrc(shipId, caseIndex) {
+      const encoded = getVehicleLoadingImageData(shipId, caseIndex);
+      return encoded ? `data:image/jpeg;base64,${encoded}` : '';
+    }
+
+    async function ensureVehicleLoadingSource() {
+      if (vehicleLoadingState.ships.length && vehicleLoadingState.sourceWindow) {
+        return vehicleLoadingState.ships;
+      }
+      if (vehicleLoadingState.sourcePromise) {
+        return vehicleLoadingState.sourcePromise;
+      }
+
+      vehicleLoadingState.loadError = '';
+      vehicleLoadingState.sourcePromise = new Promise((resolve, reject) => {
+        let iframe = vehicleLoadingState.sourceFrame;
+
+        const finalize = () => {
+          try {
+            const frameWindow = iframe?.contentWindow;
+            if (!frameWindow || typeof frameWindow.eval !== 'function') {
+              throw new Error('차량적재도 원본 창에 접근할 수 없습니다.');
+            }
+            const rawShips = frameWindow.eval('SHIPS');
+            if (!Array.isArray(rawShips)) {
+              throw new Error('차량적재도 데이터 형식을 읽지 못했습니다.');
+            }
+            vehicleLoadingState.sourceWindow = frameWindow;
+            vehicleLoadingState.ships = clonePlainData(rawShips).map(normalizeVehicleLoadingShip);
+            if (vehicleLoadingState.currentShipId && !vehicleLoadingState.ships.some((ship) => ship.id === vehicleLoadingState.currentShipId)) {
+              vehicleLoadingState.currentShipId = null;
+              vehicleLoadingState.openCaseIndex = null;
+            }
+            resolve(vehicleLoadingState.ships);
+          } catch (error) {
+            reject(error);
+          }
+        };
+
+        const handleError = () => {
+          reject(new Error('차량적재도 원본 파일을 불러오지 못했습니다.'));
+        };
+
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.src = VEHICLE_LOADING_SOURCE_URL;
+          iframe.setAttribute('aria-hidden', 'true');
+          iframe.tabIndex = -1;
+          iframe.style.position = 'fixed';
+          iframe.style.width = '0';
+          iframe.style.height = '0';
+          iframe.style.border = '0';
+          iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'none';
+          iframe.style.left = '-9999px';
+          iframe.style.bottom = '0';
+          iframe.addEventListener('load', finalize, { once: true });
+          iframe.addEventListener('error', handleError, { once: true });
+          document.body.appendChild(iframe);
+          vehicleLoadingState.sourceFrame = iframe;
+          return;
+        }
+
+        iframe.addEventListener('load', finalize, { once: true });
+        iframe.addEventListener('error', handleError, { once: true });
+
+        if (iframe.contentDocument?.readyState === 'complete') {
+          finalize();
+        }
+      })
+        .catch((error) => {
+          vehicleLoadingState.loadError = error instanceof Error ? error.message : String(error);
+          vehicleLoadingState.sourceWindow = null;
+          vehicleLoadingState.ships = [];
+          throw error;
+        })
+        .finally(() => {
+          vehicleLoadingState.sourcePromise = null;
+        });
+
+      return vehicleLoadingState.sourcePromise;
+    }
+
+    function buildVehicleLoadingShipCards() {
+      return vehicleLoadingState.ships.map((ship) => {
+        const isActive = ship.id === vehicleLoadingState.currentShipId;
+        return `
+          <button
+            type="button"
+            class="vehicle-loading-ship-card${isActive ? ' is-active' : ''}"
+            data-vehicle-loading-ship="${escapeHtml(ship.id)}"
+          >
+            <div class="text-base font-black text-white">${escapeHtml(ship.name)}</div>
+            <div class="mt-1 text-xs text-slate-400">${escapeHtml(ship.meta || '-')}</div>
+            <div class="mt-4 inline-flex items-center rounded-full border border-lime-500/20 bg-slate-900/80 px-3 py-1 text-[11px] font-bold text-lime-300">
+              ${escapeHtml(String(ship.cases.length || ship.cases_count || 0))}케이스
+            </div>
+          </button>`;
+      }).join('');
+    }
+
+    function buildVehicleLoadingCaseDetail(ship, caseData, caseIndex) {
+      const imageSrc = getVehicleLoadingImageSrc(ship.id, caseIndex);
+      const weightMarkup = caseData.totalWeight !== null
+        ? `
+          <div class="rounded-2xl border border-lime-500/20 bg-lime-500/10 px-4 py-3">
+            <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-lime-300">총 적재중량</p>
+            <p class="mt-2 text-2xl font-black text-white">${escapeHtml(caseData.totalWeight.toFixed(3))}<span class="ml-1 text-sm font-semibold text-lime-200">TON</span></p>
+          </div>`
+        : '';
+      const previewMarkup = imageSrc
+        ? `
+          <div class="rounded-[1.1rem] border border-slate-700 bg-slate-950/80 p-3">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <p class="text-sm font-bold text-white">적재 도면</p>
+              <span class="text-[11px] font-semibold text-cyan-300">탭하면 전체화면 확대</span>
+            </div>
+            <button
+              type="button"
+              class="vehicle-loading-preview-btn"
+              data-vehicle-loading-image="${caseIndex}"
+              data-vehicle-loading-ship-id="${escapeHtml(ship.id)}"
+            >
+              <img src="${imageSrc}" alt="${escapeHtml(`${ship.name} ${caseData.name} 적재도면`)}" loading="lazy" />
+            </button>
+          </div>`
+        : `
+          <div class="rounded-[1.1rem] border border-dashed border-slate-700 bg-slate-900/60 px-4 py-8 text-center text-sm text-slate-400">
+            등록된 적재 도면이 없습니다.
+          </div>`;
+      return `
+        <div class="px-4 pb-4 pt-3">
+          <div class="vehicle-loading-detail-grid">
+            <div class="space-y-4">
+              ${previewMarkup}
+              ${weightMarkup}
+            </div>
+            <div class="space-y-4">
+              <div class="rounded-[1.1rem] border border-slate-700 bg-slate-900/70 p-4">
+                <p class="text-sm font-bold text-white">적재 차량</p>
+                <div class="mt-3 space-y-3">
+                  ${caseData.vehicles.map((vehicle) => `
+                    <div class="vehicle-loading-vehicle-row">
+                      <div class="text-2xl">${escapeHtml(vehicle.icon)}</div>
+                      <div class="min-w-0">
+                        <div class="text-sm font-bold text-white">${escapeHtml(vehicle.type)}</div>
+                        <div class="mt-1 text-xs text-slate-400">${escapeHtml(vehicle.spec)}</div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-xl font-black text-lime-300">${escapeHtml(String(vehicle.count))}</div>
+                        <div class="text-[11px] font-semibold text-slate-500">대</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="rounded-[1.1rem] border border-slate-700 bg-slate-900/70 p-4">
+                <p class="text-sm font-bold text-white">고박 장치</p>
+                <div class="mt-3">
+                  ${caseData.lashing.map((item) => `
+                    <div class="vehicle-loading-lashing-row">
+                      <span class="text-sm text-slate-300">${escapeHtml(item.label)}</span>
+                      <span class="text-sm font-bold text-lime-200">${escapeHtml(item.val)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function buildVehicleLoadingCaseCards(ship) {
+      return ship.cases.map((caseData, caseIndex) => {
+        const isOpen = vehicleLoadingState.openCaseIndex === caseIndex;
+        const weightText = caseData.totalWeight !== null ? `${caseData.totalWeight.toFixed(3)}T` : '';
+        return `
+          <article class="vehicle-loading-case-card${isOpen ? ' is-open' : ''}">
+            <button
+              type="button"
+              class="vehicle-loading-case-trigger"
+              data-vehicle-loading-case="${caseIndex}"
+            >
+              <span class="vehicle-loading-case-index">${caseIndex + 1}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-bold text-white">${escapeHtml(caseData.name)}</span>
+                <span class="mt-1 block text-xs text-slate-400">${escapeHtml(caseData.short)}</span>
+              </span>
+              ${weightText ? `<span class="shrink-0 rounded-full bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-200">${escapeHtml(weightText)}</span>` : ''}
+              <span class="vehicle-loading-case-arrow text-lg text-slate-500">›</span>
+            </button>
+            ${isOpen ? buildVehicleLoadingCaseDetail(ship, caseData, caseIndex) : ''}
+          </article>`;
+      }).join('');
+    }
+
+    function renderVehicleLoadingSection(section) {
+      const root = section?.querySelector('[data-vehicle-loading-root]');
+      if (!root) return;
+
+      if (vehicleLoadingState.loadError) {
+        root.innerHTML = `
+          <div class="rounded-3xl border border-rose-500/20 bg-slate-800/90 p-8 text-center">
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-rose-300"></i>
+            <h3 class="mt-4 text-xl font-bold text-white">차량적재도 데이터를 불러오지 못했습니다.</h3>
+            <p class="mt-3 text-sm text-slate-400">${escapeHtml(vehicleLoadingState.loadError)}</p>
+            <div class="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button type="button" id="vehicle-loading-retry-btn" class="rounded-2xl border border-lime-500/30 bg-slate-900 px-4 py-3 text-sm font-semibold text-lime-300 transition hover:border-lime-400 hover:text-lime-200">
+                다시 불러오기
+              </button>
+              <a href="./jindo_vehicle_loading.html" target="_blank" rel="noopener" class="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white">
+                원본 열기
+              </a>
+            </div>
+          </div>`;
+        return;
+      }
+
+      if (!vehicleLoadingState.ships.length) {
+        root.innerHTML = `
+          <div class="rounded-3xl border border-lime-500/20 bg-slate-800/80 px-6 py-10 text-center">
+            <div class="mx-auto h-12 w-12 animate-pulse rounded-full bg-lime-500/15 text-lime-300 flex items-center justify-center">
+              <i class="fa-solid fa-car-side text-xl"></i>
+            </div>
+            <p class="mt-4 text-base font-bold text-white">차량적재도 정보를 불러오는 중입니다.</p>
+            <p class="mt-2 text-sm text-slate-400">수정한 원본 파일 데이터를 앱 화면에 직접 반영하고 있습니다.</p>
+          </div>`;
+        ensureVehicleLoadingSource()
+          .then(() => renderVehicleLoadingSection(section))
+          .catch(() => renderVehicleLoadingSection(section));
+        return;
+      }
+
+      const currentShip = getVehicleLoadingCurrentShip();
+      root.innerHTML = `
+        <div class="space-y-6">
+          <section class="rounded-[1.75rem] border border-lime-500/20 bg-slate-900/70 p-4 sm:p-5">
+            <div class="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p class="text-[11px] font-bold uppercase tracking-[0.28em] text-lime-300">Vehicle Loading</p>
+                <h3 class="mt-2 text-xl font-black text-white">관리 선박 선택</h3>
+                <p class="mt-1 text-sm text-slate-400">선박을 누르면 적재 케이스와 도면이 바로 펼쳐집니다.</p>
+              </div>
+              <a href="./jindo_vehicle_loading.html" target="_blank" rel="noopener" class="hidden sm:inline-flex shrink-0 items-center gap-2 rounded-2xl border border-lime-500/25 bg-slate-800 px-4 py-3 text-sm font-semibold text-lime-300 transition hover:border-lime-400 hover:text-lime-200">
+                <i class="fa-solid fa-up-right-from-square"></i>
+                원본 열기
+              </a>
+            </div>
+            <div class="vehicle-loading-ship-grid">
+              ${buildVehicleLoadingShipCards()}
+            </div>
+            <div class="mt-4 sm:hidden">
+              <a href="./jindo_vehicle_loading.html" target="_blank" rel="noopener" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-lime-500/25 bg-slate-800 px-4 py-3 text-sm font-semibold text-lime-300 transition hover:border-lime-400 hover:text-lime-200">
+                <i class="fa-solid fa-up-right-from-square"></i>
+                원본 열기
+              </a>
+            </div>
+          </section>
+          ${currentShip ? `
+            <section class="space-y-4">
+              <div class="rounded-[1.75rem] border border-slate-700 bg-slate-800/80 p-4 sm:p-5">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h3 class="text-2xl font-black text-white">${escapeHtml(currentShip.name)}</h3>
+                    <p class="mt-1 text-sm text-slate-400">${escapeHtml(currentShip.meta || '-')}</p>
+                  </div>
+                  <div class="inline-flex items-center rounded-full bg-lime-500/10 px-4 py-2 text-sm font-bold text-lime-200">
+                    ${escapeHtml(String(currentShip.cases.length))}개 케이스
+                  </div>
+                </div>
+                <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div class="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-rose-200">최대 차량 총중량</p>
+                    <p class="mt-2 text-lg font-black text-white">${escapeHtml(currentShip.limits.maxWeight || '-')}</p>
+                  </div>
+                  <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-200">최대 차축 하중</p>
+                    <p class="mt-2 text-lg font-black text-white">${escapeHtml(currentShip.limits.axleLoad || '-')}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="space-y-3">
+                ${buildVehicleLoadingCaseCards(currentShip)}
+              </div>
+            </section>
+          ` : `
+            <section class="rounded-[1.75rem] border border-dashed border-slate-700 bg-slate-800/55 px-6 py-10 text-center">
+              <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-900/80 text-lime-300">
+                <i class="fa-solid fa-car-rear text-2xl"></i>
+              </div>
+              <h3 class="mt-4 text-xl font-bold text-white">선박을 먼저 선택하세요.</h3>
+              <p class="mt-2 text-sm text-slate-400">선박 선택 후 케이스를 열면 적재 도면과 차량 배치를 바로 볼 수 있습니다.</p>
+            </section>
+          `}
+        </div>`;
+    }
+
+    function openVehicleLoadingImage(shipId, caseIndex) {
+      const ship = vehicleLoadingState.ships.find((item) => item.id === shipId);
+      const caseData = ship?.cases?.[Number(caseIndex)];
+      const image = getVehicleLoadingImageSrc(shipId, caseIndex);
+      if (!ship || !caseData || !image) return;
+      openTimetableViewer({
+        name: `${ship.name} · ${caseData.name}`,
+        description: '차량 적재 도면',
+        image
+      });
     }
 
     function getWeatherApiBase() {
@@ -2596,38 +3108,11 @@ const DATASETS = [
               <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
               <div class="flex-1">
                 <h2 class="text-2xl font-bold text-lime-400">차량적재도</h2>
-                <p class="text-sm text-slate-400 mt-1">진도 차량적재도 화면을 앱 안에서 바로 확인할 수 있습니다.</p>
+                <p class="text-sm text-slate-400 mt-1">원본 파일 데이터를 읽어 앱 화면에서 직접 보여줍니다.</p>
               </div>
-              <a href="./jindo_vehicle_loading.html" target="_blank" rel="noopener" class="hidden sm:inline-flex items-center gap-2 rounded-2xl border border-lime-500/30 bg-slate-800 px-4 py-3 text-sm font-semibold text-lime-300 transition hover:border-lime-400 hover:text-lime-200">
-                <i class="fa-solid fa-up-right-from-square"></i>
-                원본 열기
-              </a>
             </div>
-            <div class="mb-4 sm:hidden">
-              <a href="./jindo_vehicle_loading.html" target="_blank" rel="noopener" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-lime-500/30 bg-slate-800 px-4 py-3 text-sm font-semibold text-lime-300 transition hover:border-lime-400 hover:text-lime-200">
-                <i class="fa-solid fa-up-right-from-square"></i>
-                원본 열기
-              </a>
-            </div>
-            <div class="rounded-3xl border border-lime-500/20 bg-slate-900/80 p-3 sm:p-4">
-              <div class="mb-3 flex items-center justify-between gap-3 px-2">
-                <div>
-                  <h3 class="text-lg font-bold text-white">진도 차량적재도</h3>
-                  <p class="mt-1 text-xs text-slate-400">선박 선택, 적재 사례, 배치 이미지를 그대로 확인할 수 있습니다.</p>
-                </div>
-                <div class="hidden md:flex h-11 w-11 items-center justify-center rounded-2xl bg-lime-500/10 text-lime-300">
-                  <i class="fa-solid fa-car-side text-xl"></i>
-                </div>
-              </div>
-              <div class="overflow-hidden rounded-[1.75rem] border border-slate-700 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.28)]">
-                <iframe
-                  src="./jindo_vehicle_loading.html"
-                  title="차량적재도"
-                  loading="lazy"
-                  class="block h-[78vh] min-h-[720px] w-full bg-white"
-                ></iframe>
-              </div>
-            </div>`;
+            <div data-vehicle-loading-root></div>`;
+          requestAnimationFrame(() => renderVehicleLoadingSection(section));
           break;
 
         case 'dangerous-goods-search-section':
@@ -3313,7 +3798,46 @@ case 'ship-detail-section':
         return;
       }
 
+      const vehicleLoadingShipBtn = e.target.closest('[data-vehicle-loading-ship]');
+      if (vehicleLoadingShipBtn) {
+        const shipId = String(vehicleLoadingShipBtn.dataset.vehicleLoadingShip || '');
+        if (shipId) {
+          vehicleLoadingState.currentShipId = shipId;
+          vehicleLoadingState.openCaseIndex = null;
+          renderVehicleLoadingSection(document.getElementById('vehicle-loading-section'));
+        }
+        return;
+      }
+
+      const vehicleLoadingCaseBtn = e.target.closest('[data-vehicle-loading-case]');
+      if (vehicleLoadingCaseBtn) {
+        const nextCaseIndex = Number(vehicleLoadingCaseBtn.dataset.vehicleLoadingCase);
+        vehicleLoadingState.openCaseIndex = vehicleLoadingState.openCaseIndex === nextCaseIndex ? null : nextCaseIndex;
+        renderVehicleLoadingSection(document.getElementById('vehicle-loading-section'));
+        return;
+      }
+
+      const vehicleLoadingImageBtn = e.target.closest('[data-vehicle-loading-image]');
+      if (vehicleLoadingImageBtn) {
+        openVehicleLoadingImage(
+          String(vehicleLoadingImageBtn.dataset.vehicleLoadingShipId || ''),
+          Number(vehicleLoadingImageBtn.dataset.vehicleLoadingImage)
+        );
+        return;
+      }
+
       const target = e.target.closest('div, button'); if (!target) return;
+      if (target.id === 'vehicle-loading-retry-btn') {
+        vehicleLoadingState.loadError = '';
+        vehicleLoadingState.sourceWindow = null;
+        vehicleLoadingState.ships = [];
+        if (vehicleLoadingState.sourceFrame) {
+          vehicleLoadingState.sourceFrame.remove();
+          vehicleLoadingState.sourceFrame = null;
+        }
+        renderVehicleLoadingSection(document.getElementById('vehicle-loading-section'));
+        return;
+      }
       if (target.id === 'captain-duty-settings-btn') {
         openCaptainDutySettingsModal();
         return;
