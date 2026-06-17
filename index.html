@@ -971,6 +971,13 @@ const DATASETS = [
     }
 
     let weatherSectionRequestId = 0;
+    const WEATHER_HISTORY_WINDOW_MS = 6 * 60 * 60 * 1000;
+    const WEATHER_HISTORY_STORAGE_KEY = 'weatherHistoryBySelection.v1';
+    const weatherSectionState = {
+      querySnapshot: null,
+      currentRowsBySelection: new Map(),
+      historyBySelection: new Map()
+    };
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -1361,6 +1368,236 @@ const DATASETS = [
         metrics.push({ label: '가시거리', value: String(row.visibility).trim() });
       }
       return metrics;
+    }
+
+    function resetWeatherSectionState() {
+      weatherSectionState.querySnapshot = null;
+      weatherSectionState.currentRowsBySelection = new Map();
+      weatherSectionState.historyBySelection = new Map();
+    }
+
+    function hydrateWeatherSectionState(querySnapshot) {
+      resetWeatherSectionState();
+      weatherSectionState.querySnapshot = querySnapshot || null;
+
+      const rows = Array.isArray(querySnapshot?.rows) ? querySnapshot.rows : [];
+      rows.forEach((row) => {
+        weatherSectionState.currentRowsBySelection.set(buildWeatherSelectionKey(row), row);
+      });
+
+      const remoteHistoryBySelection = querySnapshot?.historyBySelection && typeof querySnapshot.historyBySelection === 'object'
+        ? querySnapshot.historyBySelection
+        : {};
+      const mergedHistoryBySelection = mergeWeatherHistoryCollections(
+        readStoredWeatherHistory(),
+        remoteHistoryBySelection,
+        buildWeatherLiveHistoryBySelection(rows)
+      );
+      writeStoredWeatherHistory(mergedHistoryBySelection);
+
+      Object.entries(mergedHistoryBySelection).forEach(([selectionKey, samples]) => {
+        if (Array.isArray(samples)) {
+          weatherSectionState.historyBySelection.set(selectionKey, samples);
+        }
+      });
+    }
+
+    function parseWeatherObservationDate(sample) {
+      const observedAtText = String(sample?.observedAt || '').trim();
+      if (observedAtText) {
+        const observedAt = new Date(observedAtText);
+        if (!Number.isNaN(observedAt.getTime())) return observedAt;
+      }
+
+      const year = String(sample?.year || '').trim();
+      const monthDay = String(sample?.monthDay || '').trim();
+      const hhmm = String(sample?.hhmm || '').trim();
+      if (!/^\d{4}$/.test(year) || !/^\d{4}$/.test(monthDay) || !/^\d{4}$/.test(hhmm)) {
+        return null;
+      }
+
+      const observedAt = new Date(`${year}-${monthDay.slice(0, 2)}-${monthDay.slice(2, 4)}T${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}:00+09:00`);
+      return Number.isNaN(observedAt.getTime()) ? null : observedAt;
+    }
+
+    function buildWeatherHistorySampleKey(sample) {
+      const observedAtText = String(sample?.observedAt || '').trim();
+      if (observedAtText) return observedAtText;
+      return [
+        String(sample?.year || '').trim(),
+        String(sample?.monthDay || '').trim(),
+        String(sample?.hhmm || '').trim()
+      ].join('-');
+    }
+
+    function mergeWeatherHistorySampleLists(...lists) {
+      const cutoff = Date.now() - WEATHER_HISTORY_WINDOW_MS;
+      const deduped = new Map();
+
+      lists.flat().forEach((sample) => {
+        if (!sample || typeof sample !== 'object') return;
+        const observedAt = parseWeatherObservationDate(sample);
+        if (observedAt && observedAt.getTime() < cutoff) return;
+        const normalizedSample = observedAt ? { ...sample, observedAt: observedAt.toISOString() } : sample;
+        deduped.set(buildWeatherHistorySampleKey(normalizedSample), normalizedSample);
+      });
+
+      return Array.from(deduped.values()).sort((a, b) => {
+        const aTime = parseWeatherObservationDate(a)?.getTime() ?? 0;
+        const bTime = parseWeatherObservationDate(b)?.getTime() ?? 0;
+        return aTime - bTime;
+      });
+    }
+
+    function normalizeWeatherHistoryCollection(value) {
+      const normalized = {};
+      if (!value || typeof value !== 'object') return normalized;
+
+      Object.entries(value).forEach(([selectionKey, samples]) => {
+        const merged = mergeWeatherHistorySampleLists(...(Array.isArray(samples) ? [samples] : [[]]));
+        if (merged.length) normalized[selectionKey] = merged;
+      });
+
+      return normalized;
+    }
+
+    function readStoredWeatherHistory() {
+      try {
+        return normalizeWeatherHistoryCollection(JSON.parse(localStorage.getItem(WEATHER_HISTORY_STORAGE_KEY) || '{}'));
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function writeStoredWeatherHistory(historyBySelection) {
+      try {
+        localStorage.setItem(WEATHER_HISTORY_STORAGE_KEY, JSON.stringify(normalizeWeatherHistoryCollection(historyBySelection)));
+      } catch (error) {
+        // localStorage may be unavailable in limited environments.
+      }
+    }
+
+    function buildWeatherLiveHistoryBySelection(rows) {
+      const liveHistory = {};
+      rows.forEach((row) => {
+        const selectionKey = buildWeatherSelectionKey(row);
+        if (!SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.includes(selectionKey)) return;
+        liveHistory[selectionKey] = mergeWeatherHistorySampleLists(liveHistory[selectionKey] || [], [row]);
+      });
+      return liveHistory;
+    }
+
+    function mergeWeatherHistoryCollections(...collections) {
+      const merged = {};
+      collections.forEach((collection) => {
+        Object.entries(normalizeWeatherHistoryCollection(collection)).forEach(([selectionKey, samples]) => {
+          merged[selectionKey] = mergeWeatherHistorySampleLists(merged[selectionKey] || [], samples);
+        });
+      });
+      return merged;
+    }
+
+    function getWeatherHistorySamples(selectionKey) {
+      const historySamples = weatherSectionState.historyBySelection.get(selectionKey);
+      const currentRow = weatherSectionState.currentRowsBySelection.get(selectionKey);
+      const merged = mergeWeatherHistorySampleLists(
+        Array.isArray(historySamples) ? historySamples : [],
+        currentRow ? [currentRow] : []
+      );
+      if (!merged.length && currentRow) return [currentRow];
+      return merged;
+    }
+
+    function formatWeatherHistoryTimestamp(sample) {
+      const observedAt = parseWeatherObservationDate(sample);
+      if (!observedAt) return formatWeatherHhmm(sample?.hhmm);
+
+      const now = new Date();
+      const sameDay = observedAt.toDateString() === now.toDateString();
+      const formatOptions = sameDay
+        ? { hour: '2-digit', minute: '2-digit', hour12: false }
+        : { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
+
+      return new Intl.DateTimeFormat('ko-KR', formatOptions).format(observedAt);
+    }
+
+    function buildWeatherMetricBadgesHtml(row, { emptyLabel = '관측값 없음' } = {}) {
+      const metrics = buildWeatherMetrics(row);
+      if (!metrics.length) {
+        return `<span class="inline-flex items-center rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-400">${escapeHtml(emptyLabel)}</span>`;
+      }
+
+      return metrics.map((metric) => `
+        <span class="inline-flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-100">
+          <span class="text-slate-400">${escapeHtml(metric.label)}</span>
+          <span class="text-emerald-200">${escapeHtml(formatWeatherMetricValue(metric))}</span>
+        </span>`).join('');
+    }
+
+    function buildWeatherHistoryModalContent(selectionKey) {
+      const currentRow = weatherSectionState.currentRowsBySelection.get(selectionKey);
+      if (!currentRow) {
+        return `
+          <div class="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-100">
+            현재 관측값을 찾지 못했습니다. 날씨 섹션을 다시 불러온 뒤 시도해 주세요.
+          </div>`;
+      }
+
+      const samplesAsc = getWeatherHistorySamples(selectionKey);
+      const samplesDesc = [...samplesAsc].reverse();
+      const displayTypeLabel = formatObservationTypeDisplay(getObservationTypeLabel(currentRow.observationType));
+      const latestTime = formatWeatherHistoryTimestamp(currentRow);
+      const accumulatingMessage = samplesAsc.length < 2
+        ? `<div class="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+             최근 6시간 이력은 누적 중입니다. 현재는 ${samplesAsc.length}건만 표시됩니다.
+           </div>`
+        : '';
+
+      return `
+        <div class="space-y-5">
+          <section class="rounded-3xl border border-slate-700 bg-slate-800/80 p-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div class="text-sm font-semibold text-cyan-200">${escapeHtml(displayTypeLabel)}</div>
+                <h3 class="mt-1 text-2xl font-bold text-white">${escapeHtml(currentRow.stationName)}</h3>
+                <p class="mt-2 text-sm text-slate-400">현재 관측 시각 ${escapeHtml(latestTime)} · 최근 6시간 ${samplesAsc.length}건</p>
+              </div>
+              <span class="rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-300">현재 관측값</span>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              ${buildWeatherMetricBadgesHtml(currentRow)}
+            </div>
+          </section>
+          ${accumulatingMessage}
+          <section class="rounded-3xl border border-slate-700 bg-slate-800/70 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h4 class="text-lg font-bold text-cyan-200">최근 6시간 관측 기록</h4>
+                <p class="mt-1 text-sm text-slate-400">최신 시각부터 과거 순서로 모두 표시합니다.</p>
+              </div>
+              <span class="rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-300">${samplesAsc.length}건</span>
+            </div>
+            <div class="mt-4 space-y-3">
+              ${samplesDesc.map((sample) => `
+                <article class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-base font-semibold text-white">${escapeHtml(formatWeatherHistoryTimestamp(sample))}</div>
+                    <span class="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-300">${escapeHtml(formatObservationTypeDisplay(getObservationTypeLabel(sample.observationType)))}</span>
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    ${buildWeatherMetricBadgesHtml(sample)}
+                  </div>
+                </article>`).join('')}
+            </div>
+          </section>
+        </div>`;
+    }
+
+    function openWeatherHistoryModal(selectionKey) {
+      if (!selectionKey) return;
+      const currentRow = weatherSectionState.currentRowsBySelection.get(selectionKey);
+      if (!currentRow) return;
+      showModal(`${currentRow.stationName} 최근 6시간`, buildWeatherHistoryModalContent(selectionKey));
     }
 
     function getWarningTone(level) {
@@ -2313,7 +2550,7 @@ const DATASETS = [
 
         const { displayTypeLabel, metrics, timeText } = buildWeatherInlineSummary(row);
         return `
-          <article class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-3 sm:px-4 sm:py-4">
+          <article class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-3 transition hover:border-cyan-400/50 hover:bg-slate-800 cursor-pointer sm:px-4 sm:py-4" data-weather-history-card="true" data-selection-key="${escapeHtml(selectionKey)}">
             <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold leading-tight text-slate-100 sm:text-base">
@@ -2330,9 +2567,13 @@ const DATASETS = [
                         </div>`).join('')
                     : `<div class="text-center">
                          <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">상태</div>
-                         <div class="mt-1 text-xs font-bold leading-none text-slate-300 sm:text-sm">없음</div>
+                       <div class="mt-1 text-xs font-bold leading-none text-slate-300 sm:text-sm">없음</div>
                        </div>`}
               </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between border-t border-slate-700/80 pt-3 text-xs text-slate-400">
+              <span>터치하면 최근 6시간 이력 보기</span>
+              <i class="fa-solid fa-chevron-right text-slate-500"></i>
             </div>
           </article>`;
       }).join('');
@@ -2370,6 +2611,7 @@ const DATASETS = [
       if (!statusEl || !panelsEl) return;
 
       const requestId = ++weatherSectionRequestId;
+      resetWeatherSectionState();
       statusEl.innerHTML = `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-300">날씨 데이터를 불러오는 중...</div>`;
       panelsEl.innerHTML = '';
 
@@ -2377,13 +2619,18 @@ const DATASETS = [
         const sbHeaders = {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          ...(bustCache ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } : {}),
         };
         const cacheUrl = (id) =>
-          `${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.${id}&select=payload,fetchedAt${bustCache ? `&_ts=${Date.now()}` : ''}`;
+          `${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.${encodeURIComponent(id)}&select=payload,fetchedAt`;
+        const fetchOptions = {
+          headers: sbHeaders,
+          cache: bustCache ? 'no-store' : 'default'
+        };
 
         const [areaRes, buoyRes] = await Promise.all([
-          fetch(cacheUrl('kma-warning-snapshot'), { headers: sbHeaders }),
-          fetch(cacheUrl('kma-buoy-snapshot'),    { headers: sbHeaders }),
+          fetch(cacheUrl('kma-warning-snapshot'), fetchOptions),
+          fetch(cacheUrl('kma-buoy-snapshot'), fetchOptions),
         ]);
 
         if (!areaRes.ok || !buoyRes.ok) {
@@ -2401,6 +2648,7 @@ const DATASETS = [
           throw new Error('캐시 데이터가 아직 준비되지 않았습니다. 1~2분 후 다시 시도해 주세요.');
         }
 
+        hydrateWeatherSectionState(querySnapshot);
         statusEl.innerHTML = fetchedAt
           ? `<div class="mb-3 rounded-xl bg-slate-800/60 px-3 py-1.5 text-xs text-slate-400 inline-block">
                <i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>
@@ -2410,6 +2658,7 @@ const DATASETS = [
         panelsEl.innerHTML = buildWeatherSummaryPanels(areaSnapshot, querySnapshot);
       } catch (error) {
         if (requestId !== weatherSectionRequestId) return;
+        resetWeatherSectionState();
         statusEl.innerHTML = `
           <div class="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-100">
             <i class="fa-solid fa-triangle-exclamation mr-2"></i>${escapeHtml(String(error.message))}
@@ -3755,6 +4004,12 @@ case 'ship-detail-section':
           String(vehicleLoadingImageBtn.dataset.vehicleLoadingShipId || ''),
           Number(vehicleLoadingImageBtn.dataset.vehicleLoadingImage)
         );
+        return;
+      }
+
+      const weatherHistoryCard = e.target.closest('[data-weather-history-card]');
+      if (weatherHistoryCard) {
+        openWeatherHistoryModal(String(weatherHistoryCard.dataset.selectionKey || ''));
         return;
       }
 
