@@ -2643,8 +2643,15 @@ const DATASETS = [
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           ...(bustCache ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } : {}),
         };
-        const cacheUrl = (id) =>
-          `${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.${encodeURIComponent(id)}&select=payload,fetchedAt`;
+        const cacheUrl = (id) => {
+          const url = new URL(`${SUPABASE_URL}/rest/v1/external_api_cache`);
+          url.searchParams.set('id', `eq.${String(id || '').trim()}`);
+          url.searchParams.set('select', 'payload,fetchedAt');
+          if (bustCache) {
+            url.searchParams.set('fetchedAt', `lte.${new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString()}`);
+          }
+          return url.toString();
+        };
         const fetchOptions = {
           headers: sbHeaders,
           cache: bustCache ? 'no-store' : 'default'
