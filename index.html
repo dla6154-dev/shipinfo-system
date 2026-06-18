@@ -1303,6 +1303,46 @@ const DATASETS = [
       return url.toString();
     }
 
+    function buildSupabaseFunctionUrl(functionName) {
+      return `${SUPABASE_URL}/functions/v1/${encodeURIComponent(String(functionName || '').replace(/^\/+/, ''))}`;
+    }
+
+    async function refreshWeatherSnapshots() {
+      const functionHeaders = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
+      const functionNames = ['fetch-kma-warning', 'fetch-kma-buoy'];
+      const results = await Promise.allSettled(
+        functionNames.map((functionName) =>
+          fetch(buildSupabaseFunctionUrl(functionName), {
+            method: 'POST',
+            headers: functionHeaders,
+            body: '{}',
+            cache: 'no-store'
+          })
+        )
+      );
+
+      const failures = [];
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          failures.push(`${functionNames[index]} network error`);
+          return;
+        }
+        if (!result.value.ok) {
+          failures.push(`${functionNames[index]} ${result.value.status}`);
+        }
+      });
+
+      if (failures.length) {
+        console.warn('Weather cache refresh failed:', failures.join(', '));
+      }
+    }
+
     function formatWeatherIsoTimestamp(value) {
       const text = String(value || '').trim();
       if (!text) return '-';
@@ -2589,10 +2629,15 @@ const DATASETS = [
 
       const requestId = ++weatherSectionRequestId;
       resetWeatherSectionState();
-      statusEl.innerHTML = `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-300">날씨 데이터를 불러오는 중...</div>`;
+      statusEl.innerHTML = `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-300">${bustCache ? '최신 날씨 데이터를 갱신하는 중...' : '날씨 데이터를 불러오는 중...'}</div>`;
       panelsEl.innerHTML = '';
 
       try {
+        if (bustCache) {
+          await refreshWeatherSnapshots();
+          if (requestId !== weatherSectionRequestId) return;
+        }
+
         const sbHeaders = {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
