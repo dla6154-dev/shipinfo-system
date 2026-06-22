@@ -566,7 +566,8 @@
     // 2) 전역 상태 (Firestore 동기화)
     // ===============================
 let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
-let captainDutyConfig;
+let captainDutyConfigsByMonth = {};
+let captainDutyViewYearMonth = getCurrentCaptainDutyYearMonth();
 let _appHistoryReady = false;  // History API 초기화 여부
 let _historyNavigation = false; // popstate 처리 중 여부 (pushState 방지)
 const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
@@ -794,7 +795,9 @@ const DEFAULT_CAPTAIN_DUTY_ROWS = [
   { shipName: '한림페리11호', mainCaptain: '이수행', reliefCaptain: '김종현', startDay: 21, endDay: 25 },
   { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
 ];
-captainDutyConfig = getDefaultCaptainDutyConfig();
+captainDutyConfigsByMonth = {
+  [captainDutyViewYearMonth]: getDefaultCaptainDutyConfig(captainDutyViewYearMonth)
+};
 const vehicleLoadingState = {
   ships: [],
   currentShipId: null,
@@ -846,9 +849,9 @@ const DATASETS = [
 
       onSnapshot(captainDutyDoc(), (snap) => {
         if (snap.exists()) {
-          captainDutyConfig = normalizeCaptainDutyConfig(snap.data());
+          captainDutyConfigsByMonth = normalizeCaptainDutyConfigStore(snap.data());
         } else {
-          captainDutyConfig = getDefaultCaptainDutyConfig();
+          captainDutyConfigsByMonth = normalizeCaptainDutyConfigStore();
         }
         rerenderIfVisible('captainDutyData');
       }, (err) => console.error('[captainDutyData] 실시간 구독 오류', err));
@@ -873,9 +876,9 @@ const DATASETS = [
 
     async function loadCaptainDutyConfig() {
       const snap = await getDoc(captainDutyDoc());
-      captainDutyConfig = snap.exists()
-        ? normalizeCaptainDutyConfig(snap.data())
-        : getDefaultCaptainDutyConfig();
+      captainDutyConfigsByMonth = snap.exists()
+        ? normalizeCaptainDutyConfigStore(snap.data())
+        : normalizeCaptainDutyConfigStore();
     }
 
     function loadFavoriteShipIds() {
@@ -2274,10 +2277,22 @@ const DATASETS = [
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    function getDefaultCaptainDutyConfig() {
+    function isCaptainDutyYearMonth(value) {
+      return /^\d{4}-\d{2}$/.test(String(value || '').trim());
+    }
+
+    function normalizeCaptainDutyYearMonth(value, fallback = getCurrentCaptainDutyYearMonth()) {
+      return isCaptainDutyYearMonth(value) ? String(value).trim() : fallback;
+    }
+
+    function getDefaultCaptainDutyRows() {
+      return DEFAULT_CAPTAIN_DUTY_ROWS.map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }));
+    }
+
+    function getDefaultCaptainDutyConfig(yearMonth = getCurrentCaptainDutyYearMonth()) {
       return {
-        yearMonth: getCurrentCaptainDutyYearMonth(),
-        rows: DEFAULT_CAPTAIN_DUTY_ROWS.map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }))
+        yearMonth: normalizeCaptainDutyYearMonth(yearMonth),
+        rows: getDefaultCaptainDutyRows()
       };
     }
 
@@ -2299,11 +2314,9 @@ const DATASETS = [
       };
     }
 
-    function normalizeCaptainDutyConfig(rawConfig) {
-      const fallback = getDefaultCaptainDutyConfig();
-      const yearMonth = /^\d{4}-\d{2}$/.test(String(rawConfig?.yearMonth || '').trim())
-        ? String(rawConfig.yearMonth).trim()
-        : fallback.yearMonth;
+    function normalizeCaptainDutyConfig(rawConfig, fallbackYearMonth = getCurrentCaptainDutyYearMonth()) {
+      const yearMonth = normalizeCaptainDutyYearMonth(rawConfig?.yearMonth, fallbackYearMonth);
+      const fallback = getDefaultCaptainDutyConfig(yearMonth);
       const baseRows = Array.isArray(rawConfig?.rows) && rawConfig.rows.length
         ? rawConfig.rows
         : fallback.rows;
@@ -2311,6 +2324,46 @@ const DATASETS = [
         yearMonth,
         rows: baseRows.map((row, index) => normalizeCaptainDutyRow(row, index))
       };
+    }
+
+    function normalizeCaptainDutyConfigStore(rawValue) {
+      const normalizedStore = {};
+      const monthlyConfigs = rawValue?.monthlyConfigs && typeof rawValue.monthlyConfigs === 'object' && !Array.isArray(rawValue.monthlyConfigs)
+        ? rawValue.monthlyConfigs
+        : {};
+
+      Object.entries(monthlyConfigs).forEach(([yearMonth, config]) => {
+        if (!isCaptainDutyYearMonth(yearMonth)) return;
+        const rawConfig = config && typeof config === 'object' ? config : {};
+        normalizedStore[yearMonth] = normalizeCaptainDutyConfig({ ...rawConfig, yearMonth }, yearMonth);
+      });
+
+      if (!Object.keys(normalizedStore).length && (Array.isArray(rawValue?.rows) || isCaptainDutyYearMonth(rawValue?.yearMonth))) {
+        const legacyYearMonth = normalizeCaptainDutyYearMonth(rawValue?.yearMonth);
+        normalizedStore[legacyYearMonth] = normalizeCaptainDutyConfig({
+          yearMonth: legacyYearMonth,
+          rows: rawValue?.rows
+        }, legacyYearMonth);
+      }
+
+      if (!Object.keys(normalizedStore).length) {
+        const currentYearMonth = getCurrentCaptainDutyYearMonth();
+        normalizedStore[currentYearMonth] = getDefaultCaptainDutyConfig(currentYearMonth);
+      }
+
+      return normalizedStore;
+    }
+
+    function getCaptainDutyConfigForYearMonth(yearMonth, store = captainDutyConfigsByMonth) {
+      const normalizedYearMonth = normalizeCaptainDutyYearMonth(yearMonth);
+      const rawConfig = store?.[normalizedYearMonth];
+      return rawConfig
+        ? normalizeCaptainDutyConfig(rawConfig, normalizedYearMonth)
+        : getDefaultCaptainDutyConfig(normalizedYearMonth);
+    }
+
+    function hasCaptainDutyConfigForYearMonth(yearMonth, store = captainDutyConfigsByMonth) {
+      return Boolean(store?.[normalizeCaptainDutyYearMonth(yearMonth)]);
     }
 
     function formatCaptainDutyYearMonth(yearMonth) {
@@ -2339,12 +2392,11 @@ const DATASETS = [
     }
 
     function buildCaptainDutySectionHtml() {
-      const config = normalizeCaptainDutyConfig(captainDutyConfig);
+      const yearMonth = normalizeCaptainDutyYearMonth(captainDutyViewYearMonth);
+      const config = getCaptainDutyConfigForYearMonth(yearMonth);
+      const hasSavedConfig = hasCaptainDutyConfigForYearMonth(yearMonth);
       const daysInMonth = getCaptainDutyDaysInMonth(config.yearMonth);
       const headCells = config.rows.map((row) => {
-        const periodText = row.startDay != null && row.endDay != null
-          ? `${row.startDay}~${row.endDay}일`
-          : '교대 없음';
         return `<th scope="col">
           <span class="captain-duty-ship-name">${escapeHtml(row.shipName || '미정')}</span>
         </th>`;
@@ -2371,7 +2423,13 @@ const DATASETS = [
           </button>
         </div>
         <div class="mb-4 flex flex-wrap items-center gap-3">
-          <span class="inline-flex items-center rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 border border-slate-700">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))}</span>
+          <label class="inline-flex items-center gap-3 rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 border border-slate-700">
+            <span class="text-slate-400">표시 월</span>
+            <input type="month" id="captain-duty-view-month-input" class="bg-transparent text-slate-100 outline-none" value="${escapeHtml(config.yearMonth)}" />
+          </label>
+          <span class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold border ${hasSavedConfig ? 'bg-emerald-500/10 text-emerald-200 border-emerald-400/20' : 'bg-amber-500/10 text-amber-200 border-amber-400/20'}">
+            ${hasSavedConfig ? '저장된 월별 근무표' : '이 월은 아직 저장 전 기본값입니다.'}
+          </span>
           <span class="inline-flex items-center rounded-full bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 border border-rose-400/20">분홍색 칸은 예비선장 근무일입니다.</span>
         </div>
         <div class="captain-duty-table-wrap">
@@ -2388,7 +2446,7 @@ const DATASETS = [
     }
 
     function buildCaptainDutySettingsModal() {
-      const config = normalizeCaptainDutyConfig(captainDutyConfig);
+      const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
       const rowsHtml = config.rows.map((row, index) => `
         <div class="captain-duty-settings-row" data-captain-duty-row="${index}">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2426,6 +2484,9 @@ const DATASETS = [
           <div class="captain-duty-settings-grid">${rowsHtml}</div>
           <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
             교대기간 안에는 예비 선장이 표시되고, 기간 밖에는 본선 선장이 표시됩니다.
+          </div>
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
+            다른 월을 수정하려면 먼저 화면의 표시 월을 바꾼 뒤 설정을 열어 주세요. 저장은 월별로 따로 보관됩니다.
           </div>
           <button id="captain-duty-settings-save-btn" type="button" class="w-full rounded-2xl bg-rose-600 px-5 py-3 font-bold text-white hover:bg-rose-700">
             <i class="fa-solid fa-save mr-2"></i> 저장하고 바로 적용
@@ -2482,7 +2543,7 @@ const DATASETS = [
           renderSection('captain-duty-section');
         }
         if (statusEl) {
-          statusEl.textContent = '저장되었습니다. 화면에 바로 반영했습니다.';
+          statusEl.textContent = `${formatCaptainDutyYearMonth(normalized.yearMonth)} 근무표를 저장했습니다.`;
           statusEl.className = 'text-sm text-center text-green-400';
         }
         setTimeout(() => hideModal(), 500);
@@ -2720,8 +2781,15 @@ const DATASETS = [
 
     async function saveCaptainDutyConfig(config) {
       const normalized = normalizeCaptainDutyConfig(config);
-      captainDutyConfig = normalized;
-      await setDoc(captainDutyDoc(), normalized, { merge: true });
+      const snap = await getDoc(captainDutyDoc());
+      const latestStore = snap.exists()
+        ? normalizeCaptainDutyConfigStore(snap.data())
+        : {};
+      captainDutyConfigsByMonth = {
+        ...latestStore,
+        [normalized.yearMonth]: normalized
+      };
+      await setDoc(captainDutyDoc(), { monthlyConfigs: captainDutyConfigsByMonth });
       await bumpMetaTimestamp();
     }
 
@@ -4188,6 +4256,15 @@ case 'ship-detail-section':
     document.addEventListener('input', async (e) => {
       if (e.target.id === 'excel-upload') handleFileUpload(e);
       const term = (e.target.value || '').toLowerCase().trim();
+      if (e.target.id === 'captain-duty-view-month-input') {
+        const nextYearMonth = normalizeCaptainDutyYearMonth(e.target.value, captainDutyViewYearMonth);
+        if (nextYearMonth !== captainDutyViewYearMonth) {
+          captainDutyViewYearMonth = nextYearMonth;
+          if (!sections['captain-duty-section'].classList.contains('hidden')) {
+            renderSection('captain-duty-section');
+          }
+        }
+      }
       if (e.target.id === 'shipSearchInput') {
         shipSearchState.term = term;
         const container = sections['ship-search-section'].querySelector('#ship-results-container');
