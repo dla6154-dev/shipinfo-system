@@ -4332,15 +4332,21 @@ const DATASETS = [
                   ${warnings.map((warning) => {
                     const warningTone = getWarningTone(warning.level);
                     const releaseTime = getWeatherWarningReleaseTime(warning);
-                    const releaseLabel = releaseTime
-                      ? formatWeatherCompactTimestamp(releaseTime)
-                      : '-';
                     return `
                       <div class="rounded-2xl border p-4 ${buildWarningDetailClasses(warningTone)}">
-                        <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
-                        <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
-                        <div class="mt-1 text-sm text-slate-300">해제 ${escapeHtml(releaseLabel)}</div>
-                        <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
+                          <div class="min-w-0 flex-1">
+                            <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
+                            <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
+                            <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
+                          </div>
+                          ${releaseTime
+                            ? `<div class="shrink-0 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 sm:min-w-[132px]">
+                                 <div class="text-[11px] font-semibold tracking-[0.08em] text-cyan-200">해제시점</div>
+                                 <div class="mt-2 text-base font-bold text-cyan-100">${escapeHtml(formatWeatherCompactTimestamp(releaseTime))}</div>
+                               </div>`
+                            : ''}
+                        </div>
                       </div>`;
                   }).join('')}
                 </div>`
