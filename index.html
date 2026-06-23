@@ -118,7 +118,8 @@
       width: 100%;
       border: none;
       border-radius: 0.85rem;
-      padding: 0.7rem 0.55rem;
+      min-height: 2.5rem;
+      padding: 0.58rem 0.5rem;
       font-size: 0.85rem;
       font-weight: 800;
       line-height: 1.1;
@@ -173,7 +174,8 @@
       border-radius: 0.85rem;
       background: rgba(15, 23, 42, 0.88);
       color: #f8fafc;
-      padding: 0.7rem 0.8rem;
+      min-height: 2.5rem;
+      padding: 0.6rem 0.72rem;
       line-height: 1.35;
       outline: none;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -186,12 +188,12 @@
     .ferry-op-capture-field {
       display: flex;
       align-items: center;
-      min-height: 2.8rem;
+      min-height: 2.5rem;
       white-space: pre-wrap;
       word-break: break-word;
     }
     .ferry-op-capture-status {
-      min-height: 2.8rem;
+      min-height: 2.5rem;
       transform: none !important;
       filter: none !important;
     }
@@ -207,7 +209,7 @@
     }
     .ferry-op-vessel-card {
       border: 1px solid rgba(71, 85, 105, 0.7);
-      border-radius: 1.5rem;
+      border-radius: 1.25rem;
       background: rgba(15, 23, 42, 0.88);
       overflow: hidden;
     }
@@ -243,7 +245,7 @@
     }
     .ferry-op-capture-card {
       border: 1px solid rgba(71, 85, 105, 0.68);
-      border-radius: 1.5rem;
+      border-radius: 1.25rem;
       background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
       overflow: hidden;
     }
@@ -260,6 +262,40 @@
     }
     .ferry-op-forecast-table col:nth-child(4) {
       width: 30%;
+    }
+    .ferry-op-weather-voyage-list {
+      display: grid;
+      gap: 0.7rem;
+    }
+    .ferry-op-weather-voyage-card {
+      border: 1px solid rgba(71, 85, 105, 0.78);
+      border-radius: 1rem;
+      background: rgba(2, 6, 23, 0.34);
+      padding: 0.75rem;
+    }
+    .ferry-op-weather-voyage-top {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) minmax(5.2rem, 5.8rem);
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .ferry-op-weather-voyage-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.5rem;
+      padding: 0 0.8rem;
+      border-radius: 0.85rem;
+      background: rgba(30, 41, 59, 0.95);
+      color: #e2e8f0;
+      font-size: 0.8rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .ferry-op-weather-voyage-main {
+      margin-top: 0.5rem;
+      display: grid;
+      gap: 0.5rem;
     }
     .ferry-op-extract-textarea {
       width: 100%;
@@ -290,14 +326,28 @@
     @media (max-width: 480px) {
       .ferry-op-status-btn,
       .ferry-op-voyage-status-btn {
-        padding: 0.7rem 0.3rem;
-        font-size: 0.76rem;
+        min-height: 2.35rem;
+        padding: 0.52rem 0.28rem;
+        font-size: 0.74rem;
       }
       .ferry-op-note-input,
       .ferry-op-inline-input,
       .ferry-op-capture-field {
-        padding: 0.65rem 0.7rem;
-        font-size: 0.82rem;
+        min-height: 2.35rem;
+        padding: 0.55rem 0.62rem;
+        font-size: 0.78rem;
+      }
+      .ferry-op-weather-voyage-card {
+        padding: 0.62rem;
+      }
+      .ferry-op-weather-voyage-top {
+        grid-template-columns: auto minmax(0, 1fr) minmax(4.7rem, 5.2rem);
+        gap: 0.4rem;
+      }
+      .ferry-op-weather-voyage-badge {
+        min-height: 2.35rem;
+        padding: 0 0.65rem;
+        font-size: 0.75rem;
       }
       .ferry-op-forecast-table th {
         letter-spacing: 0.08em;
@@ -1352,18 +1402,18 @@ function buildFerryOperationForecastRowsHtml() {
     const row = forecastState[vesselKey];
     return `
       <tr class="border-b border-slate-700/70 last:border-b-0">
-        <td class="px-3 py-3 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
-        <td class="px-2 py-3">
+        <td class="px-2.5 py-2.5 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
+        <td class="px-2 py-2.5">
           <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.am)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="am">
             ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.am])}
           </button>
         </td>
-        <td class="px-2 py-3">
+        <td class="px-2 py-2.5">
           <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.pm)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="pm">
             ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.pm])}
           </button>
         </td>
-        <td class="px-3 py-3">
+        <td class="px-2.5 py-2.5">
           <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-forecast-note="${escapeHtml(vesselKey)}" value="${escapeHtml(row.note)}" placeholder="비고" />
         </td>
       </tr>`;
@@ -1373,24 +1423,24 @@ function buildFerryOperationForecastRowsHtml() {
 function buildFerryOperationForecastPanel() {
   const forecastDate = readFerryOperationForecastDate();
   return `
-    <div class="space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 class="text-2xl font-bold text-cyan-300">내일의 운항예보</h3>
-          <p class="mt-1 text-sm text-slate-400">선박별 오전/오후 운항 상태를 정리하고 이미지로 저장할 수 있습니다.</p>
+          <p class="mt-0.5 text-sm text-slate-400">선박별 오전/오후 운항 상태를 정리하고 이미지로 저장할 수 있습니다.</p>
         </div>
-        <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-200">
+        <label class="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2.5 text-xs text-slate-200">
           <span class="font-semibold text-slate-300">기준일</span>
           <input type="date" id="ferry-op-forecast-date-input" class="bg-transparent outline-none" value="${escapeHtml(forecastDate)}" />
         </label>
       </div>
 
       <div id="ferry-op-forecast-capture" class="ferry-op-capture-card">
-        <div class="flex items-center justify-between gap-4 border-b border-slate-700 bg-cyan-500/10 px-5 py-4">
-          <div class="text-lg font-black text-white">선박 운항상태</div>
-          <div id="ferry-op-forecast-date-display" class="text-sm font-semibold text-cyan-100">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
+        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-cyan-500/10 px-4 py-3">
+          <div class="text-base font-black text-white">선박 운항상태</div>
+          <div id="ferry-op-forecast-date-display" class="text-xs font-semibold text-cyan-100">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
         </div>
-        <div class="overflow-x-auto">
+        <div>
           <table class="ferry-op-forecast-table">
             <colgroup>
               <col />
@@ -1400,16 +1450,16 @@ function buildFerryOperationForecastPanel() {
             </colgroup>
             <thead class="bg-slate-900/70 text-xs uppercase tracking-[0.2em] text-slate-300">
               <tr>
-                <th class="px-3 py-3 text-left">선명</th>
-                <th class="px-2 py-3">오전</th>
-                <th class="px-2 py-3">오후</th>
-                <th class="px-3 py-3 text-left">비고</th>
+                <th class="px-2.5 py-2.5 text-left">선명</th>
+                <th class="px-2 py-2.5">오전</th>
+                <th class="px-2 py-2.5">오후</th>
+                <th class="px-2.5 py-2.5 text-left">비고</th>
               </tr>
             </thead>
             <tbody>${buildFerryOperationForecastRowsHtml()}</tbody>
           </table>
         </div>
-        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-5 py-4 text-xs text-slate-400">
+        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-4 py-3 text-[11px] text-slate-400">
           <span id="ferry-op-forecast-footer-time">생성: -</span>
           <span>목포운항관리센터 진도사무소</span>
         </div>
@@ -1423,7 +1473,7 @@ function buildFerryOperationForecastPanel() {
         <span class="rounded-full bg-violet-600 px-3 py-1 text-white">일부운항</span>
       </div>
 
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2">
         <button type="button" id="ferry-op-forecast-reset-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">초기화</button>
         <button type="button" id="ferry-op-forecast-save-btn" class="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20">사진으로 저장</button>
       </div>
@@ -1438,53 +1488,42 @@ function buildFerryOperationWeatherVesselBlocksHtml() {
     const vessel = weatherState.vessels[vesselKey];
     const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
     const voyageRows = vessel.voyages.map((voyage, index) => `
-      <tr class="border-b border-slate-700/70 last:border-b-0">
-        <td class="px-3 py-3 text-center text-sm font-bold text-slate-200">${escapeHtml(String(index + 1))}항</td>
-        <td class="px-2 py-3"><input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-dep="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.depTime)}" readonly /></td>
-        <td class="px-2 py-3"><input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-route="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.route)}" readonly /></td>
-        <td class="px-2 py-3">
+      <div class="ferry-op-weather-voyage-card">
+        <div class="ferry-op-weather-voyage-top">
+          <span class="ferry-op-weather-voyage-badge">${escapeHtml(String(index + 1))}항</span>
+          <input type="text" class="ferry-op-inline-input text-center text-sm font-semibold" data-ferry-op-voyage-dep="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.depTime)}" readonly />
           <button type="button" class="ferry-op-voyage-status-btn" data-state="${escapeHtml(voyage.state)}" data-ferry-op-voyage-status="true" data-ferry-op-voyage-vessel="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}">
             ${escapeHtml(FERRY_OPERATION_WEATHER_STATUS_LABELS[voyage.state])}
           </button>
-        </td>
-        <td class="px-2 py-3"><input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" /></td>
-      </tr>`).join('');
+        </div>
+        <div class="ferry-op-weather-voyage-main">
+          <input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-route="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.route)}" readonly />
+          <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" />
+        </div>
+      </div>`).join('');
 
     return `
       <article class="ferry-op-vessel-card" data-ferry-op-vessel-card="${escapeHtml(vesselKey)}">
-        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-slate-900/70 px-4 py-4">
-          <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" data-ferry-op-toggle-vessel="${escapeHtml(vesselKey)}">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-slate-900/70 px-3 py-3">
+          <button type="button" class="flex min-w-0 flex-1 items-center gap-2 text-left" data-ferry-op-toggle-vessel="${escapeHtml(vesselKey)}">
             <div class="min-w-0 flex-1">
-              <span class="ferry-op-vessel-name-label block truncate text-lg font-black text-white">${escapeHtml(vessel.displayName)}</span>
+              <span class="ferry-op-vessel-name-label block truncate text-base font-black text-white">${escapeHtml(vessel.displayName)}</span>
               <input type="text" class="ferry-op-inline-input ferry-op-vessel-name-input mt-2 text-sm" data-ferry-op-vessel-name-input="${escapeHtml(vesselKey)}" value="${escapeHtml(vessel.displayName)}" />
-              <span class="mt-1 block text-xs text-slate-400">${escapeHtml(String(vessel.voyages.length))}항차</span>
+              <span class="mt-0.5 block text-[11px] text-slate-400">${escapeHtml(String(vessel.voyages.length))}항차</span>
             </div>
-            <span class="text-slate-400"><i class="fa-solid fa-chevron-down"></i></span>
+            <span class="text-xs text-slate-400"><i class="fa-solid fa-chevron-down"></i></span>
           </button>
-          <button type="button" class="rounded-full border border-violet-400/35 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20" data-ferry-op-edit-vessel="${escapeHtml(vesselKey)}">편집</button>
+          <button type="button" class="rounded-full border border-violet-400/35 bg-violet-500/10 px-3 py-1.5 text-[11px] font-semibold text-violet-100 hover:bg-violet-500/20" data-ferry-op-edit-vessel="${escapeHtml(vesselKey)}">편집</button>
         </div>
-        <div class="ferry-op-vessel-body space-y-4 px-4 py-4">
+        <div class="ferry-op-vessel-body space-y-3 px-3 py-3">
           ${seasonOptions
-            ? `<div class="flex flex-wrap items-center gap-2">
+            ? `<div class="flex flex-wrap items-center gap-1.5">
                 ${Object.keys(seasonOptions).map((seasonKey) => `
                   <button type="button" class="ferry-op-season-btn${vessel.season === seasonKey ? ' is-active' : ''}" data-ferry-op-season="${escapeHtml(seasonKey)}" data-ferry-op-season-vessel="${escapeHtml(vesselKey)}">${escapeHtml(seasonKey)}</button>
                 `).join('')}
               </div>`
             : ''}
-          <div class="overflow-x-auto rounded-2xl border border-slate-700">
-            <table class="min-w-[860px] w-full table-fixed">
-              <thead class="bg-slate-950/80 text-xs uppercase tracking-[0.2em] text-slate-300">
-                <tr>
-                  <th class="px-3 py-3">항차</th>
-                  <th class="px-2 py-3">출발시간</th>
-                  <th class="px-2 py-3">노선</th>
-                  <th class="px-2 py-3">운항여부</th>
-                  <th class="px-2 py-3">비고</th>
-                </tr>
-              </thead>
-              <tbody>${voyageRows}</tbody>
-            </table>
-          </div>
+          <div class="ferry-op-weather-voyage-list">${voyageRows}</div>
         </div>
       </article>`;
   }).join('');
@@ -1492,24 +1531,24 @@ function buildFerryOperationWeatherVesselBlocksHtml() {
 
 function buildFerryOperationWeatherPanel() {
   return `
-    <div class="space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 class="text-2xl font-bold text-rose-300">기상악화</h3>
-          <p class="mt-1 text-sm text-slate-400">항차별 운항여부를 관리하고 기상악화 통제 문구를 바로 추출할 수 있습니다.</p>
+          <p class="mt-0.5 text-sm text-slate-400">항차별 운항여부를 관리하고 기상악화 통제 문구를 바로 추출할 수 있습니다.</p>
         </div>
-        <div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-200">
+        <div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2.5 text-xs text-slate-200">
           오늘 기준 <span class="ml-2 font-semibold text-white">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</span>
         </div>
       </div>
 
       <div id="ferry-op-weather-capture" class="ferry-op-capture-card">
-        <div class="flex items-center justify-between gap-4 border-b border-slate-700 bg-rose-500/10 px-5 py-4">
-          <div class="text-lg font-black text-white">항차별 운항여부</div>
-          <div class="text-sm font-semibold text-rose-100">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</div>
+        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-rose-500/10 px-4 py-3">
+          <div class="text-base font-black text-white">항차별 운항여부</div>
+          <div class="text-xs font-semibold text-rose-100">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</div>
         </div>
-        <div class="space-y-4 p-4">${buildFerryOperationWeatherVesselBlocksHtml()}</div>
-        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-5 py-4 text-xs text-slate-400">
+        <div class="space-y-3 p-3">${buildFerryOperationWeatherVesselBlocksHtml()}</div>
+        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-4 py-3 text-[11px] text-slate-400">
           <span id="ferry-op-weather-footer-time">생성: -</span>
           <span>목포운항관리센터 진도사무소</span>
         </div>
@@ -1522,7 +1561,7 @@ function buildFerryOperationWeatherPanel() {
         <span class="rounded-full bg-slate-500 px-3 py-1 text-white">비운항</span>
       </div>
 
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2">
         <button type="button" id="ferry-op-weather-reset-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">초기화</button>
         <button type="button" id="ferry-op-weather-save-btn" class="rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/20">사진으로 저장</button>
         <button type="button" id="ferry-op-weather-extract-btn" class="rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">기상악화 문구 추출</button>
@@ -1534,81 +1573,40 @@ function buildFerryOperationWeatherPanel() {
 
 function buildFerryOperationVisibilityPanel() {
   return `
-    <div class="space-y-6">
-      <div class="rounded-3xl border border-violet-500/25 bg-slate-800/85 p-6">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 class="text-2xl font-bold text-violet-300">시계제한</h3>
-            <p class="mt-1 text-sm text-slate-400">자동 밴드에서 쓰는 시계제한 판단 기준과 수정 포인트를 함께 정리했습니다.</p>
+    <div class="space-y-4">
+      <button type="button" id="ferry-op-open-visibility-manual-btn" class="w-full rounded-3xl border border-violet-400/35 bg-violet-500/10 px-5 py-4 text-left hover:bg-violet-500/20">
+        <span class="block text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">시계제한</span>
+        <span class="mt-2 block text-xl font-black text-violet-100"><i class="fa-solid fa-image mr-2"></i>시계제한 매뉴얼 열기</span>
+        <span class="mt-1 block text-sm text-slate-300">탭을 열면 바로 매뉴얼 버튼이 보이도록 단순화했습니다.</span>
+      </button>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">빠른 요약</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">항로 6개</span>
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">선박 7척</span>
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">상황 3종</span>
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">상태 4종</span>
           </div>
-          <button type="button" id="ferry-op-open-visibility-manual-btn" class="rounded-full border border-violet-400/35 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-500/20">
-            <i class="fa-solid fa-image mr-2"></i>시계제한 매뉴얼 열기
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 gap-5 xl:grid-cols-4">
-        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상황</p>
-          <p class="mt-3 text-lg font-bold text-white">시계제한 · 기상악화 · 그 외 비운항</p>
-          <p class="mt-2 text-sm text-slate-400">현재 자동 밴드는 세 가지 상황값 중 하나를 먼저 선택하게 되어 있습니다.</p>
-        </div>
-        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상태</p>
-          <p class="mt-3 text-lg font-bold text-white">출항 대기 · 통제 · 정상운항 · 결항</p>
-          <p class="mt-2 text-sm text-slate-400">상태에 따라 기본 사유와 문장 끝 suffix가 자동으로 붙는 구조입니다.</p>
-        </div>
-        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">데이터 규모</p>
-          <p class="mt-3 text-lg font-bold text-white">항로 6개 · 선박 7척</p>
-          <p class="mt-2 text-sm text-slate-400">각 선박별 기본 공지 출항시각과 전체 출항 목록이 JSON으로 저장되어 있습니다.</p>
-        </div>
-        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">출력 방식</p>
-          <p class="mt-3 text-lg font-bold text-white">1건은 한 줄 · 여러 건은 번호 목록</p>
-          <p class="mt-2 text-sm text-slate-400">확정 항목이 여러 개면 “아래 항로 …” 헤더와 번호 목록으로 자동 전환됩니다.</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
-        <div class="space-y-6">
-          <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-            <h4 class="text-xl font-bold text-violet-300">현재 등록 항로</h4>
-            <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-              ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
-                <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                  <p class="text-sm font-semibold text-white">${escapeHtml(item.route)}</p>
-                  <p class="mt-2 text-sm text-slate-400">${escapeHtml(item.ships)}</p>
-                </div>`).join('')}
-            </div>
+          <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
+              <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                <p class="text-sm font-semibold text-white">${escapeHtml(item.route)}</p>
+                <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.ships)}</p>
+              </div>`).join('')}
           </div>
         </div>
 
-        <div class="space-y-6">
-          <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-            <h4 class="text-xl font-bold text-violet-300">상태별 기본 문구</h4>
-            <div class="mt-5 space-y-3">
-              ${VISIBILITY_LIMIT_STATUS_SUMMARY.map((item) => `
-                <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                  <div class="flex items-start justify-between gap-3">
-                    <p class="text-sm font-semibold text-white">${escapeHtml(item.name)}</p>
-                    <span class="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-200">${escapeHtml(item.suffix)}</span>
-                  </div>
-                  <p class="mt-2 text-sm text-slate-400">기본 사유: ${escapeHtml(item.reason)}</p>
-                </div>`).join('')}
-            </div>
-          </div>
-
-          <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-            <h4 class="text-xl font-bold text-violet-300">로직 수정 파일</h4>
-            <div class="mt-5 space-y-3">
-              ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
-                <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                  <p class="text-sm font-semibold text-white">${escapeHtml(item.title)}</p>
-                  <p class="mt-2 break-all text-xs text-violet-200">${escapeHtml(item.file)}</p>
-                  <p class="mt-2 text-sm text-slate-400">${escapeHtml(item.detail)}</p>
-                </div>`).join('')}
-            </div>
+        <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-4">
+          <h4 class="text-base font-bold text-violet-300">로직 수정 파일</h4>
+          <div class="mt-3 space-y-3">
+            ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
+              <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                <p class="text-sm font-semibold text-white">${escapeHtml(item.title)}</p>
+                <p class="mt-1 break-all text-xs text-violet-200">${escapeHtml(item.file)}</p>
+                <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.detail)}</p>
+              </div>`).join('')}
           </div>
         </div>
       </div>
@@ -1617,7 +1615,7 @@ function buildFerryOperationVisibilityPanel() {
 
 function buildFerryOperationManagerSection() {
   return `
-    <div class="flex items-center gap-4 mb-8">
+    <div class="flex items-center gap-4 mb-6">
       <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
       <div>
         <h2 class="text-2xl font-bold text-violet-300">여객선 운항 관리</h2>
@@ -1625,7 +1623,7 @@ function buildFerryOperationManagerSection() {
       </div>
     </div>
 
-    <div class="flex flex-wrap gap-3 mb-6">
+    <div class="flex flex-wrap gap-2 mb-4">
       ${buildFerryOperationSectionTabButton('visibility', '시계제한', 'fa-eye-low-vision')}
       ${buildFerryOperationSectionTabButton('weather', '기상악화', 'fa-cloud-showers-heavy')}
       ${buildFerryOperationSectionTabButton('forecast', '내일의 운항예보', 'fa-ship')}
