@@ -268,6 +268,16 @@
       background: rgba(190, 24, 93, 0.18);
       color: #ffe4e6;
     }
+    .ferry-op-vessel-filter-btn.has-content {
+      border-color: rgba(249, 115, 22, 0.8);
+      background: rgba(249, 115, 22, 0.15);
+      color: #fed7aa;
+    }
+    .ferry-op-vessel-filter-btn.has-content.is-active {
+      border-color: rgba(249, 115, 22, 1);
+      background: rgba(249, 115, 22, 0.28);
+      color: #ffedd5;
+    }
     .ferry-op-capture-card {
       border: 1px solid #cbd5e1;
       border-radius: 1.25rem;
@@ -1619,10 +1629,15 @@ function buildFerryOperationWeatherVesselSelectorHtml() {
   const selectedVesselKey = readFerryOperationWeatherSelectedVessel();
   return FERRY_OPERATION_VESSELS.map((vesselKey) => {
     const displayName = weatherState.vessels[vesselKey]?.displayName || vesselKey;
+    const vessel = weatherState.vessels[vesselKey];
+    const hasContent = vessel?.voyages?.some(v => v.state !== 'blank' || v.note);
+    const classes = ['ferry-op-vessel-filter-btn'];
+    if (selectedVesselKey === vesselKey) classes.push('is-active');
+    if (hasContent) classes.push('has-content');
     return `
       <button
         type="button"
-        class="ferry-op-vessel-filter-btn${selectedVesselKey === vesselKey ? ' is-active' : ''}"
+        class="${classes.join(' ')}"
         data-ferry-op-weather-vessel-btn="${escapeHtml(vesselKey)}"
         title="${escapeHtml(displayName)}"
       >
@@ -1952,6 +1967,8 @@ function bindFerryOperationManagerSection(section) {
         const updatedVessel = nextState.vessels[vesselKey];
         const hasContent = updatedVessel?.voyages?.some(v => v.state !== 'blank' || v.note);
         card.classList.toggle('has-content', !!hasContent);
+        const filterBtn = section.querySelector(`[data-ferry-op-weather-vessel-btn="${CSS.escape(vesselKey)}"]`);
+        if (filterBtn) filterBtn.classList.toggle('has-content', !!hasContent);
       }
       return;
     }
