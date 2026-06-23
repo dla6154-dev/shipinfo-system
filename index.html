@@ -1889,7 +1889,7 @@ function bindFerryOperationManagerSection(section) {
 }
 
 async function saveFerryOperationCapture({ captureId, footerId, fileName, feedbackKey }) {
-  let restoreCaptureFields = () => {};
+  let cleanupCaptureClone = () => {};
   try {
     if (typeof window.html2canvas !== 'function') {
       throw new Error('이미지 저장 라이브러리를 불러오지 못했습니다.');
@@ -1899,11 +1899,16 @@ async function saveFerryOperationCapture({ captureId, footerId, fileName, feedba
     document.activeElement?.blur?.();
     const target = document.getElementById(captureId);
     if (!target) throw new Error('저장할 화면을 찾지 못했습니다.');
-    restoreCaptureFields = prepareFerryOperationCaptureFields(target);
-    const canvas = await window.html2canvas(target, {
+    const { clone, cleanup } = buildFerryOperationCaptureClone(target);
+    cleanupCaptureClone = cleanup;
+    const canvas = await window.html2canvas(clone, {
       scale: 2,
       backgroundColor: '#020617',
-      useCORS: true
+      useCORS: true,
+      width: Math.ceil(clone.getBoundingClientRect().width),
+      height: Math.ceil(clone.getBoundingClientRect().height),
+      windowWidth: Math.ceil(clone.scrollWidth),
+      windowHeight: Math.ceil(clone.scrollHeight)
     });
     const link = document.createElement('a');
     link.download = fileName;
@@ -1913,44 +1918,92 @@ async function saveFerryOperationCapture({ captureId, footerId, fileName, feedba
   } catch (error) {
     setFerryOperationFeedback(feedbackKey, `저장 실패: ${error.message}`, 'error');
   } finally {
-    restoreCaptureFields();
+    cleanupCaptureClone();
   }
 }
 
-function prepareFerryOperationCaptureFields(target) {
-  const restoreTasks = [];
-  target.querySelectorAll('input[type="text"]').forEach((input) => {
-    const text = String(input.value || '').trim() || String(input.placeholder || '').trim() || '-';
+function buildFerryOperationCaptureClone(target) {
+  const rect = target.getBoundingClientRect();
+  const clone = target.cloneNode(true);
+  clone.setAttribute('aria-hidden', 'true');
+  clone.style.position = 'fixed';
+  clone.style.left = '-100000px';
+  clone.style.top = '0';
+  clone.style.margin = '0';
+  clone.style.width = `${Math.ceil(rect.width)}px`;
+  clone.style.minWidth = `${Math.ceil(rect.width)}px`;
+  clone.style.maxWidth = `${Math.ceil(rect.width)}px`;
+  clone.style.pointerEvents = 'none';
+  clone.style.transform = 'none';
+  clone.style.boxSizing = 'border-box';
+  clone.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+  document.body.appendChild(clone);
+  replaceFerryOperationCaptureFields(target, clone);
+  return {
+    clone,
+    cleanup: () => {
+      clone.remove();
+    }
+  };
+}
+
+function replaceFerryOperationCaptureFields(sourceRoot, cloneRoot) {
+  const sourceInputs = Array.from(sourceRoot.querySelectorAll('input[type="text"]'));
+  const cloneInputs = Array.from(cloneRoot.querySelectorAll('input[type="text"]'));
+  sourceInputs.forEach((sourceInput, index) => {
+    const cloneInput = cloneInputs[index];
+    if (!cloneInput) return;
+    const text = String(sourceInput.value || '').trim() || String(sourceInput.placeholder || '').trim() || '-';
     const replacement = document.createElement('div');
-    replacement.className = `${input.className} ferry-op-capture-field`;
+    replacement.className = `${cloneInput.className} ferry-op-capture-field`;
     replacement.textContent = text;
     replacement.setAttribute('aria-hidden', 'true');
-    input.style.display = 'none';
-    input.insertAdjacentElement('afterend', replacement);
-    restoreTasks.push(() => {
-      replacement.remove();
-      input.style.display = '';
-    });
+    applyFerryOperationCaptureMetrics(sourceInput, replacement);
+    cloneInput.replaceWith(replacement);
   });
-  target.querySelectorAll('button.ferry-op-status-btn, button.ferry-op-voyage-status-btn').forEach((button) => {
-    const text = String(button.textContent || '').trim() || '-';
+
+  const sourceButtons = Array.from(sourceRoot.querySelectorAll('button.ferry-op-status-btn, button.ferry-op-voyage-status-btn'));
+  const cloneButtons = Array.from(cloneRoot.querySelectorAll('button.ferry-op-status-btn, button.ferry-op-voyage-status-btn'));
+  sourceButtons.forEach((sourceButton, index) => {
+    const cloneButton = cloneButtons[index];
+    if (!cloneButton) return;
     const replacement = document.createElement('div');
-    replacement.className = `${button.className} ferry-op-capture-status`;
-    replacement.textContent = text;
-    const state = String(button.dataset.state || '').trim();
+    replacement.className = `${cloneButton.className} ferry-op-capture-status`;
+    replacement.textContent = String(sourceButton.textContent || '').trim() || '-';
+    const state = String(sourceButton.dataset.state || '').trim();
     if (state) replacement.setAttribute('data-state', state);
     replacement.setAttribute('aria-hidden', 'true');
-    replacement.style.minHeight = `${Math.max(button.getBoundingClientRect().height, 44)}px`;
-    button.style.display = 'none';
-    button.insertAdjacentElement('afterend', replacement);
-    restoreTasks.push(() => {
-      replacement.remove();
-      button.style.display = '';
-    });
+    applyFerryOperationCaptureMetrics(sourceButton, replacement);
+    replacement.style.padding = '0';
+    replacement.style.lineHeight = '1';
+    replacement.style.justifyContent = 'center';
+    replacement.style.textAlign = 'center';
+    cloneButton.replaceWith(replacement);
   });
-  return () => {
-    restoreTasks.reverse().forEach((restore) => restore());
-  };
+}
+
+function applyFerryOperationCaptureMetrics(sourceElement, replacement) {
+  const rect = sourceElement.getBoundingClientRect();
+  const style = window.getComputedStyle(sourceElement);
+  replacement.style.display = 'flex';
+  replacement.style.alignItems = 'center';
+  replacement.style.justifyContent = style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start';
+  replacement.style.width = `${Math.ceil(rect.width)}px`;
+  replacement.style.minWidth = `${Math.ceil(rect.width)}px`;
+  replacement.style.maxWidth = `${Math.ceil(rect.width)}px`;
+  replacement.style.height = `${Math.ceil(rect.height)}px`;
+  replacement.style.minHeight = `${Math.ceil(rect.height)}px`;
+  replacement.style.maxHeight = `${Math.ceil(rect.height)}px`;
+  replacement.style.padding = style.padding;
+  replacement.style.boxSizing = 'border-box';
+  replacement.style.lineHeight = style.lineHeight;
+  replacement.style.fontSize = style.fontSize;
+  replacement.style.fontWeight = style.fontWeight;
+  replacement.style.letterSpacing = style.letterSpacing;
+  replacement.style.textAlign = style.textAlign;
+  replacement.style.whiteSpace = 'nowrap';
+  replacement.style.overflow = 'hidden';
+  replacement.style.textOverflow = 'ellipsis';
 }
 
 function extractFerryOperationWeatherText() {
