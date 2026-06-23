@@ -99,9 +99,11 @@
       background: rgba(15, 23, 42, 0.7);
       color: #cbd5e1;
       border-radius: 9999px;
-      padding: 0.85rem 1rem;
-      font-size: 0.95rem;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.82rem;
       font-weight: 700;
+      white-space: nowrap;
+      flex: 1;
       transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     }
     .ferry-op-subtab-btn:hover {
@@ -1795,7 +1797,7 @@ function buildFerryOperationManagerSection() {
       </div>
     </div>
 
-    <div class="flex flex-wrap gap-2 mb-4">
+    <div class="flex gap-2 mb-4" style="flex-wrap:nowrap;">
       ${buildFerryOperationSectionTabButton('visibility', '시계제한', 'fa-eye-low-vision')}
       ${buildFerryOperationSectionTabButton('weather', '기상악화', 'fa-cloud-showers-heavy')}
       ${buildFerryOperationSectionTabButton('forecast', '내일의 운항예보', 'fa-ship')}
