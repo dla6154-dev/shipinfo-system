@@ -219,6 +219,13 @@
     .ferry-op-vessel-card.is-collapsed .ferry-op-vessel-body {
       display: none;
     }
+    .ferry-op-vessel-card.has-content {
+      border-color: #f97316;
+      box-shadow: 0 0 0 1px rgba(249,115,22,0.3);
+    }
+    .ferry-op-vessel-card.has-content > div:first-child {
+      background: rgba(249,115,22,0.18) !important;
+    }
     .ferry-op-vessel-card .ferry-op-vessel-name-input {
       display: none;
     }
@@ -1555,9 +1562,13 @@ function buildFerryOperationForecastPanel() {
 
       <div id="ferry-op-forecast-capture" class="ferry-op-capture-card">
         <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-cyan-500/10 px-4 py-3">
-          <div class="text-base font-black text-white" style="line-height:1.35">여객선<br>운항관리</div>
+          <div style="line-height:1.35">
+            <div class="text-base font-black text-white">여객선<br>운항관리</div>
+            <span id="ferry-op-header-visibility-btn" style="cursor:pointer;font-size:0.7rem;color:#a5b4fc;text-decoration:underline dotted;text-underline-offset:3px;">시계제한</span>
+          </div>
           <div class="text-right" style="line-height:1.45">
-            <div class="text-sm font-black text-white"><span id="ferry-op-header-visibility-btn" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">시계제한</span> 기상악화<br>내일의 운항예보</div>
+            <div class="text-xs font-semibold text-slate-300">진도사무소</div>
+            <div class="text-sm font-black text-white">내일의 운항예보</div>
             <div id="ferry-op-forecast-date-display" class="text-xs font-semibold text-cyan-100 mt-1">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
           </div>
         </div>
@@ -1632,8 +1643,9 @@ function buildFerryOperationWeatherVesselCardHtml(vesselKey, vessel) {
         <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" />
       </div>`).join('');
 
+  const hasContent = vessel.voyages.some(v => v.state !== 'blank' || v.note);
   return `
-    <article class="ferry-op-vessel-card" data-ferry-op-vessel-card="${escapeHtml(vesselKey)}">
+    <article class="ferry-op-vessel-card${hasContent ? ' has-content' : ''}" data-ferry-op-vessel-card="${escapeHtml(vesselKey)}">
       <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-slate-900/70 px-3 py-2.5">
         <div class="min-w-0 flex-1">
           <span class="ferry-op-vessel-name-label block truncate text-sm font-black text-white">${escapeHtml(vessel.displayName)}</span>
@@ -1935,6 +1947,12 @@ function bindFerryOperationManagerSection(section) {
       const nextStatus = nextState.vessels[vesselKey]?.voyages?.[voyageIndex]?.state || 'blank';
       voyageStatusButton.dataset.state = nextStatus;
       voyageStatusButton.textContent = FERRY_OPERATION_WEATHER_STATUS_LABELS[nextStatus];
+      const card = voyageStatusButton.closest('[data-ferry-op-vessel-card]');
+      if (card) {
+        const updatedVessel = nextState.vessels[vesselKey];
+        const hasContent = updatedVessel?.voyages?.some(v => v.state !== 'blank' || v.note);
+        card.classList.toggle('has-content', !!hasContent);
+      }
       return;
     }
 
@@ -1946,15 +1964,16 @@ function bindFerryOperationManagerSection(section) {
     }
 
     if (event.target.closest('#ferry-op-weather-save-btn')) {
-      const selectedVesselKey = readFerryOperationWeatherSelectedVessel();
       const weatherState = readFerryOperationWeatherState();
-      const selectedVesselName = String(weatherState.vessels[selectedVesselKey]?.displayName || selectedVesselKey).trim() || selectedVesselKey;
-      await saveFerryOperationCapture({
-        captureId: 'ferry-op-weather-capture',
-        footerId: 'ferry-op-weather-footer-time',
-        fileName: `기상악화_${selectedVesselName}_${getFerryOperationTodayString()}.png`,
-        feedbackKey: 'weather'
+      const activeVessels = FERRY_OPERATION_VESSELS.filter(k => {
+        const v = weatherState.vessels[k];
+        return v?.voyages?.some(voy => voy.state !== 'blank' || voy.note);
       });
+      if (activeVessels.length === 0) {
+        setFerryOperationFeedback('weather', '저장할 내용이 없습니다. 항차 상태를 먼저 입력하세요.', 'error');
+        return;
+      }
+      await saveFerryOperationWeatherAllCapture(activeVessels, weatherState);
       return;
     }
 
@@ -2033,6 +2052,54 @@ function bindFerryOperationManagerSection(section) {
   });
 
   section.dataset.ferryOperationBound = 'true';
+}
+
+async function saveFerryOperationWeatherAllCapture(activeVessels, weatherState) {
+  if (typeof window.html2canvas !== 'function') {
+    setFerryOperationFeedback('weather', '이미지 저장 라이브러리를 불러오지 못했습니다.', 'error');
+    return;
+  }
+  const todayStr = getFerryOperationTodayString();
+  const nowText = getFerryOperationNowText();
+  const vesselBlocksHtml = activeVessels.map(k => buildFerryOperationWeatherVesselCardHtml(k, weatherState.vessels[k])).join('');
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+  wrapper.innerHTML = `
+    <div id="_weather_all_capture" style="width:400px;background:#ffffff;border-radius:1.25rem;border:1px solid #cbd5e1;overflow:hidden;font-family:inherit;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e2e8f0;background:rgba(239,68,68,0.08);padding:12px 16px;">
+        <div style="font-size:1rem;font-weight:900;color:#1e293b;">기상악화 운항여부</div>
+        <div style="font-size:0.75rem;font-weight:600;color:#475569;">${escapeHtml(formatFerryOperationDisplayDate(todayStr))}</div>
+      </div>
+      <div style="padding:12px;display:flex;flex-direction:column;gap:12px;">${vesselBlocksHtml}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #e2e8f0;padding:12px 16px;font-size:0.7rem;color:#64748b;">
+        <span>생성: ${escapeHtml(nowText)}</span>
+        <span>목포운항관리센터 진도사무소</span>
+      </div>
+    </div>`;
+  document.body.appendChild(wrapper);
+  try {
+    const target = wrapper.querySelector('#_weather_all_capture');
+    const { clone, cleanup } = buildFerryOperationCaptureClone(target);
+    try {
+      const cloneRect = clone.getBoundingClientRect();
+      const canvas = await window.html2canvas(clone, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true,
+        width: Math.ceil(cloneRect.width), height: Math.ceil(cloneRect.height),
+        windowWidth: window.innerWidth, windowHeight: window.innerHeight
+      });
+      const link = document.createElement('a');
+      link.download = `기상악화_${todayStr}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      setFerryOperationFeedback('weather', '저장했습니다.', 'success');
+    } finally {
+      cleanup();
+    }
+  } catch(e) {
+    setFerryOperationFeedback('weather', `저장 실패: ${e.message}`, 'error');
+  } finally {
+    document.body.removeChild(wrapper);
+  }
 }
 
 async function saveFerryOperationCapture({ captureId, footerId, fileName, feedbackKey }) {
