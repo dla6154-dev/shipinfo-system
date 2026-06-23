@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>진도 운항관리</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -254,14 +257,22 @@
       table-layout: fixed;
     }
     .ferry-op-forecast-table col:nth-child(1) {
-      width: 34%;
+      width: 42%;
     }
     .ferry-op-forecast-table col:nth-child(2),
     .ferry-op-forecast-table col:nth-child(3) {
-      width: 18%;
+      width: 15%;
     }
     .ferry-op-forecast-table col:nth-child(4) {
-      width: 30%;
+      width: 28%;
+    }
+    .ferry-op-forecast-vessel-cell {
+      font-size: 1.02rem;
+      line-height: 1.15;
+      word-break: keep-all;
+    }
+    .ferry-op-forecast-note-input {
+      font-size: 0.8rem;
     }
     .ferry-op-weather-voyage-list {
       display: grid;
@@ -336,6 +347,12 @@
         min-height: 2.35rem;
         padding: 0.55rem 0.62rem;
         font-size: 0.78rem;
+      }
+      .ferry-op-forecast-vessel-cell {
+        font-size: 0.9rem;
+      }
+      .ferry-op-forecast-note-input {
+        font-size: 0.74rem;
       }
       .ferry-op-weather-voyage-card {
         padding: 0.62rem;
@@ -1402,7 +1419,7 @@ function buildFerryOperationForecastRowsHtml() {
     const row = forecastState[vesselKey];
     return `
       <tr class="border-b border-slate-700/70 last:border-b-0">
-        <td class="px-2.5 py-2.5 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
+        <td class="ferry-op-forecast-vessel-cell px-2 py-2.5 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
         <td class="px-2 py-2.5">
           <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.am)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="am">
             ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.am])}
@@ -1413,8 +1430,8 @@ function buildFerryOperationForecastRowsHtml() {
             ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.pm])}
           </button>
         </td>
-        <td class="px-2.5 py-2.5">
-          <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-forecast-note="${escapeHtml(vesselKey)}" value="${escapeHtml(row.note)}" placeholder="비고" />
+        <td class="px-2 py-2.5">
+          <input type="text" class="ferry-op-note-input ferry-op-forecast-note-input text-sm" data-ferry-op-forecast-note="${escapeHtml(vesselKey)}" value="${escapeHtml(row.note)}" placeholder="비고" />
         </td>
       </tr>`;
   }).join('');
@@ -1450,10 +1467,10 @@ function buildFerryOperationForecastPanel() {
             </colgroup>
             <thead class="bg-slate-900/70 text-xs uppercase tracking-[0.2em] text-slate-300">
               <tr>
-                <th class="px-2.5 py-2.5 text-left">선명</th>
+                <th class="px-2 py-2.5 text-left">선명</th>
                 <th class="px-2 py-2.5">오전</th>
                 <th class="px-2 py-2.5">오후</th>
-                <th class="px-2.5 py-2.5 text-left">비고</th>
+                <th class="px-2 py-2.5 text-left">비고</th>
               </tr>
             </thead>
             <tbody>${buildFerryOperationForecastRowsHtml()}</tbody>
