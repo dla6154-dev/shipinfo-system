@@ -262,10 +262,62 @@
       color: #ffe4e6;
     }
     .ferry-op-capture-card {
-      border: 1px solid rgba(71, 85, 105, 0.68);
+      border: 1px solid #cbd5e1;
       border-radius: 1.25rem;
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
+      background: #ffffff;
       overflow: hidden;
+    }
+    /* 카드 헤더 */
+    .ferry-op-capture-card > div:first-child {
+      border-bottom-color: #e2e8f0 !important;
+    }
+    /* 테이블 헤더 */
+    .ferry-op-forecast-table thead {
+      background: #f1f5f9 !important;
+    }
+    .ferry-op-forecast-table thead th {
+      color: #475569 !important;
+    }
+    /* 테이블 행 구분선 */
+    .ferry-op-forecast-table tbody tr {
+      border-bottom-color: #e2e8f0 !important;
+    }
+    /* 선명 텍스트 */
+    .ferry-op-forecast-vessel-cell {
+      color: #1e293b !important;
+    }
+    /* 카드 푸터 */
+    .ferry-op-capture-card > div:last-child {
+      border-top-color: #e2e8f0 !important;
+      color: #64748b !important;
+    }
+    /* 기상악화 항차 카드 */
+    .ferry-op-weather-voyage-card {
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+    }
+    .ferry-op-weather-voyage-badge {
+      background: #e2e8f0 !important;
+      color: #334155 !important;
+    }
+    /* 인라인 입력 */
+    .ferry-op-capture-card .ferry-op-inline-input,
+    .ferry-op-capture-card .ferry-op-note-input {
+      background: #f1f5f9 !important;
+      border-color: #cbd5e1 !important;
+      color: #1e293b !important;
+    }
+    .ferry-op-capture-card .ferry-op-inline-input::placeholder,
+    .ferry-op-capture-card .ferry-op-note-input::placeholder {
+      color: #94a3b8 !important;
+    }
+    /* 기상악화 선명 헤더 */
+    .ferry-op-capture-card .text-white {
+      color: #1e293b !important;
+    }
+    .ferry-op-capture-card .text-slate-400,
+    .ferry-op-capture-card .text-slate-300 {
+      color: #64748b !important;
     }
     .ferry-op-forecast-table {
       width: 100%;
