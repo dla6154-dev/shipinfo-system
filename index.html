@@ -1848,6 +1848,10 @@ function bindFerryOperationManagerSection(section) {
   section.addEventListener('click', async (event) => {
     const tabButton = event.target.closest('[data-ferry-op-tab-btn]');
     if (tabButton) {
+      if (tabButton.dataset.ferryOpTabBtn === 'visibility') {
+        openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+        return;
+      }
       setFerryOperationActivePanel(section, tabButton.dataset.ferryOpTabBtn);
       return;
     }
@@ -5714,7 +5718,7 @@ case 'ship-detail-section':
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
       if (target.id === 'vehicle-loading-btn') switchView('vehicle-loading-section');
       if (target.id === 'visibility-limit-btn') {
-        openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+        switchView('visibility-limit-section');
         return;
       }
       if (target.id === 'dangerous-goods-btn') switchView('dangerous-goods-search-section');
