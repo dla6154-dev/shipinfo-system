@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>진도 운항관리</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="./vehicle_loading_data.js"></script>
   <style>
     body { font-family: 'Noto Sans KR', sans-serif; }
@@ -90,6 +94,254 @@
       margin-right: .5rem; 
     }
 
+    .ferry-op-subtab-btn {
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.7);
+      color: #cbd5e1;
+      border-radius: 9999px;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    .ferry-op-subtab-btn:hover {
+      border-color: rgba(129, 140, 248, 0.5);
+      color: #f8fafc;
+    }
+    .ferry-op-subtab-btn.is-active {
+      border-color: rgba(167, 139, 250, 0.8);
+      background: rgba(109, 40, 217, 0.22);
+      color: #f5f3ff;
+    }
+    .ferry-op-status-btn,
+    .ferry-op-voyage-status-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      border: none;
+      border-radius: 0.85rem;
+      min-height: 2.5rem;
+      padding: 0.58rem 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 800;
+      line-height: 1.1;
+      text-align: center;
+      white-space: nowrap;
+      word-break: keep-all;
+      box-sizing: border-box;
+      appearance: none;
+      -webkit-appearance: none;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      cursor: pointer;
+    }
+    .ferry-op-status-btn:hover,
+    .ferry-op-voyage-status-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+    .ferry-op-status-btn[data-state="blank"],
+    .ferry-op-voyage-status-btn[data-state="blank"] {
+      background: #334155;
+      color: #cbd5e1;
+    }
+    .ferry-op-status-btn[data-state="normal"] {
+      background: #16a34a;
+      color: #f8fafc;
+    }
+    .ferry-op-status-btn[data-state="review"] {
+      background: #f59e0b;
+      color: #111827;
+    }
+    .ferry-op-status-btn[data-state="control"],
+    .ferry-op-voyage-status-btn[data-state="control"] {
+      background: #dc2626;
+      color: #fef2f2;
+    }
+    .ferry-op-status-btn[data-state="partial"] {
+      background: #8b5cf6;
+      color: #f5f3ff;
+    }
+    .ferry-op-voyage-status-btn[data-state="go"] {
+      background: #16a34a;
+      color: #f8fafc;
+    }
+    .ferry-op-voyage-status-btn[data-state="stop"] {
+      background: #475569;
+      color: #f8fafc;
+    }
+    .ferry-op-note-input,
+    .ferry-op-inline-input {
+      width: 100%;
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      border-radius: 0.85rem;
+      background: rgba(15, 23, 42, 0.88);
+      color: #f8fafc;
+      min-height: 2.5rem;
+      padding: 0.6rem 0.72rem;
+      line-height: 1.35;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .ferry-op-note-input::placeholder,
+    .ferry-op-inline-input::placeholder {
+      color: #94a3b8;
+      opacity: 1;
+    }
+    .ferry-op-capture-field {
+      display: flex;
+      align-items: center;
+      min-height: 2.5rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .ferry-op-capture-status {
+      min-height: 2.5rem;
+      transform: none !important;
+      filter: none !important;
+    }
+    .ferry-op-note-input:focus,
+    .ferry-op-inline-input:focus {
+      border-color: rgba(167, 139, 250, 0.8);
+      box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.16);
+    }
+    .ferry-op-inline-input[readonly] {
+      opacity: 0.8;
+      cursor: default;
+      box-shadow: none;
+    }
+    .ferry-op-vessel-card {
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      border-radius: 1.25rem;
+      background: rgba(15, 23, 42, 0.88);
+      overflow: hidden;
+    }
+    .ferry-op-vessel-card.is-collapsed .ferry-op-vessel-body {
+      display: none;
+    }
+    .ferry-op-vessel-card .ferry-op-vessel-name-input {
+      display: none;
+    }
+    .ferry-op-vessel-card.is-editing .ferry-op-vessel-name-label {
+      display: none;
+    }
+    .ferry-op-vessel-card.is-editing .ferry-op-vessel-name-input {
+      display: block;
+    }
+    .ferry-op-vessel-card.is-editing .ferry-op-inline-input {
+      border-color: rgba(167, 139, 250, 0.5);
+      background: rgba(30, 41, 59, 0.92);
+    }
+    .ferry-op-season-btn {
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      background: rgba(15, 23, 42, 0.82);
+      color: #cbd5e1;
+      border-radius: 9999px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .ferry-op-season-btn.is-active {
+      border-color: rgba(34, 211, 238, 0.65);
+      background: rgba(8, 145, 178, 0.18);
+      color: #cffafe;
+    }
+    .ferry-op-vessel-filter-btn {
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      background: rgba(15, 23, 42, 0.82);
+      color: #cbd5e1;
+      border-radius: 9999px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .ferry-op-vessel-filter-btn.is-active {
+      border-color: rgba(244, 63, 94, 0.7);
+      background: rgba(190, 24, 93, 0.18);
+      color: #ffe4e6;
+    }
+    .ferry-op-capture-card {
+      border: 1px solid rgba(71, 85, 105, 0.68);
+      border-radius: 1.25rem;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
+      overflow: hidden;
+    }
+    .ferry-op-forecast-table {
+      width: 100%;
+      table-layout: fixed;
+    }
+    .ferry-op-forecast-table col:nth-child(1) {
+      width: 42%;
+    }
+    .ferry-op-forecast-table col:nth-child(2),
+    .ferry-op-forecast-table col:nth-child(3) {
+      width: 15%;
+    }
+    .ferry-op-forecast-table col:nth-child(4) {
+      width: 28%;
+    }
+    .ferry-op-forecast-vessel-cell {
+      font-size: 1.02rem;
+      line-height: 1.15;
+      word-break: keep-all;
+    }
+    .ferry-op-forecast-note-input {
+      font-size: 0.8rem;
+    }
+    .ferry-op-weather-voyage-list {
+      display: grid;
+      gap: 0.5rem;
+    }
+    .ferry-op-weather-voyage-card {
+      display: grid;
+      grid-template-columns: auto minmax(5rem, 5.6rem) minmax(0, 1fr) minmax(3.6rem, 4rem) minmax(3.1rem, 3.4rem);
+      gap: 0.35rem;
+      align-items: center;
+      border: 1px solid rgba(71, 85, 105, 0.78);
+      border-radius: 1rem;
+      background: rgba(2, 6, 23, 0.34);
+      padding: 0.45rem;
+    }
+    .ferry-op-weather-voyage-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.1rem;
+      padding: 0 0.65rem;
+      border-radius: 0.85rem;
+      background: rgba(30, 41, 59, 0.95);
+      color: #e2e8f0;
+      font-size: 0.72rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .ferry-op-weather-voyage-card .ferry-op-inline-input,
+    .ferry-op-weather-voyage-card .ferry-op-note-input,
+    .ferry-op-weather-voyage-card .ferry-op-voyage-status-btn {
+      min-height: 2.1rem;
+      padding: 0.3rem 0.36rem;
+      font-size: 0.68rem;
+    }
+    .ferry-op-weather-voyage-card .ferry-op-inline-input,
+    .ferry-op-weather-voyage-card .ferry-op-note-input {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ferry-op-extract-textarea {
+      width: 100%;
+      min-height: 260px;
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.9);
+      color: #f8fafc;
+      padding: 1rem;
+      resize: vertical;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
     /* --- Keypad Lockscreen Styles --- */
     #keypad-lockscreen {
       backdrop-filter: blur(10px);
@@ -102,6 +354,46 @@
     }
     #keypad-display.error {
       animation: shake 0.4s ease-in-out;
+    }
+    @media (max-width: 480px) {
+      .ferry-op-status-btn,
+      .ferry-op-voyage-status-btn {
+        min-height: 2.35rem;
+        padding: 0.52rem 0.28rem;
+        font-size: 0.74rem;
+      }
+      .ferry-op-note-input,
+      .ferry-op-inline-input,
+      .ferry-op-capture-field {
+        min-height: 2.35rem;
+        padding: 0.55rem 0.62rem;
+        font-size: 0.78rem;
+      }
+      .ferry-op-forecast-vessel-cell {
+        font-size: 0.9rem;
+      }
+      .ferry-op-forecast-note-input {
+        font-size: 0.74rem;
+      }
+      .ferry-op-weather-voyage-card {
+        grid-template-columns: auto minmax(4.7rem, 5.1rem) minmax(0, 1fr) minmax(3.2rem, 3.5rem) minmax(2.8rem, 3rem);
+        padding: 0.5rem;
+      }
+      .ferry-op-weather-voyage-badge {
+        min-height: 1.95rem;
+        padding: 0 0.5rem;
+        font-size: 0.68rem;
+      }
+      .ferry-op-weather-voyage-card .ferry-op-inline-input,
+      .ferry-op-weather-voyage-card .ferry-op-note-input,
+      .ferry-op-weather-voyage-card .ferry-op-voyage-status-btn {
+        min-height: 1.95rem;
+        padding: 0.22rem 0.26rem;
+        font-size: 0.6rem;
+      }
+      .ferry-op-forecast-table th {
+        letter-spacing: 0.08em;
+      }
     }
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
@@ -566,7 +858,8 @@
     // 2) 전역 상태 (Firestore 동기화)
     // ===============================
 let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
-let captainDutyConfig;
+let captainDutyConfigsByMonth = {};
+let captainDutyViewYearMonth = getCurrentCaptainDutyYearMonth();
 let _appHistoryReady = false;  // History API 초기화 여부
 let _historyNavigation = false; // popstate 처리 중 여부 (pushState 방지)
 const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
@@ -580,6 +873,7 @@ const MAIN_MENU_SUBTITLE = '원하는 메뉴를 선택하세요.';
 const WEATHER_REMOTE_ORIGIN = 'https://mokpo-weather-dashboard.onrender.com';
 const WEATHER_OVERVIEW_URL = 'https://mokpo-weather-dashboard.onrender.com/overview';
 const WEATHER_PROXY_PREFIX = '/weather-api';
+const WEATHER_AUTO_REFRESH_COOLDOWN_MS = 30 * 1000;
 const SUPABASE_URL = 'https://fnpsaypaxpxyyqmrqwai.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZucHNheXBheHB4eXlxbXJxd2FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTc1NzYsImV4cCI6MjA4OTU3MzU3Nn0.yZir2n-zxnbedVdIKwpqJAnWjuwEp96jIYjOY6cNPe4';
 const VISIBILITY_LIMIT_APP_URL = 'https://dla6154-dev.github.io/AUTO-BAND/';
@@ -600,8 +894,22 @@ const SHIPINFO_FIXED_QUERY1_SELECTION_KEYS = [
   'B:BUOY|22184|추자도',
   'C:파고BUOY|22457|제주항',
   'N:조위관측소|690704|제주',
-  '등대/등표|1139001|하조도등대'
+  'L:등표|1139001|하조도등대'
 ];
+const SHIPINFO_FIXED_QUERY1_SELECTION_DESCRIPTORS = SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.map((selectionKey) => {
+  const [observationType = '', stationId = '', ...stationNameParts] = String(selectionKey || '').split('|');
+  return {
+    selectionKey,
+    observationType: observationType.trim(),
+    stationId: stationId.trim(),
+    stationName: stationNameParts.join('|').trim()
+  };
+});
+const SHIPINFO_FIXED_QUERY1_SELECTION_DESCRIPTOR_BY_STATION_ID = new Map(
+  SHIPINFO_FIXED_QUERY1_SELECTION_DESCRIPTORS
+    .filter((descriptor) => descriptor.stationId)
+    .map((descriptor) => [descriptor.stationId, descriptor])
+);
 const WEATHER_INFO_CARDS = [
   {
     icon: 'fa-cloud-sun',
@@ -782,6 +1090,1121 @@ const VISIBILITY_LIMIT_UPDATE_POINTS = [
     detail: '버튼, 목록, 결과 문구 레이아웃과 색상 같은 화면 스타일을 바꾸는 파일입니다.'
   }
 ];
+const FERRY_OPERATION_TAB_KEYS = ['visibility', 'weather', 'forecast'];
+const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
+const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
+const FERRY_OPERATION_FORECAST_STATE_KEY = 'ferryOperation.forecastState.v1';
+const FERRY_OPERATION_WEATHER_STATE_KEY = 'ferryOperation.weatherState.v1';
+const FERRY_OPERATION_WEATHER_SELECTED_VESSEL_KEY = 'ferryOperation.weatherSelectedVessel.v1';
+const FERRY_OPERATION_FORECAST_STATUS_ORDER = ['blank', 'normal', 'review', 'control', 'partial'];
+const FERRY_OPERATION_FORECAST_STATUS_LABELS = {
+  blank: '미입력',
+  normal: '정상',
+  review: '검토',
+  control: '통제',
+  partial: '일부운항'
+};
+const FERRY_OPERATION_WEATHER_STATUS_ORDER = ['blank', 'go', 'control', 'stop'];
+const FERRY_OPERATION_WEATHER_STATUS_LABELS = {
+  blank: '미입력',
+  go: '운항',
+  control: '통제',
+  stop: '비운항'
+};
+const FERRY_OPERATION_VESSELS = [
+  '산타모니카',
+  '새섬두레',
+  '새섬관매',
+  '섬사랑9',
+  '한림페리11',
+  '가사페리',
+  '해진고속카페리'
+];
+const FERRY_OPERATION_DEFAULT_VOYAGES = {
+  '산타모니카': [
+    ['08:00', '진도 → 추자 → 제주'],
+    ['11:00', '제주 → 추자 → 진도'],
+    ['13:30', '진도 → 추자 → 제주'],
+    ['16:20', '제주 → 추자 → 진도']
+  ],
+  '새섬두레': [
+    ['07:20 / 08:20', '창유 ↔ 진도'],
+    ['09:30 / 10:30', '창유 ↔ 진도'],
+    ['11:20 / 12:10', '창유 ↔ 진도'],
+    ['12:45 / 13:30', '창유 ↔ 관매'],
+    ['14:30 / 15:20', '창유 ↔ 진도'],
+    ['17:00 / 18:40', '창유 ↔ 진도']
+  ],
+  '새섬관매': [
+    ['08:15 / 09:20', '진도 ↔ 창유 ↔ 관매'],
+    ['11:10 / 12:10', '진도 ↔ 관매'],
+    ['15:50 / 17:20', '진도 ↔ 창유 ↔ 관매']
+  ],
+  '섬사랑9': [
+    ['09:00 / 13:45', '진도 ↔ 슬도 ↔ 독거 ↔ 탄항 ↔ 혈도 ↔ 청등 ↔ 죽항 ↔ 창유 ↔ 상하죽도 ↔ 서거차도 ↔ 곽도 ↔ 맹골 ↔ 죽도']
+  ],
+  '한림페리11': [
+    ['07:30 / 08:20', '진도 ↔ 창유'],
+    ['09:50 / 16:00', '진도 ↔ 서거차'],
+    ['17:00 / 17:50', '진도 ↔ 창유']
+  ],
+  '가사페리': [
+    ['07:00 / 09:05', '쉬미 ↔ 가사'],
+    ['11:30 / 13:55', '쉬미 ↔ 가사'],
+    ['16:00 / 19:10', '쉬미 ↔ 저도 ↔ 광대 ↔ 송도 ↔ 혈도 ↔ 양덕 ↔ 주지 ↔ 가사']
+  ],
+  '해진고속카페리': [
+    ['06:00 / 08:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+    ['09:00 / 11:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+    ['12:30 / 14:20', '우수영 ↔ 상태동리'],
+    ['15:00 / 17:10', '우수영 ↔ 장산(축강) ↔ 상태동리']
+  ]
+};
+const FERRY_OPERATION_SEASONAL_VOYAGES = {
+  '새섬두레': {
+    '하절기': [
+      ['07:20 / 08:20', '창유 ↔ 진도'],
+      ['09:30 / 10:30', '창유 ↔ 진도'],
+      ['11:20 / 12:10', '창유 ↔ 진도'],
+      ['12:45 / 13:30', '창유 ↔ 관매'],
+      ['14:30 / 15:20', '창유 ↔ 진도'],
+      ['17:00 / 18:40', '창유 ↔ 진도']
+    ],
+    '동절기': [
+      ['07:20 / 08:20', '창유 ↔ 진도'],
+      ['09:30 / 10:30', '창유 ↔ 진도'],
+      ['11:10 / 12:00', '창유 ↔ 관매'],
+      ['13:00 / 14:00', '창유 ↔ 진도'],
+      ['16:00 / 17:35', '창유 ↔ 진도']
+    ]
+  },
+  '한림페리11': {
+    '하절기': [
+      ['07:30 / 08:20', '진도 ↔ 창유'],
+      ['09:50 / 16:00', '진도 ↔ 서거차'],
+      ['17:00 / 17:50', '진도 ↔ 창유']
+    ],
+    '동절기': [
+      ['07:30 / 08:20', '진도 ↔ 창유'],
+      ['09:50 / 16:00', '진도 ↔ 서거차'],
+      ['16:00 / 16:50', '진도 ↔ 창유']
+    ]
+  },
+  '가사페리': {
+    '하절기': [
+      ['07:00 / 09:05', '쉬미 ↔ 가사'],
+      ['11:30 / 13:55', '쉬미 ↔ 가사'],
+      ['16:00 / 19:10', '쉬미 ↔ 저도 ↔ 광대 ↔ 송도 ↔ 혈도 ↔ 양덕 ↔ 주지 ↔ 가사']
+    ],
+    '동절기': [
+      ['07:00 / 09:05', '쉬미 ↔ 가사'],
+      ['11:30 / 13:55', '쉬미 ↔ 가사'],
+      ['15:00 / 18:10', '쉬미 ↔ 저도 ↔ 광대 ↔ 송도 ↔ 혈도 ↔ 양덕 ↔ 주지 ↔ 가사']
+    ]
+  },
+  '해진고속카페리': {
+    '하절기': [
+      ['06:00 / 08:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['09:00 / 11:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['12:30 / 14:20', '우수영 ↔ 상태동리'],
+      ['15:00 / 17:10', '우수영 ↔ 장산(축강) ↔ 상태동리']
+    ],
+    '동절기': [
+      ['07:00 / 09:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['09:40 / 11:50', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['15:00 / 17:10', '우수영 ↔ 장산(축강) ↔ 상태동리']
+    ]
+  }
+};
+let ferryOperationActiveTab = readFerryOperationActiveTab();
+
+function ferryOperationPad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function ferryOperationToLocalDateString(date) {
+  return `${date.getFullYear()}-${ferryOperationPad2(date.getMonth() + 1)}-${ferryOperationPad2(date.getDate())}`;
+}
+
+function getFerryOperationTodayString() {
+  return ferryOperationToLocalDateString(new Date());
+}
+
+function getFerryOperationTomorrowString() {
+  const nextDate = new Date();
+  nextDate.setDate(nextDate.getDate() + 1);
+  return ferryOperationToLocalDateString(nextDate);
+}
+
+function formatFerryOperationDisplayDate(value) {
+  const text = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return '-';
+  const date = new Date(`${text}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return text;
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${date.getFullYear()}.${ferryOperationPad2(date.getMonth() + 1)}.${ferryOperationPad2(date.getDate())} (${days[date.getDay()]})`;
+}
+
+function getFerryOperationNowText() {
+  const now = new Date();
+  return `${formatFerryOperationDisplayDate(ferryOperationToLocalDateString(now))} ${ferryOperationPad2(now.getHours())}:${ferryOperationPad2(now.getMinutes())}`;
+}
+
+function readLocalStorageJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeLocalStorageJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+}
+
+function readFerryOperationActiveTab() {
+  try {
+    const stored = String(localStorage.getItem(FERRY_OPERATION_ACTIVE_TAB_KEY) || '').trim();
+    return FERRY_OPERATION_TAB_KEYS.includes(stored) ? stored : 'visibility';
+  } catch (error) {
+    return 'visibility';
+  }
+}
+
+function setFerryOperationActiveTab(nextTab) {
+  ferryOperationActiveTab = FERRY_OPERATION_TAB_KEYS.includes(nextTab) ? nextTab : 'visibility';
+  try {
+    localStorage.setItem(FERRY_OPERATION_ACTIVE_TAB_KEY, ferryOperationActiveTab);
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+}
+
+function readFerryOperationForecastDate() {
+  try {
+    const stored = String(localStorage.getItem(FERRY_OPERATION_FORECAST_DATE_KEY) || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(stored) ? stored : getFerryOperationTomorrowString();
+  } catch (error) {
+    return getFerryOperationTomorrowString();
+  }
+}
+
+function writeFerryOperationForecastDate(nextDate) {
+  try {
+    localStorage.setItem(FERRY_OPERATION_FORECAST_DATE_KEY, /^\d{4}-\d{2}-\d{2}$/.test(String(nextDate || '').trim()) ? String(nextDate).trim() : getFerryOperationTomorrowString());
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+}
+
+function normalizeFerryOperationForecastStatus(status) {
+  return FERRY_OPERATION_FORECAST_STATUS_ORDER.includes(status) ? status : 'blank';
+}
+
+function normalizeFerryOperationWeatherStatus(status) {
+  return FERRY_OPERATION_WEATHER_STATUS_ORDER.includes(status) ? status : 'blank';
+}
+
+function buildDefaultFerryOperationForecastState() {
+  return FERRY_OPERATION_VESSELS.reduce((accumulator, vesselKey) => {
+    accumulator[vesselKey] = { am: 'blank', pm: 'blank', note: '' };
+    return accumulator;
+  }, {});
+}
+
+function normalizeFerryOperationForecastState(value) {
+  const defaults = buildDefaultFerryOperationForecastState();
+  const nextState = {};
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const current = value && typeof value === 'object' ? value[vesselKey] : null;
+    nextState[vesselKey] = {
+      am: normalizeFerryOperationForecastStatus(current?.am),
+      pm: normalizeFerryOperationForecastStatus(current?.pm),
+      note: String(current?.note || '')
+    };
+  });
+  return nextState;
+}
+
+function readFerryOperationForecastState() {
+  return normalizeFerryOperationForecastState(readLocalStorageJson(FERRY_OPERATION_FORECAST_STATE_KEY, {}));
+}
+
+function writeFerryOperationForecastState(nextState) {
+  writeLocalStorageJson(FERRY_OPERATION_FORECAST_STATE_KEY, normalizeFerryOperationForecastState(nextState));
+}
+
+function mutateFerryOperationForecastState(mutator) {
+  const nextState = readFerryOperationForecastState();
+  mutator(nextState);
+  writeFerryOperationForecastState(nextState);
+  return nextState;
+}
+
+function getFerryOperationVoyageBlueprint(vesselKey, season = '') {
+  const seasonalVoyages = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+  if (seasonalVoyages && seasonalVoyages[season]) {
+    return seasonalVoyages[season];
+  }
+  return FERRY_OPERATION_DEFAULT_VOYAGES[vesselKey] || [];
+}
+
+function buildDefaultFerryOperationWeatherState() {
+  const vessels = {};
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const season = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey] ? '하절기' : '';
+    vessels[vesselKey] = {
+      displayName: vesselKey,
+      season,
+      voyages: getFerryOperationVoyageBlueprint(vesselKey, season).map(([depTime, route]) => ({
+        depTime,
+        route,
+        state: 'blank',
+        note: ''
+      }))
+    };
+  });
+  return { vessels };
+}
+
+function normalizeFerryOperationWeatherState(value) {
+  const defaults = buildDefaultFerryOperationWeatherState();
+  const sourceVessels = value && typeof value === 'object' && value.vessels && typeof value.vessels === 'object'
+    ? value.vessels
+    : {};
+  const vessels = {};
+
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const defaultVessel = defaults.vessels[vesselKey];
+    const sourceVessel = sourceVessels[vesselKey] || {};
+    const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+    const season = seasonOptions && sourceVessel.season && seasonOptions[sourceVessel.season]
+      ? sourceVessel.season
+      : defaultVessel.season;
+    const defaultVoyages = getFerryOperationVoyageBlueprint(vesselKey, season).map(([depTime, route]) => ({
+      depTime,
+      route,
+      state: 'blank',
+      note: ''
+    }));
+    const sourceVoyages = Array.isArray(sourceVessel.voyages) && sourceVessel.voyages.length
+      ? sourceVessel.voyages
+      : defaultVoyages;
+
+    vessels[vesselKey] = {
+      displayName: String(sourceVessel.displayName || defaultVessel.displayName).trim() || defaultVessel.displayName,
+      season,
+      voyages: sourceVoyages.map((voyage, index) => ({
+        depTime: String(voyage?.depTime ?? defaultVoyages[index]?.depTime ?? '').trim(),
+        route: String(voyage?.route ?? defaultVoyages[index]?.route ?? '').trim(),
+        state: normalizeFerryOperationWeatherStatus(voyage?.state),
+        note: String(voyage?.note || '')
+      }))
+    };
+
+    if (!vessels[vesselKey].voyages.length) {
+      vessels[vesselKey].voyages = defaultVoyages;
+    }
+  });
+
+  return { vessels };
+}
+
+function readFerryOperationWeatherState() {
+  return normalizeFerryOperationWeatherState(readLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, {}));
+}
+
+function writeFerryOperationWeatherState(nextState) {
+  writeLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, normalizeFerryOperationWeatherState(nextState));
+}
+
+function mutateFerryOperationWeatherState(mutator) {
+  const nextState = readFerryOperationWeatherState();
+  mutator(nextState);
+  writeFerryOperationWeatherState(nextState);
+  return nextState;
+}
+
+function normalizeFerryOperationWeatherSelectedVessel(value) {
+  const vesselKey = String(value || '').trim();
+  return FERRY_OPERATION_VESSELS.includes(vesselKey) ? vesselKey : FERRY_OPERATION_VESSELS[0];
+}
+
+function readFerryOperationWeatherSelectedVessel() {
+  try {
+    return normalizeFerryOperationWeatherSelectedVessel(localStorage.getItem(FERRY_OPERATION_WEATHER_SELECTED_VESSEL_KEY));
+  } catch (error) {
+    return FERRY_OPERATION_VESSELS[0];
+  }
+}
+
+function writeFerryOperationWeatherSelectedVessel(nextVesselKey) {
+  const vesselKey = normalizeFerryOperationWeatherSelectedVessel(nextVesselKey);
+  try {
+    localStorage.setItem(FERRY_OPERATION_WEATHER_SELECTED_VESSEL_KEY, vesselKey);
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+  return vesselKey;
+}
+
+function buildFerryOperationSectionTabButton(tabKey, label, iconClass) {
+  const activeClass = ferryOperationActiveTab === tabKey ? ' is-active' : '';
+  return `
+    <button type="button" class="ferry-op-subtab-btn${activeClass}" data-ferry-op-tab-btn="${tabKey}">
+      <i class="fa-solid ${iconClass} mr-2"></i>${label}
+    </button>`;
+}
+
+function buildFerryOperationForecastRowsHtml() {
+  const forecastState = readFerryOperationForecastState();
+  return FERRY_OPERATION_VESSELS.map((vesselKey) => {
+    const row = forecastState[vesselKey];
+    return `
+      <tr class="border-b border-slate-700/70 last:border-b-0">
+        <td class="ferry-op-forecast-vessel-cell px-2 py-2.5 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
+        <td class="px-2 py-2.5">
+          <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.am)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="am">
+            ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.am])}
+          </button>
+        </td>
+        <td class="px-2 py-2.5">
+          <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.pm)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="pm">
+            ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.pm])}
+          </button>
+        </td>
+        <td class="px-2 py-2.5">
+          <input type="text" class="ferry-op-note-input ferry-op-forecast-note-input text-sm" data-ferry-op-forecast-note="${escapeHtml(vesselKey)}" value="${escapeHtml(row.note)}" placeholder="비고" />
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function buildFerryOperationForecastPanel() {
+  const forecastDate = readFerryOperationForecastDate();
+  return `
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 class="text-2xl font-bold text-cyan-300">내일의 운항예보</h3>
+          <p class="mt-0.5 text-sm text-slate-400">선박별 오전/오후 운항 상태를 정리하고 이미지로 저장할 수 있습니다.</p>
+        </div>
+        <label class="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2.5 text-xs text-slate-200">
+          <span class="font-semibold text-slate-300">기준일</span>
+          <input type="date" id="ferry-op-forecast-date-input" class="bg-transparent outline-none" value="${escapeHtml(forecastDate)}" />
+        </label>
+      </div>
+
+      <div id="ferry-op-forecast-capture" class="ferry-op-capture-card">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-cyan-500/10 px-4 py-3">
+          <div class="text-base font-black text-white" style="line-height:1.35">여객선<br>운항관리</div>
+          <div class="text-right" style="line-height:1.45">
+            <div class="text-sm font-black text-white"><span id="ferry-op-header-visibility-btn" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">시계제한</span> 기상악화<br>내일의 운항예보</div>
+            <div id="ferry-op-forecast-date-display" class="text-xs font-semibold text-cyan-100 mt-1">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
+          </div>
+        </div>
+        <div>
+          <table class="ferry-op-forecast-table">
+            <colgroup>
+              <col />
+              <col />
+              <col />
+              <col />
+            </colgroup>
+            <thead class="bg-slate-900/70 text-xs uppercase tracking-[0.2em] text-slate-300">
+              <tr>
+                <th class="px-2 py-2.5 text-left">선명</th>
+                <th class="px-2 py-2.5">오전</th>
+                <th class="px-2 py-2.5">오후</th>
+                <th class="px-2 py-2.5 text-left">비고</th>
+              </tr>
+            </thead>
+            <tbody>${buildFerryOperationForecastRowsHtml()}</tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-4 py-3 text-[11px] text-slate-400">
+          <span id="ferry-op-forecast-footer-time">생성: -</span>
+          <span>목포운항관리센터 진도사무소</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+        <span class="rounded-full bg-slate-700 px-3 py-1 text-slate-200">미입력</span>
+        <span class="rounded-full bg-green-600 px-3 py-1 text-white">정상</span>
+        <span class="rounded-full bg-amber-500 px-3 py-1 text-slate-950">검토</span>
+        <span class="rounded-full bg-red-600 px-3 py-1 text-white">통제</span>
+        <span class="rounded-full bg-violet-600 px-3 py-1 text-white">일부운항</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="ferry-op-forecast-reset-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">초기화</button>
+        <button type="button" id="ferry-op-forecast-save-btn" class="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20">사진으로 저장</button>
+      </div>
+      <p class="text-sm text-slate-400">칸을 누르면 미입력 → 정상 → 검토 → 통제 → 일부운항 순으로 바뀝니다.</p>
+      <p id="ferry-op-forecast-feedback" class="text-sm"></p>
+    </div>`;
+}
+
+function buildFerryOperationWeatherVesselSelectorHtml() {
+  const weatherState = readFerryOperationWeatherState();
+  const selectedVesselKey = readFerryOperationWeatherSelectedVessel();
+  return FERRY_OPERATION_VESSELS.map((vesselKey) => {
+    const displayName = weatherState.vessels[vesselKey]?.displayName || vesselKey;
+    return `
+      <button
+        type="button"
+        class="ferry-op-vessel-filter-btn${selectedVesselKey === vesselKey ? ' is-active' : ''}"
+        data-ferry-op-weather-vessel-btn="${escapeHtml(vesselKey)}"
+        title="${escapeHtml(displayName)}"
+      >
+        ${escapeHtml(displayName)}
+      </button>`;
+  }).join('');
+}
+
+function buildFerryOperationWeatherVesselCardHtml(vesselKey, vessel) {
+  const voyageRows = vessel.voyages.map((voyage, index) => `
+      <div class="ferry-op-weather-voyage-card">
+        <span class="ferry-op-weather-voyage-badge">${escapeHtml(String(index + 1))}항</span>
+        <input type="text" class="ferry-op-inline-input text-center text-sm font-semibold" data-ferry-op-voyage-dep="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.depTime)}" readonly />
+        <input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-route="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.route)}" readonly title="${escapeHtml(voyage.route)}" />
+        <button type="button" class="ferry-op-voyage-status-btn" data-state="${escapeHtml(voyage.state)}" data-ferry-op-voyage-status="true" data-ferry-op-voyage-vessel="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}">
+          ${escapeHtml(FERRY_OPERATION_WEATHER_STATUS_LABELS[voyage.state])}
+        </button>
+        <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" />
+      </div>`).join('');
+
+  return `
+    <article class="ferry-op-vessel-card" data-ferry-op-vessel-card="${escapeHtml(vesselKey)}">
+      <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-slate-900/70 px-3 py-2.5">
+        <div class="min-w-0 flex-1">
+          <span class="ferry-op-vessel-name-label block truncate text-sm font-black text-white">${escapeHtml(vessel.displayName)}</span>
+          <input type="text" class="ferry-op-inline-input ferry-op-vessel-name-input mt-2 text-sm" data-ferry-op-vessel-name-input="${escapeHtml(vesselKey)}" value="${escapeHtml(vessel.displayName)}" />
+          <span class="mt-0.5 block text-[10px] text-slate-400">${escapeHtml(String(vessel.voyages.length))}항차</span>
+        </div>
+        <button type="button" class="rounded-full border border-violet-400/35 bg-violet-500/10 px-3 py-1.5 text-[11px] font-semibold text-violet-100 hover:bg-violet-500/20" data-ferry-op-edit-vessel="${escapeHtml(vesselKey)}">편집</button>
+      </div>
+      <div class="ferry-op-vessel-body space-y-2 px-2.5 py-2.5">
+        <div class="ferry-op-weather-voyage-list">${voyageRows}</div>
+      </div>
+    </article>`;
+}
+
+function buildFerryOperationWeatherSelectedSeasonHtml() {
+  const selectedVesselKey = readFerryOperationWeatherSelectedVessel();
+  const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[selectedVesselKey];
+  if (!seasonOptions) return '';
+  const weatherState = readFerryOperationWeatherState();
+  const vessel = weatherState.vessels[selectedVesselKey];
+  return `
+    <div class="flex flex-wrap items-center gap-1.5">
+      ${Object.keys(seasonOptions).map((seasonKey) => `
+        <button type="button" class="ferry-op-season-btn${vessel?.season === seasonKey ? ' is-active' : ''}" data-ferry-op-season="${escapeHtml(seasonKey)}" data-ferry-op-season-vessel="${escapeHtml(selectedVesselKey)}">${escapeHtml(seasonKey)}</button>
+      `).join('')}
+    </div>`;
+}
+
+function buildFerryOperationWeatherVesselBlocksHtml() {
+  const weatherState = readFerryOperationWeatherState();
+  const selectedVesselKey = readFerryOperationWeatherSelectedVessel();
+  const vessel = weatherState.vessels[selectedVesselKey];
+  return vessel ? buildFerryOperationWeatherVesselCardHtml(selectedVesselKey, vessel) : '';
+}
+
+function buildFerryOperationWeatherPanel() {
+  return `
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 class="text-2xl font-bold text-rose-300">기상악화</h3>
+          <p class="mt-0.5 text-sm text-slate-400">항차별 운항여부를 관리하고 기상악화 통제 문구를 바로 추출할 수 있습니다.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2.5 text-xs text-slate-200">
+          오늘 기준 <span class="ml-2 font-semibold text-white">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        ${buildFerryOperationWeatherVesselSelectorHtml()}
+      </div>
+      ${buildFerryOperationWeatherSelectedSeasonHtml()}
+
+      <div id="ferry-op-weather-capture" class="ferry-op-capture-card">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-rose-500/10 px-4 py-3">
+          <div class="text-base font-black text-white">항차별 운항여부</div>
+          <div class="text-xs font-semibold text-rose-100">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</div>
+        </div>
+        <div class="space-y-3 p-3">${buildFerryOperationWeatherVesselBlocksHtml()}</div>
+        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-4 py-3 text-[11px] text-slate-400">
+          <span id="ferry-op-weather-footer-time">생성: -</span>
+          <span>목포운항관리센터 진도사무소</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+        <span class="rounded-full bg-slate-700 px-3 py-1 text-slate-200">미입력</span>
+        <span class="rounded-full bg-green-600 px-3 py-1 text-white">운항</span>
+        <span class="rounded-full bg-red-600 px-3 py-1 text-white">통제</span>
+        <span class="rounded-full bg-slate-500 px-3 py-1 text-white">비운항</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="ferry-op-weather-reset-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">초기화</button>
+        <button type="button" id="ferry-op-weather-save-btn" class="rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/20">사진으로 저장</button>
+        <button type="button" id="ferry-op-weather-extract-btn" class="rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">기상악화 문구 추출</button>
+      </div>
+      <p class="text-sm text-slate-400">선박을 선택하면 해당 선박의 전 항차만 한 화면에 표시됩니다. 상태 칸을 누르면 미입력 → 운항 → 통제 → 비운항 순으로 바뀌고, 편집을 누르면 선명/시간/노선을 바로 수정할 수 있습니다.</p>
+      <p id="ferry-op-weather-feedback" class="text-sm"></p>
+    </div>`;
+}
+
+function buildFerryOperationVisibilityPanel() {
+  return `
+    <div class="space-y-4">
+      <button type="button" id="ferry-op-open-visibility-manual-btn" class="w-full rounded-3xl border border-violet-400/35 bg-violet-500/10 px-5 py-4 text-left hover:bg-violet-500/20">
+        <span class="block text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">시계제한</span>
+        <span class="mt-2 block text-xl font-black text-violet-100"><i class="fa-solid fa-image mr-2"></i>시계제한 매뉴얼 열기</span>
+        <span class="mt-1 block text-sm text-slate-300">탭을 열면 바로 매뉴얼 버튼이 보이도록 단순화했습니다.</span>
+      </button>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">빠른 요약</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">항로 6개</span>
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">선박 7척</span>
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">상황 3종</span>
+            <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-200">상태 4종</span>
+          </div>
+          <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
+              <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                <p class="text-sm font-semibold text-white">${escapeHtml(item.route)}</p>
+                <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.ships)}</p>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-4">
+          <h4 class="text-base font-bold text-violet-300">로직 수정 파일</h4>
+          <div class="mt-3 space-y-3">
+            ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
+              <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                <p class="text-sm font-semibold text-white">${escapeHtml(item.title)}</p>
+                <p class="mt-1 break-all text-xs text-violet-200">${escapeHtml(item.file)}</p>
+                <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.detail)}</p>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildFerryOperationManagerSection() {
+  return `
+    <div class="flex items-center gap-4 mb-6">
+      <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+      <div>
+        <h2 class="text-2xl font-bold text-violet-300">여객선 운항 관리</h2>
+        <p class="text-sm text-slate-400 mt-1">시계제한, 기상악화, 내일의 운항예보를 한 화면에서 관리합니다.</p>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      ${buildFerryOperationSectionTabButton('visibility', '시계제한', 'fa-eye-low-vision')}
+      ${buildFerryOperationSectionTabButton('weather', '기상악화', 'fa-cloud-showers-heavy')}
+      ${buildFerryOperationSectionTabButton('forecast', '내일의 운항예보', 'fa-ship')}
+    </div>
+
+    <div id="ferry-op-panels" class="space-y-6">
+      <section data-ferry-op-tab-panel="visibility" class="${ferryOperationActiveTab === 'visibility' ? '' : 'hidden'}">${buildFerryOperationVisibilityPanel()}</section>
+      <section data-ferry-op-tab-panel="weather" class="${ferryOperationActiveTab === 'weather' ? '' : 'hidden'}">${buildFerryOperationWeatherPanel()}</section>
+      <section data-ferry-op-tab-panel="forecast" class="${ferryOperationActiveTab === 'forecast' ? '' : 'hidden'}">${buildFerryOperationForecastPanel()}</section>
+    </div>`;
+}
+
+function refreshFerryOperationForecastPanel(section) {
+  const panel = section.querySelector('[data-ferry-op-tab-panel="forecast"]');
+  if (!panel) return;
+  panel.innerHTML = buildFerryOperationForecastPanel();
+}
+
+function refreshFerryOperationWeatherPanel(section) {
+  const panel = section.querySelector('[data-ferry-op-tab-panel="weather"]');
+  if (!panel) return;
+  panel.innerHTML = buildFerryOperationWeatherPanel();
+}
+
+function setFerryOperationFeedback(panelKey, message, tone = 'info') {
+  const feedbackEl = document.getElementById(`ferry-op-${panelKey}-feedback`);
+  if (!feedbackEl) return;
+  const toneClass = tone === 'success'
+    ? 'text-green-300'
+    : tone === 'error'
+      ? 'text-red-300'
+      : 'text-slate-400';
+  feedbackEl.textContent = message;
+  feedbackEl.className = `text-sm ${toneClass}`;
+}
+
+function setFerryOperationActivePanel(section, nextTab) {
+  setFerryOperationActiveTab(nextTab);
+  section.querySelectorAll('[data-ferry-op-tab-btn]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.ferryOpTabBtn === ferryOperationActiveTab);
+  });
+  section.querySelectorAll('[data-ferry-op-tab-panel]').forEach((panel) => {
+    panel.classList.toggle('hidden', panel.dataset.ferryOpTabPanel !== ferryOperationActiveTab);
+  });
+}
+
+function bindFerryOperationManagerSection(section) {
+  if (section.dataset.ferryOperationBound === 'true') return;
+
+  section.addEventListener('click', async (event) => {
+    const tabButton = event.target.closest('[data-ferry-op-tab-btn]');
+    if (tabButton) {
+      setFerryOperationActivePanel(section, tabButton.dataset.ferryOpTabBtn);
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-open-visibility-manual-btn')) {
+      openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+      return;
+    }
+
+    const forecastStatusButton = event.target.closest('[data-ferry-op-forecast-status]');
+    if (forecastStatusButton) {
+      const vesselKey = String(forecastStatusButton.dataset.ferryOpForecastVessel || '');
+      const period = String(forecastStatusButton.dataset.ferryOpForecastPeriod || '');
+      const nextState = mutateFerryOperationForecastState((state) => {
+        const current = state[vesselKey] || { am: 'blank', pm: 'blank', note: '' };
+        const currentStatus = normalizeFerryOperationForecastStatus(current[period]);
+        const nextIndex = (FERRY_OPERATION_FORECAST_STATUS_ORDER.indexOf(currentStatus) + 1) % FERRY_OPERATION_FORECAST_STATUS_ORDER.length;
+        current[period] = FERRY_OPERATION_FORECAST_STATUS_ORDER[nextIndex];
+        state[vesselKey] = current;
+      });
+      const nextStatus = nextState[vesselKey]?.[period] || 'blank';
+      forecastStatusButton.dataset.state = nextStatus;
+      forecastStatusButton.textContent = FERRY_OPERATION_FORECAST_STATUS_LABELS[nextStatus];
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-forecast-reset-btn')) {
+      writeFerryOperationForecastState(buildDefaultFerryOperationForecastState());
+      refreshFerryOperationForecastPanel(section);
+      setFerryOperationFeedback('forecast', '내일의 운항예보를 초기화했습니다.', 'success');
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-header-visibility-btn')) {
+      openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-forecast-save-btn')) {
+      await saveFerryOperationCapture({
+        captureId: 'ferry-op-forecast-capture',
+        footerId: 'ferry-op-forecast-footer-time',
+        fileName: `내일의운항예보_${readFerryOperationForecastDate()}.png`,
+        feedbackKey: 'forecast'
+      });
+      return;
+    }
+
+    const toggleVesselButton = event.target.closest('[data-ferry-op-toggle-vessel]');
+    if (toggleVesselButton) {
+      const card = toggleVesselButton.closest('[data-ferry-op-vessel-card]');
+      if (card) card.classList.toggle('is-collapsed');
+      return;
+    }
+
+    const editVesselButton = event.target.closest('[data-ferry-op-edit-vessel]');
+    if (editVesselButton) {
+      const vesselKey = String(editVesselButton.dataset.ferryOpEditVessel || '');
+      const card = Array.from(section.querySelectorAll('[data-ferry-op-vessel-card]')).find(
+        (item) => item.dataset.ferryOpVesselCard === vesselKey
+      );
+      if (!card) return;
+      const isEditing = card.classList.toggle('is-editing');
+      editVesselButton.textContent = isEditing ? '편집 완료' : '편집';
+      card.querySelectorAll('[data-ferry-op-voyage-dep], [data-ferry-op-voyage-route]').forEach((input) => {
+        input.readOnly = !isEditing;
+      });
+      return;
+    }
+
+    const weatherVesselButton = event.target.closest('[data-ferry-op-weather-vessel-btn]');
+    if (weatherVesselButton) {
+      writeFerryOperationWeatherSelectedVessel(String(weatherVesselButton.dataset.ferryOpWeatherVesselBtn || ''));
+      refreshFerryOperationWeatherPanel(section);
+      return;
+    }
+
+    const seasonButton = event.target.closest('[data-ferry-op-season]');
+    if (seasonButton) {
+      const vesselKey = String(seasonButton.dataset.ferryOpSeasonVessel || '');
+      const seasonKey = String(seasonButton.dataset.ferryOpSeason || '');
+      mutateFerryOperationWeatherState((state) => {
+        const vessel = state.vessels[vesselKey];
+        if (!vessel) return;
+        const previousByTime = new Map((vessel.voyages || []).map((voyage) => [voyage.depTime, voyage]));
+        vessel.season = seasonKey;
+        vessel.voyages = getFerryOperationVoyageBlueprint(vesselKey, seasonKey).map(([depTime, route]) => {
+          const previous = previousByTime.get(depTime);
+          return {
+            depTime,
+            route,
+            state: normalizeFerryOperationWeatherStatus(previous?.state),
+            note: String(previous?.note || '')
+          };
+        });
+      });
+      refreshFerryOperationWeatherPanel(section);
+      return;
+    }
+
+    const voyageStatusButton = event.target.closest('[data-ferry-op-voyage-status]');
+    if (voyageStatusButton) {
+      const vesselKey = String(voyageStatusButton.dataset.ferryOpVoyageVessel || '');
+      const voyageIndex = Number(voyageStatusButton.dataset.ferryOpVoyageIndex);
+      const nextState = mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (!voyage) return;
+        const currentStatus = normalizeFerryOperationWeatherStatus(voyage.state);
+        const nextIndex = (FERRY_OPERATION_WEATHER_STATUS_ORDER.indexOf(currentStatus) + 1) % FERRY_OPERATION_WEATHER_STATUS_ORDER.length;
+        voyage.state = FERRY_OPERATION_WEATHER_STATUS_ORDER[nextIndex];
+      });
+      const nextStatus = nextState.vessels[vesselKey]?.voyages?.[voyageIndex]?.state || 'blank';
+      voyageStatusButton.dataset.state = nextStatus;
+      voyageStatusButton.textContent = FERRY_OPERATION_WEATHER_STATUS_LABELS[nextStatus];
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-weather-reset-btn')) {
+      writeFerryOperationWeatherState(buildDefaultFerryOperationWeatherState());
+      refreshFerryOperationWeatherPanel(section);
+      setFerryOperationFeedback('weather', '기상악화 운항표를 초기화했습니다.', 'success');
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-weather-save-btn')) {
+      const selectedVesselKey = readFerryOperationWeatherSelectedVessel();
+      const weatherState = readFerryOperationWeatherState();
+      const selectedVesselName = String(weatherState.vessels[selectedVesselKey]?.displayName || selectedVesselKey).trim() || selectedVesselKey;
+      await saveFerryOperationCapture({
+        captureId: 'ferry-op-weather-capture',
+        footerId: 'ferry-op-weather-footer-time',
+        fileName: `기상악화_${selectedVesselName}_${getFerryOperationTodayString()}.png`,
+        feedbackKey: 'weather'
+      });
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-weather-extract-btn')) {
+      openFerryOperationExtractModal();
+    }
+  });
+
+  section.addEventListener('input', (event) => {
+    const forecastDateInput = event.target.closest('#ferry-op-forecast-date-input');
+    if (forecastDateInput) {
+      writeFerryOperationForecastDate(forecastDateInput.value);
+      const dateDisplay = section.querySelector('#ferry-op-forecast-date-display');
+      if (dateDisplay) dateDisplay.textContent = formatFerryOperationDisplayDate(forecastDateInput.value);
+      return;
+    }
+
+    const forecastNoteInput = event.target.closest('[data-ferry-op-forecast-note]');
+    if (forecastNoteInput) {
+      const vesselKey = String(forecastNoteInput.dataset.ferryOpForecastNote || '');
+      mutateFerryOperationForecastState((state) => {
+        if (!state[vesselKey]) state[vesselKey] = { am: 'blank', pm: 'blank', note: '' };
+        state[vesselKey].note = forecastNoteInput.value;
+      });
+      return;
+    }
+
+    const vesselNameInput = event.target.closest('[data-ferry-op-vessel-name-input]');
+    if (vesselNameInput) {
+      const vesselKey = String(vesselNameInput.dataset.ferryOpVesselNameInput || '');
+      mutateFerryOperationWeatherState((state) => {
+        const vessel = state.vessels[vesselKey];
+        if (!vessel) return;
+        vessel.displayName = vesselNameInput.value.trim() || vesselKey;
+      });
+      const label = vesselNameInput.closest('[data-ferry-op-vessel-card]')?.querySelector('.ferry-op-vessel-name-label');
+      if (label) label.textContent = vesselNameInput.value.trim() || vesselKey;
+      const selectorButton = Array.from(section.querySelectorAll('[data-ferry-op-weather-vessel-btn]')).find(
+        (button) => button.dataset.ferryOpWeatherVesselBtn === vesselKey
+      );
+      if (selectorButton) selectorButton.textContent = vesselNameInput.value.trim() || vesselKey;
+      return;
+    }
+
+    const voyageDepInput = event.target.closest('[data-ferry-op-voyage-dep]');
+    if (voyageDepInput) {
+      const vesselKey = String(voyageDepInput.dataset.ferryOpVoyageDep || '');
+      const voyageIndex = Number(voyageDepInput.dataset.ferryOpVoyageIndex);
+      mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (voyage) voyage.depTime = voyageDepInput.value;
+      });
+      return;
+    }
+
+    const voyageRouteInput = event.target.closest('[data-ferry-op-voyage-route]');
+    if (voyageRouteInput) {
+      const vesselKey = String(voyageRouteInput.dataset.ferryOpVoyageRoute || '');
+      const voyageIndex = Number(voyageRouteInput.dataset.ferryOpVoyageIndex);
+      mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (voyage) voyage.route = voyageRouteInput.value;
+      });
+      return;
+    }
+
+    const voyageNoteInput = event.target.closest('[data-ferry-op-voyage-note]');
+    if (voyageNoteInput) {
+      const vesselKey = String(voyageNoteInput.dataset.ferryOpVoyageNote || '');
+      const voyageIndex = Number(voyageNoteInput.dataset.ferryOpVoyageIndex);
+      mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (voyage) voyage.note = voyageNoteInput.value;
+      });
+    }
+  });
+
+  section.dataset.ferryOperationBound = 'true';
+}
+
+async function saveFerryOperationCapture({ captureId, footerId, fileName, feedbackKey }) {
+  let cleanupCaptureClone = () => {};
+  try {
+    if (typeof window.html2canvas !== 'function') {
+      throw new Error('이미지 저장 라이브러리를 불러오지 못했습니다.');
+    }
+    const footer = document.getElementById(footerId);
+    if (footer) footer.textContent = `생성: ${getFerryOperationNowText()}`;
+    document.activeElement?.blur?.();
+    const target = document.getElementById(captureId);
+    if (!target) throw new Error('저장할 화면을 찾지 못했습니다.');
+    const { clone, cleanup } = buildFerryOperationCaptureClone(target);
+    cleanupCaptureClone = cleanup;
+    const cloneRect = clone.getBoundingClientRect();
+
+    /* 캡처 전 버튼 텍스트 수직 정렬 보정 스타일 주입 */
+    const captureFixStyle = document.createElement('style');
+    captureFixStyle.id = '_ferry_capture_fix';
+    captureFixStyle.textContent = `
+      .ferry-op-capture-status {
+        display: table-cell !important;
+        vertical-align: middle !important;
+        text-align: center !important;
+        padding: 0 !important;
+      }
+    `;
+    document.head.appendChild(captureFixStyle);
+
+    const canvas = await window.html2canvas(clone, {
+      scale: 2,
+      backgroundColor: '#020617',
+      useCORS: true,
+      width: Math.ceil(cloneRect.width),
+      height: Math.ceil(cloneRect.height),
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight
+    });
+    document.getElementById('_ferry_capture_fix')?.remove();
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    setFerryOperationFeedback(feedbackKey, '이미지로 저장했습니다.', 'success');
+  } catch (error) {
+    setFerryOperationFeedback(feedbackKey, `저장 실패: ${error.message}`, 'error');
+  } finally {
+    cleanupCaptureClone();
+  }
+}
+
+function buildFerryOperationCaptureClone(target) {
+  const rect = target.getBoundingClientRect();
+  const clone = target.cloneNode(true);
+  clone.setAttribute('aria-hidden', 'true');
+  clone.style.position = 'fixed';
+  clone.style.left = '-100000px';
+  clone.style.top = '0';
+  clone.style.margin = '0';
+  clone.style.width = `${Math.ceil(rect.width)}px`;
+  clone.style.minWidth = `${Math.ceil(rect.width)}px`;
+  clone.style.maxWidth = `${Math.ceil(rect.width)}px`;
+  clone.style.pointerEvents = 'none';
+  clone.style.transform = 'none';
+  clone.style.boxSizing = 'border-box';
+  clone.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+  document.body.appendChild(clone);
+  replaceFerryOperationCaptureFields(target, clone);
+  return {
+    clone,
+    cleanup: () => {
+      clone.remove();
+    }
+  };
+}
+
+function replaceFerryOperationCaptureFields(sourceRoot, cloneRoot) {
+  const sourceInputs = Array.from(sourceRoot.querySelectorAll('input[type="text"]'));
+  const cloneInputs = Array.from(cloneRoot.querySelectorAll('input[type="text"]'));
+  sourceInputs.forEach((sourceInput, index) => {
+    const cloneInput = cloneInputs[index];
+    if (!cloneInput) return;
+    const text = String(sourceInput.value || '').trim() || String(sourceInput.placeholder || '').trim() || '-';
+    const replacement = document.createElement('div');
+    replacement.className = `${cloneInput.className} ferry-op-capture-field`;
+    replacement.textContent = text;
+    replacement.setAttribute('aria-hidden', 'true');
+    applyFerryOperationCaptureMetrics(sourceInput, replacement);
+    cloneInput.replaceWith(replacement);
+  });
+
+  const sourceButtons = Array.from(sourceRoot.querySelectorAll('button.ferry-op-status-btn, button.ferry-op-voyage-status-btn'));
+  const cloneButtons = Array.from(cloneRoot.querySelectorAll('button.ferry-op-status-btn, button.ferry-op-voyage-status-btn'));
+  sourceButtons.forEach((sourceButton, index) => {
+    const cloneButton = cloneButtons[index];
+    if (!cloneButton) return;
+    const computed = window.getComputedStyle(sourceButton);
+    const rect = sourceButton.getBoundingClientRect();
+    const btnH = Math.ceil(rect.height);
+    const btnW = Math.ceil(rect.width);
+    const fontSize = parseFloat(computed.fontSize);
+    const text = String(sourceButton.textContent || '').trim() || '-';
+    const dpr = 2;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = btnW * dpr;
+    tempCanvas.height = btnH * dpr;
+    const ctx = tempCanvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const bgColor = computed.backgroundColor;
+    const radius = parseFloat(computed.borderRadius) || 0;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(0, 0, btnW, btnH, radius);
+    } else {
+      ctx.moveTo(radius, 0);
+      ctx.arcTo(btnW, 0, btnW, btnH, radius);
+      ctx.arcTo(btnW, btnH, 0, btnH, radius);
+      ctx.arcTo(0, btnH, 0, 0, radius);
+      ctx.arcTo(0, 0, btnW, 0, radius);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.fillStyle = computed.color;
+    ctx.font = `${computed.fontWeight} ${fontSize}px ${computed.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, btnW / 2, btnH / 2);
+    const img = document.createElement('img');
+    img.src = tempCanvas.toDataURL('image/png');
+    img.setAttribute('aria-hidden', 'true');
+    img.style.cssText = `display: block; width: ${btnW}px; height: ${btnH}px; flex-shrink: 0;`;
+    cloneButton.replaceWith(img);
+  });
+}
+
+function applyFerryOperationCaptureMetrics(sourceElement, replacement) {
+  const rect = sourceElement.getBoundingClientRect();
+  const style = window.getComputedStyle(sourceElement);
+  replacement.style.display = 'flex';
+  replacement.style.alignItems = 'center';
+  replacement.style.justifyContent = style.textAlign === 'center' ? 'center' : style.textAlign === 'right' ? 'flex-end' : 'flex-start';
+  replacement.style.width = `${Math.ceil(rect.width)}px`;
+  replacement.style.minWidth = `${Math.ceil(rect.width)}px`;
+  replacement.style.maxWidth = `${Math.ceil(rect.width)}px`;
+  replacement.style.height = `${Math.ceil(rect.height)}px`;
+  replacement.style.minHeight = `${Math.ceil(rect.height)}px`;
+  replacement.style.maxHeight = `${Math.ceil(rect.height)}px`;
+  replacement.style.padding = style.padding;
+  replacement.style.boxSizing = 'border-box';
+  replacement.style.lineHeight = style.lineHeight;
+  replacement.style.fontSize = style.fontSize;
+  replacement.style.fontWeight = style.fontWeight;
+  replacement.style.letterSpacing = style.letterSpacing;
+  replacement.style.textAlign = style.textAlign;
+  replacement.style.whiteSpace = 'nowrap';
+  replacement.style.overflow = 'hidden';
+  replacement.style.textOverflow = 'ellipsis';
+}
+
+function extractFerryOperationWeatherText() {
+  const weatherState = readFerryOperationWeatherState();
+  const all = [];
+  const allNotes = [];
+
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const vessel = weatherState.vessels[vesselKey];
+    if (!vessel) return;
+    vessel.voyages.forEach((voyage) => {
+      const state = normalizeFerryOperationWeatherStatus(voyage.state);
+      const depRaw = String(voyage.depTime || '').trim();
+      const route = String(voyage.route || '').trim();
+      const note = String(voyage.note || '').trim();
+      const depTime = depRaw.split('/')[0].trim();
+      const origin = route.split(/[↔→]/)[0].trim();
+      const stops = route.split(/[↔→]/).map((item) => item.trim()).filter(Boolean);
+      const simpleRoute = stops.length >= 2 ? `${stops[0]}-${stops[stops.length - 1]}` : route;
+      const sortKey = depTime.replace(':', '') || '9999';
+      const displayName = String(vessel.displayName || vesselKey).trim() || vesselKey;
+
+      if (state === 'control' || state === 'stop') {
+        all.push({ sortKey, simpleRoute, vessel: displayName, depTime, origin, note });
+      }
+
+      if (note) {
+        allNotes.push({ sortKey, simpleRoute, vessel: displayName, depTime, origin, note });
+      }
+    });
+  });
+
+  all.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  allNotes.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  const seen = new Set();
+  const items = [];
+  all.forEach((item) => {
+    if (seen.has(item.vessel)) return;
+    seen.add(item.vessel);
+    items.push(item);
+  });
+
+  if (!items.length && !allNotes.length) {
+    return '통제/비운항 항차가 없습니다.';
+  }
+
+  const mainLines = items.map((item, index) => `${index + 1}. ${item.simpleRoute} ${item.vessel}호(${item.depTime} ${item.origin}출항)`);
+  const noteLines = allNotes.map((item) => `* ${item.simpleRoute} ${item.vessel}호(${item.depTime} ${item.origin}출항)[${item.note}]`);
+
+  let result = mainLines.length ? `아래 항로 기상악화로 통제합니다.\n\n${mainLines.join('\n')}` : '';
+  if (noteLines.length) {
+    result += `${result ? '\n\n' : ''}${noteLines.join('\n')}`;
+  }
+  return result || '통제/비운항 항차가 없습니다.';
+}
+
+function openFerryOperationExtractModal() {
+  const extractText = extractFerryOperationWeatherText();
+  showModal('기상악화 문구', `
+    <div class="space-y-4">
+      <textarea id="ferry-op-extract-text" class="ferry-op-extract-textarea" readonly>${escapeHtml(extractText)}</textarea>
+      <button id="ferry-op-extract-copy-btn" class="w-full rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">클립보드 복사</button>
+    </div>`);
+}
 
 // 비밀번호 초기화 (localStorage 사용)
 /* (삭제) - 이제 이 기능은 Firestore에서 처리합니다.
@@ -794,7 +2217,9 @@ const DEFAULT_CAPTAIN_DUTY_ROWS = [
   { shipName: '한림페리11호', mainCaptain: '이수행', reliefCaptain: '김종현', startDay: 21, endDay: 25 },
   { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
 ];
-captainDutyConfig = getDefaultCaptainDutyConfig();
+captainDutyConfigsByMonth = {
+  [captainDutyViewYearMonth]: getDefaultCaptainDutyConfig(captainDutyViewYearMonth)
+};
 const vehicleLoadingState = {
   ships: [],
   currentShipId: null,
@@ -846,9 +2271,9 @@ const DATASETS = [
 
       onSnapshot(captainDutyDoc(), (snap) => {
         if (snap.exists()) {
-          captainDutyConfig = normalizeCaptainDutyConfig(snap.data());
+          captainDutyConfigsByMonth = normalizeCaptainDutyConfigStore(snap.data());
         } else {
-          captainDutyConfig = getDefaultCaptainDutyConfig();
+          captainDutyConfigsByMonth = normalizeCaptainDutyConfigStore();
         }
         rerenderIfVisible('captainDutyData');
       }, (err) => console.error('[captainDutyData] 실시간 구독 오류', err));
@@ -873,9 +2298,9 @@ const DATASETS = [
 
     async function loadCaptainDutyConfig() {
       const snap = await getDoc(captainDutyDoc());
-      captainDutyConfig = snap.exists()
-        ? normalizeCaptainDutyConfig(snap.data())
-        : getDefaultCaptainDutyConfig();
+      captainDutyConfigsByMonth = snap.exists()
+        ? normalizeCaptainDutyConfigStore(snap.data())
+        : normalizeCaptainDutyConfigStore();
     }
 
     function loadFavoriteShipIds() {
@@ -971,6 +2396,14 @@ const DATASETS = [
     }
 
     let weatherSectionRequestId = 0;
+    let lastWeatherAutoRefreshAt = 0;
+    const WEATHER_HISTORY_WINDOW_MS = 6 * 60 * 60 * 1000;
+    const WEATHER_HISTORY_STORAGE_KEY = 'weatherHistoryBySelection.v1';
+    const weatherSectionState = {
+      querySnapshot: null,
+      currentRowsBySelection: new Map(),
+      historyBySelection: new Map()
+    };
 
     function escapeHtml(value) {
       return String(value ?? '')
@@ -1296,6 +2729,55 @@ const DATASETS = [
       return url.toString();
     }
 
+    function buildSupabaseFunctionUrl(functionName) {
+      return `${SUPABASE_URL}/functions/v1/${encodeURIComponent(String(functionName || '').replace(/^\/+/, ''))}`;
+    }
+
+    async function refreshWeatherSnapshots() {
+      const functionHeaders = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      };
+      const functionNames = ['fetch-kma-warning', 'fetch-kma-buoy'];
+      const results = await Promise.allSettled(
+        functionNames.map((functionName) =>
+          fetch(buildSupabaseFunctionUrl(functionName), {
+            method: 'POST',
+            headers: functionHeaders,
+            body: '{}',
+            cache: 'no-store'
+          })
+        )
+      );
+
+      const failures = [];
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          failures.push(`${functionNames[index]} network error`);
+          return;
+        }
+        if (!result.value.ok) {
+          failures.push(`${functionNames[index]} ${result.value.status}`);
+        }
+      });
+
+      if (failures.length) {
+        console.warn('Weather cache refresh failed:', failures.join(', '));
+      }
+    }
+
+    async function loadWeatherSectionOnOpen(section) {
+      const now = Date.now();
+      const shouldAutoRefresh = (now - lastWeatherAutoRefreshAt) >= WEATHER_AUTO_REFRESH_COOLDOWN_MS;
+      if (shouldAutoRefresh) {
+        lastWeatherAutoRefreshAt = now;
+      }
+      return loadWeatherSectionSummary(section, { bustCache: shouldAutoRefresh });
+    }
+
     function formatWeatherIsoTimestamp(value) {
       const text = String(value || '').trim();
       if (!text) return '-';
@@ -1341,6 +2823,36 @@ const DATASETS = [
       return `${row.observationType}|${row.stationId}|${row.stationName}`;
     }
 
+    function parseWeatherSelectionKey(selectionKey) {
+      const [observationType = '', stationId = '', ...stationNameParts] = String(selectionKey || '').split('|');
+      return {
+        observationType: observationType.trim(),
+        stationId: stationId.trim(),
+        stationName: stationNameParts.join('|').trim()
+      };
+    }
+
+    function getFixedWeatherSelectionDescriptorByStationId(stationId) {
+      return SHIPINFO_FIXED_QUERY1_SELECTION_DESCRIPTOR_BY_STATION_ID.get(String(stationId || '').trim()) || null;
+    }
+
+    function getFixedWeatherSelectionKeyForRow(row) {
+      return getFixedWeatherSelectionDescriptorByStationId(row?.stationId)?.selectionKey || '';
+    }
+
+    function normalizeWeatherSelectionKey(selectionKey) {
+      const { stationId } = parseWeatherSelectionKey(selectionKey);
+      return getFixedWeatherSelectionDescriptorByStationId(stationId)?.selectionKey || String(selectionKey || '').trim();
+    }
+
+    function getWeatherSelectionDisplayLabel(selectionKey) {
+      const normalizedSelectionKey = normalizeWeatherSelectionKey(selectionKey);
+      const fixedDescriptor = SHIPINFO_FIXED_QUERY1_SELECTION_DESCRIPTORS.find((descriptor) => descriptor.selectionKey === normalizedSelectionKey);
+      if (fixedDescriptor?.stationName) return fixedDescriptor.stationName;
+      const { stationName, stationId } = parseWeatherSelectionKey(selectionKey);
+      return stationName || stationId || String(selectionKey || '').trim();
+    }
+
     function buildWeatherMetrics(row) {
       const typeLabel = getObservationTypeLabel(row.observationType);
       if (typeLabel === '파고BUOY') {
@@ -1361,6 +2873,221 @@ const DATASETS = [
         metrics.push({ label: '가시거리', value: String(row.visibility).trim() });
       }
       return metrics;
+    }
+
+    function resetWeatherSectionState() {
+      weatherSectionState.querySnapshot = null;
+      weatherSectionState.currentRowsBySelection = new Map();
+      weatherSectionState.historyBySelection = new Map();
+    }
+
+    function hydrateWeatherSectionState(querySnapshot) {
+      resetWeatherSectionState();
+      weatherSectionState.querySnapshot = querySnapshot || null;
+
+      const rows = Array.isArray(querySnapshot?.rows) ? querySnapshot.rows : [];
+      rows.forEach((row) => {
+        const selectionKey = buildWeatherSelectionKey(row);
+        weatherSectionState.currentRowsBySelection.set(selectionKey, row);
+        const fixedSelectionKey = getFixedWeatherSelectionKeyForRow(row);
+        if (fixedSelectionKey) {
+          weatherSectionState.currentRowsBySelection.set(fixedSelectionKey, row);
+        }
+      });
+
+      const remoteHistoryBySelection = querySnapshot?.historyBySelection && typeof querySnapshot.historyBySelection === 'object'
+        ? querySnapshot.historyBySelection
+        : {};
+      const mergedHistoryBySelection = mergeWeatherHistoryCollections(
+        readStoredWeatherHistory(),
+        remoteHistoryBySelection,
+        buildWeatherLiveHistoryBySelection(rows)
+      );
+      writeStoredWeatherHistory(mergedHistoryBySelection);
+
+      Object.entries(mergedHistoryBySelection).forEach(([selectionKey, samples]) => {
+        if (Array.isArray(samples)) {
+          weatherSectionState.historyBySelection.set(selectionKey, samples);
+        }
+      });
+    }
+
+    function parseWeatherObservationDate(sample) {
+      const observedAtText = String(sample?.observedAt || '').trim();
+      if (observedAtText) {
+        const observedAt = new Date(observedAtText);
+        if (!Number.isNaN(observedAt.getTime())) return observedAt;
+      }
+
+      const year = String(sample?.year || '').trim();
+      const monthDay = String(sample?.monthDay || '').trim();
+      const hhmm = String(sample?.hhmm || '').trim();
+      if (!/^\d{4}$/.test(year) || !/^\d{4}$/.test(monthDay) || !/^\d{4}$/.test(hhmm)) {
+        return null;
+      }
+
+      const observedAt = new Date(`${year}-${monthDay.slice(0, 2)}-${monthDay.slice(2, 4)}T${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}:00+09:00`);
+      return Number.isNaN(observedAt.getTime()) ? null : observedAt;
+    }
+
+    function buildWeatherHistorySampleKey(sample) {
+      const observedAtText = String(sample?.observedAt || '').trim();
+      if (observedAtText) return observedAtText;
+      return [
+        String(sample?.year || '').trim(),
+        String(sample?.monthDay || '').trim(),
+        String(sample?.hhmm || '').trim()
+      ].join('-');
+    }
+
+    function mergeWeatherHistorySampleLists(...lists) {
+      const cutoff = Date.now() - WEATHER_HISTORY_WINDOW_MS;
+      const deduped = new Map();
+
+      lists.flat().forEach((sample) => {
+        if (!sample || typeof sample !== 'object') return;
+        const observedAt = parseWeatherObservationDate(sample);
+        if (observedAt && observedAt.getTime() < cutoff) return;
+        const normalizedSample = observedAt ? { ...sample, observedAt: observedAt.toISOString() } : sample;
+        deduped.set(buildWeatherHistorySampleKey(normalizedSample), normalizedSample);
+      });
+
+      return Array.from(deduped.values()).sort((a, b) => {
+        const aTime = parseWeatherObservationDate(a)?.getTime() ?? 0;
+        const bTime = parseWeatherObservationDate(b)?.getTime() ?? 0;
+        return aTime - bTime;
+      });
+    }
+
+    function normalizeWeatherHistoryCollection(value) {
+      const normalized = {};
+      if (!value || typeof value !== 'object') return normalized;
+
+      Object.entries(value).forEach(([selectionKey, samples]) => {
+        const normalizedSelectionKey = normalizeWeatherSelectionKey(selectionKey);
+        const merged = mergeWeatherHistorySampleLists(
+          normalized[normalizedSelectionKey] || [],
+          ...(Array.isArray(samples) ? [samples] : [[]])
+        );
+        if (merged.length) normalized[normalizedSelectionKey] = merged;
+      });
+
+      return normalized;
+    }
+
+    function readStoredWeatherHistory() {
+      try {
+        return normalizeWeatherHistoryCollection(JSON.parse(localStorage.getItem(WEATHER_HISTORY_STORAGE_KEY) || '{}'));
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function writeStoredWeatherHistory(historyBySelection) {
+      try {
+        localStorage.setItem(WEATHER_HISTORY_STORAGE_KEY, JSON.stringify(normalizeWeatherHistoryCollection(historyBySelection)));
+      } catch (error) {
+        // localStorage may be unavailable in limited environments.
+      }
+    }
+
+    function buildWeatherLiveHistoryBySelection(rows) {
+      const liveHistory = {};
+      rows.forEach((row) => {
+        const selectionKey = getFixedWeatherSelectionKeyForRow(row) || buildWeatherSelectionKey(row);
+        if (!SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.includes(selectionKey)) return;
+        liveHistory[selectionKey] = mergeWeatherHistorySampleLists(liveHistory[selectionKey] || [], [row]);
+      });
+      return liveHistory;
+    }
+
+    function mergeWeatherHistoryCollections(...collections) {
+      const merged = {};
+      collections.forEach((collection) => {
+        Object.entries(normalizeWeatherHistoryCollection(collection)).forEach(([selectionKey, samples]) => {
+          merged[selectionKey] = mergeWeatherHistorySampleLists(merged[selectionKey] || [], samples);
+        });
+      });
+      return merged;
+    }
+
+    function getWeatherHistorySamples(selectionKey) {
+      const normalizedSelectionKey = normalizeWeatherSelectionKey(selectionKey);
+      const historySamples = weatherSectionState.historyBySelection.get(normalizedSelectionKey);
+      const currentRow = weatherSectionState.currentRowsBySelection.get(normalizedSelectionKey)
+        || weatherSectionState.currentRowsBySelection.get(selectionKey);
+      const merged = mergeWeatherHistorySampleLists(
+        Array.isArray(historySamples) ? historySamples : [],
+        currentRow ? [currentRow] : []
+      );
+      if (!merged.length && currentRow) return [currentRow];
+      return merged;
+    }
+
+    function formatWeatherHistoryTimestamp(sample) {
+      const observedAt = parseWeatherObservationDate(sample);
+      if (!observedAt) return formatWeatherHhmm(sample?.hhmm);
+
+      const now = new Date();
+      const sameDay = observedAt.toDateString() === now.toDateString();
+      const formatOptions = sameDay
+        ? { hour: '2-digit', minute: '2-digit', hour12: false }
+        : { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
+
+      return new Intl.DateTimeFormat('ko-KR', formatOptions).format(observedAt);
+    }
+
+    function buildWeatherMetricBadgesHtml(row, { emptyLabel = '관측값 없음' } = {}) {
+      const metrics = buildWeatherMetrics(row);
+      if (!metrics.length) {
+        return `<span class="inline-flex items-center rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-400">${escapeHtml(emptyLabel)}</span>`;
+      }
+
+      return metrics.map((metric) => `
+        <span class="inline-flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-100">
+          <span class="text-slate-400">${escapeHtml(metric.label)}</span>
+          <span class="text-emerald-200">${escapeHtml(formatWeatherMetricValue(metric))}</span>
+        </span>`).join('');
+    }
+
+    function buildWeatherHistoryModalContent(selectionKey) {
+      const normalizedSelectionKey = normalizeWeatherSelectionKey(selectionKey);
+      const currentRow = weatherSectionState.currentRowsBySelection.get(normalizedSelectionKey)
+        || weatherSectionState.currentRowsBySelection.get(selectionKey);
+      if (!currentRow) {
+        return `
+          <div class="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-100">
+            현재 관측값을 찾지 못했습니다. 날씨 섹션을 다시 불러온 뒤 시도해 주세요.
+          </div>`;
+      }
+
+      const samplesAsc = getWeatherHistorySamples(normalizedSelectionKey);
+      const samplesDesc = [...samplesAsc].reverse();
+
+      return `
+        <div class="space-y-5">
+          <section class="rounded-3xl border border-slate-700 bg-slate-800/70 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h4 class="text-lg font-bold text-cyan-200">${escapeHtml(currentRow.stationName)} 최근 6시간</h4>
+                <p class="mt-1 text-sm text-slate-400">현재 화면과 같은 형식으로 최신부터 과거 순서로 표시합니다.</p>
+              </div>
+              <span class="rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-300">${samplesAsc.length}건</span>
+            </div>
+            <div class="mt-4 space-y-3">
+              ${samplesDesc.map((sample) => renderWeatherSummaryCard(sample)).join('')}
+            </div>
+          </section>
+        </div>`;
+    }
+
+    function openWeatherHistoryModal(selectionKey) {
+      if (!selectionKey) return;
+      const normalizedSelectionKey = normalizeWeatherSelectionKey(selectionKey);
+      const currentRow = weatherSectionState.currentRowsBySelection.get(normalizedSelectionKey)
+        || weatherSectionState.currentRowsBySelection.get(selectionKey);
+      if (!currentRow) return;
+      showModal(`${currentRow.stationName} 최근 6시간`, buildWeatherHistoryModalContent(normalizedSelectionKey));
     }
 
     function getWarningTone(level) {
@@ -2027,10 +3754,22 @@ const DATASETS = [
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    function getDefaultCaptainDutyConfig() {
+    function isCaptainDutyYearMonth(value) {
+      return /^\d{4}-\d{2}$/.test(String(value || '').trim());
+    }
+
+    function normalizeCaptainDutyYearMonth(value, fallback = getCurrentCaptainDutyYearMonth()) {
+      return isCaptainDutyYearMonth(value) ? String(value).trim() : fallback;
+    }
+
+    function getDefaultCaptainDutyRows() {
+      return DEFAULT_CAPTAIN_DUTY_ROWS.map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }));
+    }
+
+    function getDefaultCaptainDutyConfig(yearMonth = getCurrentCaptainDutyYearMonth()) {
       return {
-        yearMonth: getCurrentCaptainDutyYearMonth(),
-        rows: DEFAULT_CAPTAIN_DUTY_ROWS.map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }))
+        yearMonth: normalizeCaptainDutyYearMonth(yearMonth),
+        rows: getDefaultCaptainDutyRows()
       };
     }
 
@@ -2052,11 +3791,9 @@ const DATASETS = [
       };
     }
 
-    function normalizeCaptainDutyConfig(rawConfig) {
-      const fallback = getDefaultCaptainDutyConfig();
-      const yearMonth = /^\d{4}-\d{2}$/.test(String(rawConfig?.yearMonth || '').trim())
-        ? String(rawConfig.yearMonth).trim()
-        : fallback.yearMonth;
+    function normalizeCaptainDutyConfig(rawConfig, fallbackYearMonth = getCurrentCaptainDutyYearMonth()) {
+      const yearMonth = normalizeCaptainDutyYearMonth(rawConfig?.yearMonth, fallbackYearMonth);
+      const fallback = getDefaultCaptainDutyConfig(yearMonth);
       const baseRows = Array.isArray(rawConfig?.rows) && rawConfig.rows.length
         ? rawConfig.rows
         : fallback.rows;
@@ -2064,6 +3801,46 @@ const DATASETS = [
         yearMonth,
         rows: baseRows.map((row, index) => normalizeCaptainDutyRow(row, index))
       };
+    }
+
+    function normalizeCaptainDutyConfigStore(rawValue) {
+      const normalizedStore = {};
+      const monthlyConfigs = rawValue?.monthlyConfigs && typeof rawValue.monthlyConfigs === 'object' && !Array.isArray(rawValue.monthlyConfigs)
+        ? rawValue.monthlyConfigs
+        : {};
+
+      Object.entries(monthlyConfigs).forEach(([yearMonth, config]) => {
+        if (!isCaptainDutyYearMonth(yearMonth)) return;
+        const rawConfig = config && typeof config === 'object' ? config : {};
+        normalizedStore[yearMonth] = normalizeCaptainDutyConfig({ ...rawConfig, yearMonth }, yearMonth);
+      });
+
+      if (!Object.keys(normalizedStore).length && (Array.isArray(rawValue?.rows) || isCaptainDutyYearMonth(rawValue?.yearMonth))) {
+        const legacyYearMonth = normalizeCaptainDutyYearMonth(rawValue?.yearMonth);
+        normalizedStore[legacyYearMonth] = normalizeCaptainDutyConfig({
+          yearMonth: legacyYearMonth,
+          rows: rawValue?.rows
+        }, legacyYearMonth);
+      }
+
+      if (!Object.keys(normalizedStore).length) {
+        const currentYearMonth = getCurrentCaptainDutyYearMonth();
+        normalizedStore[currentYearMonth] = getDefaultCaptainDutyConfig(currentYearMonth);
+      }
+
+      return normalizedStore;
+    }
+
+    function getCaptainDutyConfigForYearMonth(yearMonth, store = captainDutyConfigsByMonth) {
+      const normalizedYearMonth = normalizeCaptainDutyYearMonth(yearMonth);
+      const rawConfig = store?.[normalizedYearMonth];
+      return rawConfig
+        ? normalizeCaptainDutyConfig(rawConfig, normalizedYearMonth)
+        : getDefaultCaptainDutyConfig(normalizedYearMonth);
+    }
+
+    function hasCaptainDutyConfigForYearMonth(yearMonth, store = captainDutyConfigsByMonth) {
+      return Boolean(store?.[normalizeCaptainDutyYearMonth(yearMonth)]);
     }
 
     function formatCaptainDutyYearMonth(yearMonth) {
@@ -2092,12 +3869,11 @@ const DATASETS = [
     }
 
     function buildCaptainDutySectionHtml() {
-      const config = normalizeCaptainDutyConfig(captainDutyConfig);
+      const yearMonth = normalizeCaptainDutyYearMonth(captainDutyViewYearMonth);
+      const config = getCaptainDutyConfigForYearMonth(yearMonth);
+      const hasSavedConfig = hasCaptainDutyConfigForYearMonth(yearMonth);
       const daysInMonth = getCaptainDutyDaysInMonth(config.yearMonth);
       const headCells = config.rows.map((row) => {
-        const periodText = row.startDay != null && row.endDay != null
-          ? `${row.startDay}~${row.endDay}일`
-          : '교대 없음';
         return `<th scope="col">
           <span class="captain-duty-ship-name">${escapeHtml(row.shipName || '미정')}</span>
         </th>`;
@@ -2124,7 +3900,13 @@ const DATASETS = [
           </button>
         </div>
         <div class="mb-4 flex flex-wrap items-center gap-3">
-          <span class="inline-flex items-center rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 border border-slate-700">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))}</span>
+          <label class="inline-flex items-center gap-3 rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-200 border border-slate-700">
+            <span class="text-slate-400">표시 월</span>
+            <input type="month" id="captain-duty-view-month-input" class="bg-transparent text-slate-100 outline-none" value="${escapeHtml(config.yearMonth)}" />
+          </label>
+          <span class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold border ${hasSavedConfig ? 'bg-emerald-500/10 text-emerald-200 border-emerald-400/20' : 'bg-amber-500/10 text-amber-200 border-amber-400/20'}">
+            ${hasSavedConfig ? '저장된 월별 근무표' : '이 월은 아직 저장 전 기본값입니다.'}
+          </span>
           <span class="inline-flex items-center rounded-full bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 border border-rose-400/20">분홍색 칸은 예비선장 근무일입니다.</span>
         </div>
         <div class="captain-duty-table-wrap">
@@ -2141,7 +3923,7 @@ const DATASETS = [
     }
 
     function buildCaptainDutySettingsModal() {
-      const config = normalizeCaptainDutyConfig(captainDutyConfig);
+      const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
       const rowsHtml = config.rows.map((row, index) => `
         <div class="captain-duty-settings-row" data-captain-duty-row="${index}">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2179,6 +3961,9 @@ const DATASETS = [
           <div class="captain-duty-settings-grid">${rowsHtml}</div>
           <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
             교대기간 안에는 예비 선장이 표시되고, 기간 밖에는 본선 선장이 표시됩니다.
+          </div>
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
+            다른 월을 수정하려면 먼저 화면의 표시 월을 바꾼 뒤 설정을 열어 주세요. 저장은 월별로 따로 보관됩니다.
           </div>
           <button id="captain-duty-settings-save-btn" type="button" class="w-full rounded-2xl bg-rose-600 px-5 py-3 font-bold text-white hover:bg-rose-700">
             <i class="fa-solid fa-save mr-2"></i> 저장하고 바로 적용
@@ -2235,7 +4020,7 @@ const DATASETS = [
           renderSection('captain-duty-section');
         }
         if (statusEl) {
-          statusEl.textContent = '저장되었습니다. 화면에 바로 반영했습니다.';
+          statusEl.textContent = `${formatCaptainDutyYearMonth(normalized.yearMonth)} 근무표를 저장했습니다.`;
           statusEl.className = 'text-sm text-center text-green-400';
         }
         setTimeout(() => hideModal(), 500);
@@ -2259,13 +4044,55 @@ const DATASETS = [
         typeLabel,
         displayTypeLabel: formatObservationTypeDisplay(typeLabel),
         metrics: buildWeatherMetrics(row),
-        timeText: formatWeatherHhmm(row.hhmm)
+        timeText: formatWeatherHistoryTimestamp(row)
       };
+    }
+
+    function renderWeatherSummaryCard(row, { selectionKey = '', clickable = false } = {}) {
+      const { displayTypeLabel, metrics, timeText } = buildWeatherInlineSummary(row);
+      const dataAttrs = clickable
+        ? ` data-weather-history-card="true" data-selection-key="${escapeHtml(selectionKey)}"`
+        : '';
+      const interactiveClasses = clickable
+        ? ' transition hover:border-cyan-400/50 hover:bg-slate-800 cursor-pointer'
+        : '';
+
+      return `
+        <article class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-3 sm:px-4 sm:py-4${interactiveClasses}"${dataAttrs}>
+          <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold leading-tight text-slate-100 sm:text-base">
+                <span class="text-white">${escapeHtml(row.stationName)}<span class="text-slate-400">(${escapeHtml(timeText)})</span></span>
+                <span class="text-cyan-200">${escapeHtml(displayTypeLabel)}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-3">
+                ${metrics.length
+                  ? metrics.map((metric) => `
+                      <div class="text-center">
+                        <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">${escapeHtml(metric.label)}</div>
+                        <div class="mt-1 text-sm font-bold leading-none text-emerald-200 sm:text-lg">${escapeHtml(formatWeatherMetricValue(metric))}</div>
+                      </div>`).join('')
+                  : `<div class="text-center">
+                       <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">상태</div>
+                       <div class="mt-1 text-xs font-bold leading-none text-slate-300 sm:text-sm">없음</div>
+                     </div>`}
+            </div>
+          </div>
+        </article>`;
     }
 
     function buildWeatherSummaryPanels(areaSnapshot, querySnapshot) {
       const areaEntries = new Map((areaSnapshot?.entries || []).map(entry => [entry.selectionKey, entry]));
-      const queryRows = new Map((querySnapshot?.rows || []).map(row => [buildWeatherSelectionKey(row), row]));
+      const queryRows = new Map();
+      (querySnapshot?.rows || []).forEach((row) => {
+        const selectionKey = buildWeatherSelectionKey(row);
+        queryRows.set(selectionKey, row);
+        const fixedSelectionKey = getFixedWeatherSelectionKeyForRow(row);
+        if (fixedSelectionKey) {
+          queryRows.set(fixedSelectionKey, row);
+        }
+      });
       const areaGeneratedAt = formatWeatherIsoTimestamp(areaSnapshot?.meta?.generatedAt);
       const queryGeneratedAt = formatWeatherIsoTimestamp(querySnapshot?.meta?.generatedAt);
 
@@ -2306,35 +4133,12 @@ const DATASETS = [
         if (!row) {
           return `
             <article class="rounded-2xl border border-slate-700 bg-slate-800/80 p-5">
-              <div class="text-lg font-bold text-white">${escapeHtml(selectionKey)}</div>
+              <div class="text-lg font-bold text-white">${escapeHtml(getWeatherSelectionDisplayLabel(selectionKey))}</div>
               <div class="mt-3 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-400">현재 관측값을 불러오지 못했습니다.</div>
             </article>`;
         }
 
-        const { displayTypeLabel, metrics, timeText } = buildWeatherInlineSummary(row);
-        return `
-          <article class="rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-3 sm:px-4 sm:py-4">
-            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold leading-tight text-slate-100 sm:text-base">
-                  <span class="text-white">${escapeHtml(row.stationName)}<span class="text-slate-400">(${escapeHtml(timeText)})</span></span>
-                  <span class="text-cyan-200">${escapeHtml(displayTypeLabel)}</span>
-                </div>
-              </div>
-              <div class="flex items-center gap-2 sm:gap-3">
-                  ${metrics.length
-                    ? metrics.map((metric) => `
-                        <div class="text-center">
-                          <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">${escapeHtml(metric.label)}</div>
-                          <div class="mt-1 text-sm font-bold leading-none text-emerald-200 sm:text-lg">${escapeHtml(formatWeatherMetricValue(metric))}</div>
-                        </div>`).join('')
-                    : `<div class="text-center">
-                         <div class="text-[10px] font-semibold leading-none text-slate-400 sm:text-[11px]">상태</div>
-                         <div class="mt-1 text-xs font-bold leading-none text-slate-300 sm:text-sm">없음</div>
-                       </div>`}
-              </div>
-            </div>
-          </article>`;
+        return renderWeatherSummaryCard(row, { selectionKey, clickable: true });
       }).join('');
 
       return `
@@ -2370,20 +4174,38 @@ const DATASETS = [
       if (!statusEl || !panelsEl) return;
 
       const requestId = ++weatherSectionRequestId;
-      statusEl.innerHTML = `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-300">날씨 데이터를 불러오는 중...</div>`;
+      resetWeatherSectionState();
+      statusEl.innerHTML = `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-300">${bustCache ? '최신 날씨 데이터를 갱신하는 중...' : '날씨 데이터를 불러오는 중...'}</div>`;
       panelsEl.innerHTML = '';
 
       try {
+        if (bustCache) {
+          await refreshWeatherSnapshots();
+          if (requestId !== weatherSectionRequestId) return;
+        }
+
         const sbHeaders = {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          ...(bustCache ? { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } : {}),
         };
-        const cacheUrl = (id) =>
-          `${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.${id}&select=payload,fetchedAt${bustCache ? `&_ts=${Date.now()}` : ''}`;
+        const cacheUrl = (id) => {
+          const url = new URL(`${SUPABASE_URL}/rest/v1/external_api_cache`);
+          url.searchParams.set('id', `eq.${String(id || '').trim()}`);
+          url.searchParams.set('select', 'payload,fetchedAt');
+          if (bustCache) {
+            url.searchParams.set('fetchedAt', `lte.${new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString()}`);
+          }
+          return url.toString();
+        };
+        const fetchOptions = {
+          headers: sbHeaders,
+          cache: bustCache ? 'no-store' : 'default'
+        };
 
         const [areaRes, buoyRes] = await Promise.all([
-          fetch(cacheUrl('kma-warning-snapshot'), { headers: sbHeaders }),
-          fetch(cacheUrl('kma-buoy-snapshot'),    { headers: sbHeaders }),
+          fetch(cacheUrl('kma-warning-snapshot'), fetchOptions),
+          fetch(cacheUrl('kma-buoy-snapshot'), fetchOptions),
         ]);
 
         if (!areaRes.ok || !buoyRes.ok) {
@@ -2401,6 +4223,7 @@ const DATASETS = [
           throw new Error('캐시 데이터가 아직 준비되지 않았습니다. 1~2분 후 다시 시도해 주세요.');
         }
 
+        hydrateWeatherSectionState(querySnapshot);
         statusEl.innerHTML = fetchedAt
           ? `<div class="mb-3 rounded-xl bg-slate-800/60 px-3 py-1.5 text-xs text-slate-400 inline-block">
                <i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>
@@ -2410,6 +4233,7 @@ const DATASETS = [
         panelsEl.innerHTML = buildWeatherSummaryPanels(areaSnapshot, querySnapshot);
       } catch (error) {
         if (requestId !== weatherSectionRequestId) return;
+        resetWeatherSectionState();
         statusEl.innerHTML = `
           <div class="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-100">
             <i class="fa-solid fa-triangle-exclamation mr-2"></i>${escapeHtml(String(error.message))}
@@ -2442,8 +4266,15 @@ const DATASETS = [
 
     async function saveCaptainDutyConfig(config) {
       const normalized = normalizeCaptainDutyConfig(config);
-      captainDutyConfig = normalized;
-      await setDoc(captainDutyDoc(), normalized, { merge: true });
+      const snap = await getDoc(captainDutyDoc());
+      const latestStore = snap.exists()
+        ? normalizeCaptainDutyConfigStore(snap.data())
+        : {};
+      captainDutyConfigsByMonth = {
+        ...latestStore,
+        [normalized.yearMonth]: normalized
+      };
+      await setDoc(captainDutyDoc(), { monthlyConfigs: captainDutyConfigsByMonth });
       await bumpMetaTimestamp();
     }
 
@@ -2556,8 +4387,8 @@ const DATASETS = [
         </div>
         <div id="visibility-limit-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-violet-500">
           <i class="fa-solid fa-eye-low-vision text-3xl text-violet-400 mb-3"></i>
-          <h2 class="text-xl font-semibold">시계제한</h2>
-          <p class="text-slate-400 text-sm">자동 밴드 로직 점검 메모</p>
+          <h2 class="text-xl font-semibold">여객선 운항 관리</h2>
+          <p class="text-slate-400 text-sm">시계제한 · 기상악화 · 운항예보</p>
         </div>
         <div id="dangerous-goods-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-amber-500">
           <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-3"></i>
@@ -2607,8 +4438,8 @@ const DATASETS = [
         </div>
         <div id="visibility-limit-btn" class="category-card bg-slate-800 p-4 md:p-5 rounded-2xl text-center border border-slate-700 cursor-pointer hover:border-violet-500 min-h-[144px] flex flex-col items-center justify-center">
           <i class="fa-solid fa-eye-low-vision text-2xl md:text-3xl text-violet-400 mb-3"></i>
-          <h2 class="text-sm md:text-lg font-semibold leading-tight">시계제한</h2>
-          <p class="text-slate-400 text-[11px] md:text-sm mt-2 leading-tight">자동 밴드 열기</p>
+          <h2 class="text-sm md:text-lg font-semibold leading-tight">여객선 운항<br>관리</h2>
+          <p class="text-slate-400 text-[11px] md:text-sm mt-2 leading-tight">시계제한 · 기상악화 · 예보</p>
         </div>
         <div id="dangerous-goods-btn" class="category-card bg-slate-800 p-4 md:p-5 rounded-2xl text-center border border-slate-700 cursor-pointer hover:border-amber-500 min-h-[144px] flex flex-col items-center justify-center">
           <i class="fa-solid fa-triangle-exclamation text-2xl md:text-3xl text-amber-400 mb-3"></i>
@@ -2747,7 +4578,7 @@ const DATASETS = [
               <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
               <div class="min-w-0 flex-1">
                 <h2 class="text-2xl font-bold text-emerald-400">운항 날씨</h2>
-                <p class="text-sm text-slate-400 mt-1">특보·관측 데이터를 Supabase 캐시에서 즉시 불러옵니다.</p>
+                <p class="text-sm text-slate-400 mt-1">첫 진입 시 최신 관측을 자동 갱신한 뒤 표시합니다.</p>
               </div>
               <button id="weather-overview-refresh-btn" class="shrink-0 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/20">
                 <i class="fa-solid fa-rotate-right"></i>
@@ -2755,7 +4586,7 @@ const DATASETS = [
             </div>
             <div id="weather-summary-status" class="mb-2"></div>
             <div id="weather-summary-panels" class="space-y-5"></div>`;
-          setTimeout(() => loadWeatherSectionSummary(section), 0);
+          setTimeout(() => loadWeatherSectionOnOpen(section), 0);
           break;
 
         case 'ship-search-section':
@@ -2899,107 +4730,9 @@ const DATASETS = [
           break;
 
         case 'visibility-limit-section':
-          headerSubtitle.textContent = '시계제한';
-          section.innerHTML = `
-            <div class="flex items-center gap-4 mb-8">
-              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
-              <div>
-                <h2 class="text-2xl font-bold text-violet-400">시계제한</h2>
-                <p class="text-sm text-slate-400 mt-1">자동 밴드 현재 로직과 수정 포인트를 먼저 정리해둔 메모 화면입니다.</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-5 xl:grid-cols-4 mb-6">
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상황</p>
-                <p class="mt-3 text-lg font-bold text-white">시계제한 · 기상악화 · 그 외 비운항</p>
-                <p class="mt-2 text-sm text-slate-400">현재 자동 밴드는 세 가지 상황값 중 하나를 먼저 선택하게 되어 있습니다.</p>
-              </div>
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상태</p>
-                <p class="mt-3 text-lg font-bold text-white">출항 대기 · 통제 · 정상운항 · 결항</p>
-                <p class="mt-2 text-sm text-slate-400">상태에 따라 기본 사유와 문장 끝 suffix가 자동으로 붙는 구조입니다.</p>
-              </div>
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">데이터 규모</p>
-                <p class="mt-3 text-lg font-bold text-white">항로 6개 · 선박 7척</p>
-                <p class="mt-2 text-sm text-slate-400">각 선박별 기본 공지 출항시각과 전체 출항 목록이 JSON으로 저장되어 있습니다.</p>
-              </div>
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">출력 방식</p>
-                <p class="mt-3 text-lg font-bold text-white">1건은 한 줄 · 여러 건은 번호 목록</p>
-                <p class="mt-2 text-sm text-slate-400">확정 항목이 여러 개면 “아래 항로 …” 헤더와 번호 목록으로 자동 전환됩니다.</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)] gap-6">
-              <div class="space-y-6">
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">현재 문구 생성 순서</h3>
-                  <div class="mt-5 space-y-3">
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">1. 상황 선택</p>
-                      <p class="mt-1 text-sm text-slate-400">시계제한, 기상악화, 그 외 비운항 중 하나를 고릅니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">2. 상태 선택</p>
-                      <p class="mt-1 text-sm text-slate-400">출항 대기, 통제, 정상운항, 결항에 따라 suffix가 달라집니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">3. 항로 → 선박 → 출항 선택</p>
-                      <p class="mt-1 text-sm text-slate-400">선택된 항목은 개별 1건 또는 여러 건으로 확정 목록에 쌓을 수 있습니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">4. 자동 사유 입력</p>
-                      <p class="mt-1 text-sm text-slate-400">시계제한은 시계제한으로, 정상운항은 시계호전되어처럼 기본 사유가 자동 설정됩니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">5. 결과 문구 생성</p>
-                      <p class="mt-1 text-sm text-slate-400">1건이면 단일 문장, 여러 건이면 아래 항로 헤더와 번호 목록으로 결과가 만들어집니다.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">현재 등록 항로</h3>
-                  <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
-                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                        <p class="text-sm font-semibold text-white">${item.route}</p>
-                        <p class="mt-2 text-sm text-slate-400">${item.ships}</p>
-                      </div>`).join('')}
-                  </div>
-                </div>
-              </div>
-
-              <div class="space-y-6">
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">상태별 기본 문구</h3>
-                  <div class="mt-5 space-y-3">
-                    ${VISIBILITY_LIMIT_STATUS_SUMMARY.map((item) => `
-                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                          <p class="text-sm font-semibold text-white">${item.name}</p>
-                          <span class="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-200">${item.suffix}</span>
-                        </div>
-                        <p class="mt-2 text-sm text-slate-400">기본 사유: ${item.reason}</p>
-                      </div>`).join('')}
-                  </div>
-                </div>
-
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">로직 수정할 파일</h3>
-                  <div class="mt-5 space-y-3">
-                    ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
-                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                        <p class="text-sm font-semibold text-white">${item.title}</p>
-                        <p class="mt-2 break-all text-xs text-violet-200">${item.file}</p>
-                        <p class="mt-2 text-sm text-slate-400">${item.detail}</p>
-                      </div>`).join('')}
-                  </div>
-                </div>
-              </div>
-            </div>`;
+          headerSubtitle.textContent = '여객선 운항 관리';
+          section.innerHTML = buildFerryOperationManagerSection();
+          bindFerryOperationManagerSection(section);
           break;
 
         case 'tide-section':
@@ -3758,6 +5491,12 @@ case 'ship-detail-section':
         return;
       }
 
+      const weatherHistoryCard = e.target.closest('[data-weather-history-card]');
+      if (weatherHistoryCard) {
+        openWeatherHistoryModal(String(weatherHistoryCard.dataset.selectionKey || ''));
+        return;
+      }
+
       const target = e.target.closest('div, button'); if (!target) return;
       if (target.id === 'vehicle-loading-retry-btn') {
         vehicleLoadingState.loadError = '';
@@ -3773,6 +5512,24 @@ case 'ship-detail-section':
         await handleCaptainDutySettingsSave();
         return;
       }
+      if (target.id === 'ferry-op-extract-copy-btn') {
+        const extractTextarea = document.getElementById('ferry-op-extract-text');
+        const textToCopy = extractTextarea?.value || extractTextarea?.textContent || '';
+        if (textToCopy && navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(textToCopy);
+            target.textContent = '복사 완료';
+            setTimeout(() => {
+              if (document.getElementById('ferry-op-extract-copy-btn') === target) {
+                target.textContent = '클립보드 복사';
+              }
+            }, 1200);
+          } catch (error) {
+            target.textContent = '복사 실패';
+          }
+        }
+        return;
+      }
       if (target.id === 'ship-info-btn') switchView('ship-search-section');
       if (target.id === 'weather-btn') switchView('weather-section');
       if (target.id === 'timetable-btn') switchView('timetable-section');
@@ -3784,7 +5541,7 @@ case 'ship-detail-section':
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
       if (target.id === 'vehicle-loading-btn') switchView('vehicle-loading-section');
       if (target.id === 'visibility-limit-btn') {
-        openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+        switchView('visibility-limit-section');
         return;
       }
       if (target.id === 'dangerous-goods-btn') switchView('dangerous-goods-search-section');
@@ -3904,6 +5661,15 @@ case 'ship-detail-section':
     document.addEventListener('input', async (e) => {
       if (e.target.id === 'excel-upload') handleFileUpload(e);
       const term = (e.target.value || '').toLowerCase().trim();
+      if (e.target.id === 'captain-duty-view-month-input') {
+        const nextYearMonth = normalizeCaptainDutyYearMonth(e.target.value, captainDutyViewYearMonth);
+        if (nextYearMonth !== captainDutyViewYearMonth) {
+          captainDutyViewYearMonth = nextYearMonth;
+          if (!sections['captain-duty-section'].classList.contains('hidden')) {
+            renderSection('captain-duty-section');
+          }
+        }
+      }
       if (e.target.id === 'shipSearchInput') {
         shipSearchState.term = term;
         const container = sections['ship-search-section'].querySelector('#ship-results-container');
