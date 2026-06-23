@@ -2075,23 +2075,46 @@ function bindFerryOperationManagerSection(section) {
   section.dataset.ferryOperationBound = 'true';
 }
 
+function makeStatusBadgeDataUrl(label, bgColor, textColor, w, h) {
+  const dpr = 2;
+  const c = document.createElement('canvas');
+  c.width = w * dpr; c.height = h * dpr;
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const r = 6;
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(0, 0, w, h, r) : (ctx.fillRect(0, 0, w, h));
+  ctx.fill();
+  ctx.fillStyle = textColor;
+  ctx.font = `800 ${Math.round(h * 0.48)}px system-ui,sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, w / 2, h / 2);
+  return c.toDataURL('image/png');
+}
+
 function buildWeatherCaptureVesselHtml(vesselKey, vessel) {
-  const STATUS_STYLE = {
-    blank:   'background:#e2e8f0;color:#64748b;',
-    go:      'background:#16a34a;color:#ffffff;',
-    control: 'background:#dc2626;color:#ffffff;',
-    stop:    'background:#475569;color:#ffffff;'
+  const STATUS_COLORS = {
+    blank:   { bg:'#e2e8f0', fg:'#64748b' },
+    go:      { bg:'#16a34a', fg:'#ffffff' },
+    control: { bg:'#dc2626', fg:'#ffffff' },
+    stop:    { bg:'#475569', fg:'#ffffff' }
   };
   const STATUS_LABEL = { blank:'미입력', go:'운항', control:'통제', stop:'비운항' };
+  const BADGE_W = 62, BADGE_H = 30;
   const rows = vessel.voyages.map((v, i) => {
-    const stateStyle = STATUS_STYLE[v.state] || STATUS_STYLE.blank;
-    const stateLabel = STATUS_LABEL[v.state] || '미입력';
-    const note = v.note ? `<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">[${escapeHtml(v.note)}]</div>` : '';
-    return `<div style="display:grid;grid-template-columns:2.2rem 7rem 1fr 4.2rem;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+    const colors = STATUS_COLORS[v.state] || STATUS_COLORS.blank;
+    const label = STATUS_LABEL[v.state] || '미입력';
+    const badgeUrl = makeStatusBadgeDataUrl(label, colors.bg, colors.fg, BADGE_W, BADGE_H);
+    const stops = v.route.split(/[↔→←]/).map(s => s.trim()).filter(Boolean);
+    const simpleRoute = stops.length >= 2 ? `${stops[0]}-${stops[stops.length-1]}` : v.route;
+    const note = v.note ? ` <span style="font-size:0.65rem;color:#94a3b8;">[${escapeHtml(v.note)}]</span>` : '';
+    return `<div style="display:grid;grid-template-columns:2.2rem 7rem 1fr ${BADGE_W}px;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f5f9;">
       <span style="font-size:0.72rem;font-weight:700;color:#94a3b8;text-align:center;">${i+1}항</span>
       <span style="font-size:0.8rem;font-weight:700;color:#334155;text-align:center;">${escapeHtml(v.depTime)}</span>
-      <span style="font-size:0.75rem;color:#475569;word-break:keep-all;line-height:1.4;">${escapeHtml(v.route)}${note}</span>
-      <span style="font-size:0.8rem;font-weight:800;border-radius:6px;padding:5px 0;text-align:center;align-self:center;${stateStyle}">${escapeHtml(stateLabel)}</span>
+      <span style="font-size:0.8rem;font-weight:600;color:#334155;">${escapeHtml(simpleRoute)}${note}</span>
+      <img src="${badgeUrl}" width="${BADGE_W}" height="${BADGE_H}" style="display:block;border-radius:6px;" />
     </div>`;
   }).join('');
   return `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px;">
