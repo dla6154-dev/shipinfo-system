@@ -4334,7 +4334,7 @@ const DATASETS = [
                     const releaseTime = getWeatherWarningReleaseTime(warning);
                     const releaseLabel = releaseTime
                       ? formatWeatherCompactTimestamp(releaseTime)
-                      : '미발표';
+                      : '-';
                     return `
                       <div class="rounded-2xl border p-4 ${buildWarningDetailClasses(warningTone)}">
                         <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
