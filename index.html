@@ -5714,7 +5714,7 @@ case 'ship-detail-section':
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
       if (target.id === 'vehicle-loading-btn') switchView('vehicle-loading-section');
       if (target.id === 'visibility-limit-btn') {
-        switchView('visibility-limit-section');
+        openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
         return;
       }
       if (target.id === 'dangerous-goods-btn') switchView('dangerous-goods-search-section');
