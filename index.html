@@ -112,6 +112,9 @@
     }
     .ferry-op-status-btn,
     .ferry-op-voyage-status-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
       border: none;
       border-radius: 0.85rem;
@@ -119,8 +122,12 @@
       font-size: 0.85rem;
       font-weight: 800;
       line-height: 1.1;
+      text-align: center;
       white-space: nowrap;
       word-break: keep-all;
+      box-sizing: border-box;
+      appearance: none;
+      -webkit-appearance: none;
       transition: transform 0.12s ease, filter 0.12s ease;
       cursor: pointer;
     }
@@ -182,6 +189,11 @@
       min-height: 2.8rem;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+    .ferry-op-capture-status {
+      min-height: 2.8rem;
+      transform: none !important;
+      filter: none !important;
     }
     .ferry-op-note-input:focus,
     .ferry-op-inline-input:focus {
@@ -1903,6 +1915,22 @@ function prepareFerryOperationCaptureFields(target) {
     restoreTasks.push(() => {
       replacement.remove();
       input.style.display = '';
+    });
+  });
+  target.querySelectorAll('button.ferry-op-status-btn, button.ferry-op-voyage-status-btn').forEach((button) => {
+    const text = String(button.textContent || '').trim() || '-';
+    const replacement = document.createElement('div');
+    replacement.className = `${button.className} ferry-op-capture-status`;
+    replacement.textContent = text;
+    const state = String(button.dataset.state || '').trim();
+    if (state) replacement.setAttribute('data-state', state);
+    replacement.setAttribute('aria-hidden', 'true');
+    replacement.style.minHeight = `${Math.max(button.getBoundingClientRect().height, 44)}px`;
+    button.style.display = 'none';
+    button.insertAdjacentElement('afterend', replacement);
+    restoreTasks.push(() => {
+      replacement.remove();
+      button.style.display = '';
     });
   });
   return () => {
