@@ -2110,13 +2110,14 @@ function buildWeatherCaptureVesselHtml(vesselKey, vessel) {
     const badgeUrl = makeStatusBadgeDataUrl(label, colors.bg, colors.fg, BADGE_W, BADGE_H);
     const stops = v.route.split(/[↔→←]/).map(s => s.trim()).filter(Boolean);
     const simpleRoute = stops.length >= 2 ? `${stops[0]}-${stops[stops.length-1]}` : v.route;
-    const note = v.note ? ` <span style="font-size:0.65rem;color:#94a3b8;">[${escapeHtml(v.note)}]</span>` : '';
+    const note = v.note ? `<div style="grid-column:1/-1;font-size:0.72rem;color:#64748b;padding:0 4px 4px ${CIRCLE_SIZE + 6}px;">* ${escapeHtml(v.note)}</div>` : '';
     const numUrl = makeStatusBadgeDataUrl(String(i+1), '#475569', '#ffffff', CIRCLE_SIZE, CIRCLE_SIZE);
-    return `<div style="display:grid;grid-template-columns:${CIRCLE_SIZE}px 7rem 1fr ${BADGE_W}px;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+    return `<div style="display:grid;grid-template-columns:${CIRCLE_SIZE}px 7rem 1fr ${BADGE_W}px;gap:6px;align-items:center;padding:8px 10px 4px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;">
       <img src="${numUrl}" width="${CIRCLE_SIZE}" height="${CIRCLE_SIZE}" style="display:block;border-radius:50%;" />
       <span style="font-size:0.8rem;font-weight:700;color:#334155;text-align:center;">${escapeHtml(v.depTime)}</span>
-      <span style="font-size:0.8rem;font-weight:600;color:#334155;">${escapeHtml(simpleRoute)}${note}</span>
+      <span style="font-size:0.8rem;font-weight:600;color:#334155;">${escapeHtml(simpleRoute)}</span>
       <img src="${badgeUrl}" width="${BADGE_W}" height="${BADGE_H}" style="display:block;border-radius:6px;" />
+      ${note}
     </div>`;
   }).join('');
   return `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px;">
