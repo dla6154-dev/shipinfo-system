@@ -4332,11 +4332,14 @@ const DATASETS = [
                   ${warnings.map((warning) => {
                     const warningTone = getWarningTone(warning.level);
                     const releaseTime = getWeatherWarningReleaseTime(warning);
+                    const releaseLabel = releaseTime
+                      ? formatWeatherCompactTimestamp(releaseTime)
+                      : '미발표';
                     return `
                       <div class="rounded-2xl border p-4 ${buildWarningDetailClasses(warningTone)}">
                         <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
                         <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
-                        ${releaseTime ? `<div class="mt-1 text-sm text-slate-300">해제 ${escapeHtml(formatWeatherCompactTimestamp(releaseTime))}</div>` : ''}
+                        <div class="mt-1 text-sm text-slate-300">해제 ${escapeHtml(releaseLabel)}</div>
                         <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
                       </div>`;
                   }).join('')}
