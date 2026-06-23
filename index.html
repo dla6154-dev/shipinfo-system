@@ -3000,6 +3000,22 @@ const DATASETS = [
       return formatWeatherIsoTimestamp(text);
     }
 
+    function getWeatherWarningReleaseTime(warning) {
+      if (!warning || typeof warning !== 'object') return '';
+      const candidates = [
+        warning.endTimeText,
+        warning.endTime,
+        warning.endAt,
+        warning.releaseAt,
+        warning.releasedAt,
+        warning.clearAt,
+        warning.clearTime,
+        warning.expiresAt,
+      ];
+      const matched = candidates.find((value) => String(value || '').trim());
+      return String(matched || '').trim();
+    }
+
     function formatWeatherHhmm(value) {
       const text = String(value || '').trim();
       if (text.length === 4 && /^\d+$/.test(text)) {
@@ -4315,10 +4331,12 @@ const DATASETS = [
               ? `<div class="mt-4 space-y-3">
                   ${warnings.map((warning) => {
                     const warningTone = getWarningTone(warning.level);
+                    const releaseTime = getWeatherWarningReleaseTime(warning);
                     return `
                       <div class="rounded-2xl border p-4 ${buildWarningDetailClasses(warningTone)}">
                         <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
                         <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
+                        ${releaseTime ? `<div class="mt-1 text-sm text-slate-300">해제 ${escapeHtml(formatWeatherCompactTimestamp(releaseTime))}</div>` : ''}
                         <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
                       </div>`;
                   }).join('')}
