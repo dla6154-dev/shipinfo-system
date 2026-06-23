@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="./vehicle_loading_data.js"></script>
   <style>
     body { font-family: 'Noto Sans KR', sans-serif; }
@@ -88,6 +89,147 @@
       text-align: center; 
       color: #94a38; 
       margin-right: .5rem; 
+    }
+
+    .ferry-op-subtab-btn {
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.7);
+      color: #cbd5e1;
+      border-radius: 9999px;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    .ferry-op-subtab-btn:hover {
+      border-color: rgba(129, 140, 248, 0.5);
+      color: #f8fafc;
+    }
+    .ferry-op-subtab-btn.is-active {
+      border-color: rgba(167, 139, 250, 0.8);
+      background: rgba(109, 40, 217, 0.22);
+      color: #f5f3ff;
+    }
+    .ferry-op-status-btn,
+    .ferry-op-voyage-status-btn {
+      width: 100%;
+      border: none;
+      border-radius: 0.85rem;
+      padding: 0.7rem 0.55rem;
+      font-size: 0.85rem;
+      font-weight: 800;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      cursor: pointer;
+    }
+    .ferry-op-status-btn:hover,
+    .ferry-op-voyage-status-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+    .ferry-op-status-btn[data-state="blank"],
+    .ferry-op-voyage-status-btn[data-state="blank"] {
+      background: #334155;
+      color: #cbd5e1;
+    }
+    .ferry-op-status-btn[data-state="normal"] {
+      background: #16a34a;
+      color: #f8fafc;
+    }
+    .ferry-op-status-btn[data-state="review"] {
+      background: #f59e0b;
+      color: #111827;
+    }
+    .ferry-op-status-btn[data-state="control"],
+    .ferry-op-voyage-status-btn[data-state="control"] {
+      background: #dc2626;
+      color: #fef2f2;
+    }
+    .ferry-op-status-btn[data-state="partial"] {
+      background: #8b5cf6;
+      color: #f5f3ff;
+    }
+    .ferry-op-voyage-status-btn[data-state="go"] {
+      background: #16a34a;
+      color: #f8fafc;
+    }
+    .ferry-op-voyage-status-btn[data-state="stop"] {
+      background: #475569;
+      color: #f8fafc;
+    }
+    .ferry-op-note-input,
+    .ferry-op-inline-input {
+      width: 100%;
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      border-radius: 0.85rem;
+      background: rgba(15, 23, 42, 0.88);
+      color: #f8fafc;
+      padding: 0.7rem 0.8rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .ferry-op-note-input:focus,
+    .ferry-op-inline-input:focus {
+      border-color: rgba(167, 139, 250, 0.8);
+      box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.16);
+    }
+    .ferry-op-inline-input[readonly] {
+      opacity: 0.8;
+      cursor: default;
+      box-shadow: none;
+    }
+    .ferry-op-vessel-card {
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      border-radius: 1.5rem;
+      background: rgba(15, 23, 42, 0.88);
+      overflow: hidden;
+    }
+    .ferry-op-vessel-card.is-collapsed .ferry-op-vessel-body {
+      display: none;
+    }
+    .ferry-op-vessel-card .ferry-op-vessel-name-input {
+      display: none;
+    }
+    .ferry-op-vessel-card.is-editing .ferry-op-vessel-name-label {
+      display: none;
+    }
+    .ferry-op-vessel-card.is-editing .ferry-op-vessel-name-input {
+      display: block;
+    }
+    .ferry-op-vessel-card.is-editing .ferry-op-inline-input {
+      border-color: rgba(167, 139, 250, 0.5);
+      background: rgba(30, 41, 59, 0.92);
+    }
+    .ferry-op-season-btn {
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      background: rgba(15, 23, 42, 0.82);
+      color: #cbd5e1;
+      border-radius: 9999px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .ferry-op-season-btn.is-active {
+      border-color: rgba(34, 211, 238, 0.65);
+      background: rgba(8, 145, 178, 0.18);
+      color: #cffafe;
+    }
+    .ferry-op-capture-card {
+      border: 1px solid rgba(71, 85, 105, 0.68);
+      border-radius: 1.5rem;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
+      overflow: hidden;
+    }
+    .ferry-op-extract-textarea {
+      width: 100%;
+      min-height: 260px;
+      border: 1px solid rgba(71, 85, 105, 0.9);
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.9);
+      color: #f8fafc;
+      padding: 1rem;
+      resize: vertical;
+      line-height: 1.6;
+      white-space: pre-wrap;
     }
 
     /* --- Keypad Lockscreen Styles --- */
@@ -798,6 +940,963 @@ const VISIBILITY_LIMIT_UPDATE_POINTS = [
     detail: '버튼, 목록, 결과 문구 레이아웃과 색상 같은 화면 스타일을 바꾸는 파일입니다.'
   }
 ];
+const FERRY_OPERATION_TAB_KEYS = ['visibility', 'weather', 'forecast'];
+const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
+const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
+const FERRY_OPERATION_FORECAST_STATE_KEY = 'ferryOperation.forecastState.v1';
+const FERRY_OPERATION_WEATHER_STATE_KEY = 'ferryOperation.weatherState.v1';
+const FERRY_OPERATION_FORECAST_STATUS_ORDER = ['blank', 'normal', 'review', 'control', 'partial'];
+const FERRY_OPERATION_FORECAST_STATUS_LABELS = {
+  blank: '미입력',
+  normal: '정상',
+  review: '검토',
+  control: '통제',
+  partial: '일부운항'
+};
+const FERRY_OPERATION_WEATHER_STATUS_ORDER = ['blank', 'go', 'control', 'stop'];
+const FERRY_OPERATION_WEATHER_STATUS_LABELS = {
+  blank: '미입력',
+  go: '운항',
+  control: '통제',
+  stop: '비운항'
+};
+const FERRY_OPERATION_VESSELS = [
+  '산타모니카',
+  '새섬두레',
+  '새섬관매',
+  '섬사랑9',
+  '한림페리11',
+  '가사페리',
+  '해진고속카페리'
+];
+const FERRY_OPERATION_DEFAULT_VOYAGES = {
+  '산타모니카': [
+    ['08:00', '진도 → 추자 → 제주'],
+    ['11:00', '제주 → 추자 → 진도'],
+    ['13:30', '진도 → 추자 → 제주'],
+    ['16:20', '제주 → 추자 → 진도']
+  ],
+  '새섬두레': [
+    ['07:20 / 08:20', '창유 ↔ 진도'],
+    ['09:30 / 10:30', '창유 ↔ 진도'],
+    ['11:20 / 12:10', '창유 ↔ 진도'],
+    ['12:45 / 13:30', '창유 ↔ 관매'],
+    ['14:30 / 15:20', '창유 ↔ 진도'],
+    ['17:00 / 18:40', '창유 ↔ 진도']
+  ],
+  '새섬관매': [
+    ['08:15 / 09:20', '진도 ↔ 창유 ↔ 관매'],
+    ['11:10 / 12:10', '진도 ↔ 관매'],
+    ['15:50 / 17:20', '진도 ↔ 창유 ↔ 관매']
+  ],
+  '섬사랑9': [
+    ['09:00 / 13:45', '진도 ↔ 슬도 ↔ 독거 ↔ 탄항 ↔ 혈도 ↔ 청등 ↔ 죽항 ↔ 창유 ↔ 상하죽도 ↔ 서거차도 ↔ 곽도 ↔ 맹골 ↔ 죽도']
+  ],
+  '한림페리11': [
+    ['07:30 / 08:20', '진도 ↔ 창유'],
+    ['09:50 / 16:00', '진도 ↔ 서거차'],
+    ['17:00 / 17:50', '진도 ↔ 창유']
+  ],
+  '가사페리': [
+    ['07:00 / 09:05', '쉬미 ↔ 가사'],
+    ['11:30 / 13:55', '쉬미 ↔ 가사'],
+    ['16:00 / 19:10', '쉬미 ↔ 저도 ↔ 광대 ↔ 송도 ↔ 혈도 ↔ 양덕 ↔ 주지 ↔ 가사']
+  ],
+  '해진고속카페리': [
+    ['06:00 / 08:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+    ['09:00 / 11:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+    ['12:30 / 14:20', '우수영 ↔ 상태동리'],
+    ['15:00 / 17:10', '우수영 ↔ 장산(축강) ↔ 상태동리']
+  ]
+};
+const FERRY_OPERATION_SEASONAL_VOYAGES = {
+  '새섬두레': {
+    '하절기': [
+      ['07:20 / 08:20', '창유 ↔ 진도'],
+      ['09:30 / 10:30', '창유 ↔ 진도'],
+      ['11:20 / 12:10', '창유 ↔ 진도'],
+      ['12:45 / 13:30', '창유 ↔ 관매'],
+      ['14:30 / 15:20', '창유 ↔ 진도'],
+      ['17:00 / 18:40', '창유 ↔ 진도']
+    ],
+    '동절기': [
+      ['07:20 / 08:20', '창유 ↔ 진도'],
+      ['09:30 / 10:30', '창유 ↔ 진도'],
+      ['11:10 / 12:00', '창유 ↔ 관매'],
+      ['13:00 / 14:00', '창유 ↔ 진도'],
+      ['16:00 / 17:35', '창유 ↔ 진도']
+    ]
+  },
+  '한림페리11': {
+    '하절기': [
+      ['07:30 / 08:20', '진도 ↔ 창유'],
+      ['09:50 / 16:00', '진도 ↔ 서거차'],
+      ['17:00 / 17:50', '진도 ↔ 창유']
+    ],
+    '동절기': [
+      ['07:30 / 08:20', '진도 ↔ 창유'],
+      ['09:50 / 16:00', '진도 ↔ 서거차'],
+      ['16:00 / 16:50', '진도 ↔ 창유']
+    ]
+  },
+  '가사페리': {
+    '하절기': [
+      ['07:00 / 09:05', '쉬미 ↔ 가사'],
+      ['11:30 / 13:55', '쉬미 ↔ 가사'],
+      ['16:00 / 19:10', '쉬미 ↔ 저도 ↔ 광대 ↔ 송도 ↔ 혈도 ↔ 양덕 ↔ 주지 ↔ 가사']
+    ],
+    '동절기': [
+      ['07:00 / 09:05', '쉬미 ↔ 가사'],
+      ['11:30 / 13:55', '쉬미 ↔ 가사'],
+      ['15:00 / 18:10', '쉬미 ↔ 저도 ↔ 광대 ↔ 송도 ↔ 혈도 ↔ 양덕 ↔ 주지 ↔ 가사']
+    ]
+  },
+  '해진고속카페리': {
+    '하절기': [
+      ['06:00 / 08:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['09:00 / 11:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['12:30 / 14:20', '우수영 ↔ 상태동리'],
+      ['15:00 / 17:10', '우수영 ↔ 장산(축강) ↔ 상태동리']
+    ],
+    '동절기': [
+      ['07:00 / 09:10', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['09:40 / 11:50', '우수영 ↔ 장산(축강) ↔ 상태동리'],
+      ['15:00 / 17:10', '우수영 ↔ 장산(축강) ↔ 상태동리']
+    ]
+  }
+};
+let ferryOperationActiveTab = readFerryOperationActiveTab();
+
+function ferryOperationPad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function ferryOperationToLocalDateString(date) {
+  return `${date.getFullYear()}-${ferryOperationPad2(date.getMonth() + 1)}-${ferryOperationPad2(date.getDate())}`;
+}
+
+function getFerryOperationTodayString() {
+  return ferryOperationToLocalDateString(new Date());
+}
+
+function getFerryOperationTomorrowString() {
+  const nextDate = new Date();
+  nextDate.setDate(nextDate.getDate() + 1);
+  return ferryOperationToLocalDateString(nextDate);
+}
+
+function formatFerryOperationDisplayDate(value) {
+  const text = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return '-';
+  const date = new Date(`${text}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return text;
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${date.getFullYear()}.${ferryOperationPad2(date.getMonth() + 1)}.${ferryOperationPad2(date.getDate())} (${days[date.getDay()]})`;
+}
+
+function getFerryOperationNowText() {
+  const now = new Date();
+  return `${formatFerryOperationDisplayDate(ferryOperationToLocalDateString(now))} ${ferryOperationPad2(now.getHours())}:${ferryOperationPad2(now.getMinutes())}`;
+}
+
+function readLocalStorageJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeLocalStorageJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+}
+
+function readFerryOperationActiveTab() {
+  try {
+    const stored = String(localStorage.getItem(FERRY_OPERATION_ACTIVE_TAB_KEY) || '').trim();
+    return FERRY_OPERATION_TAB_KEYS.includes(stored) ? stored : 'visibility';
+  } catch (error) {
+    return 'visibility';
+  }
+}
+
+function setFerryOperationActiveTab(nextTab) {
+  ferryOperationActiveTab = FERRY_OPERATION_TAB_KEYS.includes(nextTab) ? nextTab : 'visibility';
+  try {
+    localStorage.setItem(FERRY_OPERATION_ACTIVE_TAB_KEY, ferryOperationActiveTab);
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+}
+
+function readFerryOperationForecastDate() {
+  try {
+    const stored = String(localStorage.getItem(FERRY_OPERATION_FORECAST_DATE_KEY) || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(stored) ? stored : getFerryOperationTomorrowString();
+  } catch (error) {
+    return getFerryOperationTomorrowString();
+  }
+}
+
+function writeFerryOperationForecastDate(nextDate) {
+  try {
+    localStorage.setItem(FERRY_OPERATION_FORECAST_DATE_KEY, /^\d{4}-\d{2}-\d{2}$/.test(String(nextDate || '').trim()) ? String(nextDate).trim() : getFerryOperationTomorrowString());
+  } catch (error) {
+    // Ignore storage failures in limited environments.
+  }
+}
+
+function normalizeFerryOperationForecastStatus(status) {
+  return FERRY_OPERATION_FORECAST_STATUS_ORDER.includes(status) ? status : 'blank';
+}
+
+function normalizeFerryOperationWeatherStatus(status) {
+  return FERRY_OPERATION_WEATHER_STATUS_ORDER.includes(status) ? status : 'blank';
+}
+
+function buildDefaultFerryOperationForecastState() {
+  return FERRY_OPERATION_VESSELS.reduce((accumulator, vesselKey) => {
+    accumulator[vesselKey] = { am: 'blank', pm: 'blank', note: '' };
+    return accumulator;
+  }, {});
+}
+
+function normalizeFerryOperationForecastState(value) {
+  const defaults = buildDefaultFerryOperationForecastState();
+  const nextState = {};
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const current = value && typeof value === 'object' ? value[vesselKey] : null;
+    nextState[vesselKey] = {
+      am: normalizeFerryOperationForecastStatus(current?.am),
+      pm: normalizeFerryOperationForecastStatus(current?.pm),
+      note: String(current?.note || '')
+    };
+  });
+  return nextState;
+}
+
+function readFerryOperationForecastState() {
+  return normalizeFerryOperationForecastState(readLocalStorageJson(FERRY_OPERATION_FORECAST_STATE_KEY, {}));
+}
+
+function writeFerryOperationForecastState(nextState) {
+  writeLocalStorageJson(FERRY_OPERATION_FORECAST_STATE_KEY, normalizeFerryOperationForecastState(nextState));
+}
+
+function mutateFerryOperationForecastState(mutator) {
+  const nextState = readFerryOperationForecastState();
+  mutator(nextState);
+  writeFerryOperationForecastState(nextState);
+  return nextState;
+}
+
+function getFerryOperationVoyageBlueprint(vesselKey, season = '') {
+  const seasonalVoyages = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+  if (seasonalVoyages && seasonalVoyages[season]) {
+    return seasonalVoyages[season];
+  }
+  return FERRY_OPERATION_DEFAULT_VOYAGES[vesselKey] || [];
+}
+
+function buildDefaultFerryOperationWeatherState() {
+  const vessels = {};
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const season = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey] ? '하절기' : '';
+    vessels[vesselKey] = {
+      displayName: vesselKey,
+      season,
+      voyages: getFerryOperationVoyageBlueprint(vesselKey, season).map(([depTime, route]) => ({
+        depTime,
+        route,
+        state: 'blank',
+        note: ''
+      }))
+    };
+  });
+  return { vessels };
+}
+
+function normalizeFerryOperationWeatherState(value) {
+  const defaults = buildDefaultFerryOperationWeatherState();
+  const sourceVessels = value && typeof value === 'object' && value.vessels && typeof value.vessels === 'object'
+    ? value.vessels
+    : {};
+  const vessels = {};
+
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const defaultVessel = defaults.vessels[vesselKey];
+    const sourceVessel = sourceVessels[vesselKey] || {};
+    const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+    const season = seasonOptions && sourceVessel.season && seasonOptions[sourceVessel.season]
+      ? sourceVessel.season
+      : defaultVessel.season;
+    const defaultVoyages = getFerryOperationVoyageBlueprint(vesselKey, season).map(([depTime, route]) => ({
+      depTime,
+      route,
+      state: 'blank',
+      note: ''
+    }));
+    const sourceVoyages = Array.isArray(sourceVessel.voyages) && sourceVessel.voyages.length
+      ? sourceVessel.voyages
+      : defaultVoyages;
+
+    vessels[vesselKey] = {
+      displayName: String(sourceVessel.displayName || defaultVessel.displayName).trim() || defaultVessel.displayName,
+      season,
+      voyages: sourceVoyages.map((voyage, index) => ({
+        depTime: String(voyage?.depTime ?? defaultVoyages[index]?.depTime ?? '').trim(),
+        route: String(voyage?.route ?? defaultVoyages[index]?.route ?? '').trim(),
+        state: normalizeFerryOperationWeatherStatus(voyage?.state),
+        note: String(voyage?.note || '')
+      }))
+    };
+
+    if (!vessels[vesselKey].voyages.length) {
+      vessels[vesselKey].voyages = defaultVoyages;
+    }
+  });
+
+  return { vessels };
+}
+
+function readFerryOperationWeatherState() {
+  return normalizeFerryOperationWeatherState(readLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, {}));
+}
+
+function writeFerryOperationWeatherState(nextState) {
+  writeLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, normalizeFerryOperationWeatherState(nextState));
+}
+
+function mutateFerryOperationWeatherState(mutator) {
+  const nextState = readFerryOperationWeatherState();
+  mutator(nextState);
+  writeFerryOperationWeatherState(nextState);
+  return nextState;
+}
+
+function buildFerryOperationSectionTabButton(tabKey, label, iconClass) {
+  const activeClass = ferryOperationActiveTab === tabKey ? ' is-active' : '';
+  return `
+    <button type="button" class="ferry-op-subtab-btn${activeClass}" data-ferry-op-tab-btn="${tabKey}">
+      <i class="fa-solid ${iconClass} mr-2"></i>${label}
+    </button>`;
+}
+
+function buildFerryOperationForecastRowsHtml() {
+  const forecastState = readFerryOperationForecastState();
+  return FERRY_OPERATION_VESSELS.map((vesselKey) => {
+    const row = forecastState[vesselKey];
+    return `
+      <tr class="border-b border-slate-700/70 last:border-b-0">
+        <td class="px-3 py-3 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
+        <td class="px-2 py-3">
+          <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.am)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="am">
+            ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.am])}
+          </button>
+        </td>
+        <td class="px-2 py-3">
+          <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.pm)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="pm">
+            ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.pm])}
+          </button>
+        </td>
+        <td class="px-3 py-3">
+          <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-forecast-note="${escapeHtml(vesselKey)}" value="${escapeHtml(row.note)}" placeholder="비고" />
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function buildFerryOperationForecastPanel() {
+  const forecastDate = readFerryOperationForecastDate();
+  return `
+    <div class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-2xl font-bold text-cyan-300">내일의 운항예보</h3>
+          <p class="mt-1 text-sm text-slate-400">선박별 오전/오후 운항 상태를 정리하고 이미지로 저장할 수 있습니다.</p>
+        </div>
+        <label class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-200">
+          <span class="font-semibold text-slate-300">기준일</span>
+          <input type="date" id="ferry-op-forecast-date-input" class="bg-transparent outline-none" value="${escapeHtml(forecastDate)}" />
+        </label>
+      </div>
+
+      <div id="ferry-op-forecast-capture" class="ferry-op-capture-card">
+        <div class="flex items-center justify-between gap-4 border-b border-slate-700 bg-cyan-500/10 px-5 py-4">
+          <div class="text-lg font-black text-white">선박 운항상태</div>
+          <div id="ferry-op-forecast-date-display" class="text-sm font-semibold text-cyan-100">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full table-fixed">
+            <thead class="bg-slate-900/70 text-xs uppercase tracking-[0.2em] text-slate-300">
+              <tr>
+                <th class="px-3 py-3 text-left">선명</th>
+                <th class="px-2 py-3">오전</th>
+                <th class="px-2 py-3">오후</th>
+                <th class="px-3 py-3 text-left">비고</th>
+              </tr>
+            </thead>
+            <tbody>${buildFerryOperationForecastRowsHtml()}</tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-5 py-4 text-xs text-slate-400">
+          <span id="ferry-op-forecast-footer-time">생성: -</span>
+          <span>목포운항관리센터 진도사무소</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+        <span class="rounded-full bg-slate-700 px-3 py-1 text-slate-200">미입력</span>
+        <span class="rounded-full bg-green-600 px-3 py-1 text-white">정상</span>
+        <span class="rounded-full bg-amber-500 px-3 py-1 text-slate-950">검토</span>
+        <span class="rounded-full bg-red-600 px-3 py-1 text-white">통제</span>
+        <span class="rounded-full bg-violet-600 px-3 py-1 text-white">일부운항</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" id="ferry-op-forecast-reset-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">초기화</button>
+        <button type="button" id="ferry-op-forecast-save-btn" class="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20">사진으로 저장</button>
+      </div>
+      <p class="text-sm text-slate-400">칸을 누르면 미입력 → 정상 → 검토 → 통제 → 일부운항 순으로 바뀝니다.</p>
+      <p id="ferry-op-forecast-feedback" class="text-sm"></p>
+    </div>`;
+}
+
+function buildFerryOperationWeatherVesselBlocksHtml() {
+  const weatherState = readFerryOperationWeatherState();
+  return FERRY_OPERATION_VESSELS.map((vesselKey) => {
+    const vessel = weatherState.vessels[vesselKey];
+    const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+    const voyageRows = vessel.voyages.map((voyage, index) => `
+      <tr class="border-b border-slate-700/70 last:border-b-0">
+        <td class="px-3 py-3 text-center text-sm font-bold text-slate-200">${escapeHtml(String(index + 1))}항</td>
+        <td class="px-2 py-3"><input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-dep="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.depTime)}" readonly /></td>
+        <td class="px-2 py-3"><input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-route="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.route)}" readonly /></td>
+        <td class="px-2 py-3">
+          <button type="button" class="ferry-op-voyage-status-btn" data-state="${escapeHtml(voyage.state)}" data-ferry-op-voyage-status="true" data-ferry-op-voyage-vessel="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}">
+            ${escapeHtml(FERRY_OPERATION_WEATHER_STATUS_LABELS[voyage.state])}
+          </button>
+        </td>
+        <td class="px-2 py-3"><input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" /></td>
+      </tr>`).join('');
+
+    return `
+      <article class="ferry-op-vessel-card" data-ferry-op-vessel-card="${escapeHtml(vesselKey)}">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-slate-900/70 px-4 py-4">
+          <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" data-ferry-op-toggle-vessel="${escapeHtml(vesselKey)}">
+            <div class="min-w-0 flex-1">
+              <span class="ferry-op-vessel-name-label block truncate text-lg font-black text-white">${escapeHtml(vessel.displayName)}</span>
+              <input type="text" class="ferry-op-inline-input ferry-op-vessel-name-input mt-2 text-sm" data-ferry-op-vessel-name-input="${escapeHtml(vesselKey)}" value="${escapeHtml(vessel.displayName)}" />
+              <span class="mt-1 block text-xs text-slate-400">${escapeHtml(String(vessel.voyages.length))}항차</span>
+            </div>
+            <span class="text-slate-400"><i class="fa-solid fa-chevron-down"></i></span>
+          </button>
+          <button type="button" class="rounded-full border border-violet-400/35 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20" data-ferry-op-edit-vessel="${escapeHtml(vesselKey)}">편집</button>
+        </div>
+        <div class="ferry-op-vessel-body space-y-4 px-4 py-4">
+          ${seasonOptions
+            ? `<div class="flex flex-wrap items-center gap-2">
+                ${Object.keys(seasonOptions).map((seasonKey) => `
+                  <button type="button" class="ferry-op-season-btn${vessel.season === seasonKey ? ' is-active' : ''}" data-ferry-op-season="${escapeHtml(seasonKey)}" data-ferry-op-season-vessel="${escapeHtml(vesselKey)}">${escapeHtml(seasonKey)}</button>
+                `).join('')}
+              </div>`
+            : ''}
+          <div class="overflow-x-auto rounded-2xl border border-slate-700">
+            <table class="min-w-[860px] w-full table-fixed">
+              <thead class="bg-slate-950/80 text-xs uppercase tracking-[0.2em] text-slate-300">
+                <tr>
+                  <th class="px-3 py-3">항차</th>
+                  <th class="px-2 py-3">출발시간</th>
+                  <th class="px-2 py-3">노선</th>
+                  <th class="px-2 py-3">운항여부</th>
+                  <th class="px-2 py-3">비고</th>
+                </tr>
+              </thead>
+              <tbody>${voyageRows}</tbody>
+            </table>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function buildFerryOperationWeatherPanel() {
+  return `
+    <div class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-2xl font-bold text-rose-300">기상악화</h3>
+          <p class="mt-1 text-sm text-slate-400">항차별 운항여부를 관리하고 기상악화 통제 문구를 바로 추출할 수 있습니다.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-sm text-slate-200">
+          오늘 기준 <span class="ml-2 font-semibold text-white">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</span>
+        </div>
+      </div>
+
+      <div id="ferry-op-weather-capture" class="ferry-op-capture-card">
+        <div class="flex items-center justify-between gap-4 border-b border-slate-700 bg-rose-500/10 px-5 py-4">
+          <div class="text-lg font-black text-white">항차별 운항여부</div>
+          <div class="text-sm font-semibold text-rose-100">${escapeHtml(formatFerryOperationDisplayDate(getFerryOperationTodayString()))}</div>
+        </div>
+        <div class="space-y-4 p-4">${buildFerryOperationWeatherVesselBlocksHtml()}</div>
+        <div class="flex items-center justify-between gap-3 border-t border-slate-700 px-5 py-4 text-xs text-slate-400">
+          <span id="ferry-op-weather-footer-time">생성: -</span>
+          <span>목포운항관리센터 진도사무소</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+        <span class="rounded-full bg-slate-700 px-3 py-1 text-slate-200">미입력</span>
+        <span class="rounded-full bg-green-600 px-3 py-1 text-white">운항</span>
+        <span class="rounded-full bg-red-600 px-3 py-1 text-white">통제</span>
+        <span class="rounded-full bg-slate-500 px-3 py-1 text-white">비운항</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" id="ferry-op-weather-reset-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">초기화</button>
+        <button type="button" id="ferry-op-weather-save-btn" class="rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/20">사진으로 저장</button>
+        <button type="button" id="ferry-op-weather-extract-btn" class="rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">기상악화 문구 추출</button>
+      </div>
+      <p class="text-sm text-slate-400">상태 칸을 누르면 미입력 → 운항 → 통제 → 비운항 순으로 바뀌고, 편집을 누르면 선명/시간/노선을 바로 수정할 수 있습니다.</p>
+      <p id="ferry-op-weather-feedback" class="text-sm"></p>
+    </div>`;
+}
+
+function buildFerryOperationVisibilityPanel() {
+  return `
+    <div class="space-y-6">
+      <div class="rounded-3xl border border-violet-500/25 bg-slate-800/85 p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-2xl font-bold text-violet-300">시계제한</h3>
+            <p class="mt-1 text-sm text-slate-400">자동 밴드에서 쓰는 시계제한 판단 기준과 수정 포인트를 함께 정리했습니다.</p>
+          </div>
+          <button type="button" id="ferry-op-open-visibility-manual-btn" class="rounded-full border border-violet-400/35 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-500/20">
+            <i class="fa-solid fa-image mr-2"></i>시계제한 매뉴얼 열기
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 xl:grid-cols-4">
+        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상황</p>
+          <p class="mt-3 text-lg font-bold text-white">시계제한 · 기상악화 · 그 외 비운항</p>
+          <p class="mt-2 text-sm text-slate-400">현재 자동 밴드는 세 가지 상황값 중 하나를 먼저 선택하게 되어 있습니다.</p>
+        </div>
+        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상태</p>
+          <p class="mt-3 text-lg font-bold text-white">출항 대기 · 통제 · 정상운항 · 결항</p>
+          <p class="mt-2 text-sm text-slate-400">상태에 따라 기본 사유와 문장 끝 suffix가 자동으로 붙는 구조입니다.</p>
+        </div>
+        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">데이터 규모</p>
+          <p class="mt-3 text-lg font-bold text-white">항로 6개 · 선박 7척</p>
+          <p class="mt-2 text-sm text-slate-400">각 선박별 기본 공지 출항시각과 전체 출항 목록이 JSON으로 저장되어 있습니다.</p>
+        </div>
+        <div class="rounded-2xl border border-violet-500/25 bg-slate-800/80 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">출력 방식</p>
+          <p class="mt-3 text-lg font-bold text-white">1건은 한 줄 · 여러 건은 번호 목록</p>
+          <p class="mt-2 text-sm text-slate-400">확정 항목이 여러 개면 “아래 항로 …” 헤더와 번호 목록으로 자동 전환됩니다.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
+        <div class="space-y-6">
+          <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+            <h4 class="text-xl font-bold text-violet-300">현재 등록 항로</h4>
+            <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+              ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
+                <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <p class="text-sm font-semibold text-white">${escapeHtml(item.route)}</p>
+                  <p class="mt-2 text-sm text-slate-400">${escapeHtml(item.ships)}</p>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+            <h4 class="text-xl font-bold text-violet-300">상태별 기본 문구</h4>
+            <div class="mt-5 space-y-3">
+              ${VISIBILITY_LIMIT_STATUS_SUMMARY.map((item) => `
+                <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <p class="text-sm font-semibold text-white">${escapeHtml(item.name)}</p>
+                    <span class="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-200">${escapeHtml(item.suffix)}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-slate-400">기본 사유: ${escapeHtml(item.reason)}</p>
+                </div>`).join('')}
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
+            <h4 class="text-xl font-bold text-violet-300">로직 수정 파일</h4>
+            <div class="mt-5 space-y-3">
+              ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
+                <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <p class="text-sm font-semibold text-white">${escapeHtml(item.title)}</p>
+                  <p class="mt-2 break-all text-xs text-violet-200">${escapeHtml(item.file)}</p>
+                  <p class="mt-2 text-sm text-slate-400">${escapeHtml(item.detail)}</p>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildFerryOperationManagerSection() {
+  return `
+    <div class="flex items-center gap-4 mb-8">
+      <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+      <div>
+        <h2 class="text-2xl font-bold text-violet-300">여객선 운항 관리</h2>
+        <p class="text-sm text-slate-400 mt-1">시계제한, 기상악화, 내일의 운항예보를 한 화면에서 관리합니다.</p>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mb-6">
+      ${buildFerryOperationSectionTabButton('visibility', '시계제한', 'fa-eye-low-vision')}
+      ${buildFerryOperationSectionTabButton('weather', '기상악화', 'fa-cloud-showers-heavy')}
+      ${buildFerryOperationSectionTabButton('forecast', '내일의 운항예보', 'fa-ship')}
+    </div>
+
+    <div id="ferry-op-panels" class="space-y-6">
+      <section data-ferry-op-tab-panel="visibility" class="${ferryOperationActiveTab === 'visibility' ? '' : 'hidden'}">${buildFerryOperationVisibilityPanel()}</section>
+      <section data-ferry-op-tab-panel="weather" class="${ferryOperationActiveTab === 'weather' ? '' : 'hidden'}">${buildFerryOperationWeatherPanel()}</section>
+      <section data-ferry-op-tab-panel="forecast" class="${ferryOperationActiveTab === 'forecast' ? '' : 'hidden'}">${buildFerryOperationForecastPanel()}</section>
+    </div>`;
+}
+
+function refreshFerryOperationForecastPanel(section) {
+  const panel = section.querySelector('[data-ferry-op-tab-panel="forecast"]');
+  if (!panel) return;
+  panel.innerHTML = buildFerryOperationForecastPanel();
+}
+
+function refreshFerryOperationWeatherPanel(section) {
+  const panel = section.querySelector('[data-ferry-op-tab-panel="weather"]');
+  if (!panel) return;
+  panel.innerHTML = buildFerryOperationWeatherPanel();
+}
+
+function setFerryOperationFeedback(panelKey, message, tone = 'info') {
+  const feedbackEl = document.getElementById(`ferry-op-${panelKey}-feedback`);
+  if (!feedbackEl) return;
+  const toneClass = tone === 'success'
+    ? 'text-green-300'
+    : tone === 'error'
+      ? 'text-red-300'
+      : 'text-slate-400';
+  feedbackEl.textContent = message;
+  feedbackEl.className = `text-sm ${toneClass}`;
+}
+
+function setFerryOperationActivePanel(section, nextTab) {
+  setFerryOperationActiveTab(nextTab);
+  section.querySelectorAll('[data-ferry-op-tab-btn]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.ferryOpTabBtn === ferryOperationActiveTab);
+  });
+  section.querySelectorAll('[data-ferry-op-tab-panel]').forEach((panel) => {
+    panel.classList.toggle('hidden', panel.dataset.ferryOpTabPanel !== ferryOperationActiveTab);
+  });
+}
+
+function bindFerryOperationManagerSection(section) {
+  if (section.dataset.ferryOperationBound === 'true') return;
+
+  section.addEventListener('click', async (event) => {
+    const tabButton = event.target.closest('[data-ferry-op-tab-btn]');
+    if (tabButton) {
+      setFerryOperationActivePanel(section, tabButton.dataset.ferryOpTabBtn);
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-open-visibility-manual-btn')) {
+      openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+      return;
+    }
+
+    const forecastStatusButton = event.target.closest('[data-ferry-op-forecast-status]');
+    if (forecastStatusButton) {
+      const vesselKey = String(forecastStatusButton.dataset.ferryOpForecastVessel || '');
+      const period = String(forecastStatusButton.dataset.ferryOpForecastPeriod || '');
+      const nextState = mutateFerryOperationForecastState((state) => {
+        const current = state[vesselKey] || { am: 'blank', pm: 'blank', note: '' };
+        const currentStatus = normalizeFerryOperationForecastStatus(current[period]);
+        const nextIndex = (FERRY_OPERATION_FORECAST_STATUS_ORDER.indexOf(currentStatus) + 1) % FERRY_OPERATION_FORECAST_STATUS_ORDER.length;
+        current[period] = FERRY_OPERATION_FORECAST_STATUS_ORDER[nextIndex];
+        state[vesselKey] = current;
+      });
+      const nextStatus = nextState[vesselKey]?.[period] || 'blank';
+      forecastStatusButton.dataset.state = nextStatus;
+      forecastStatusButton.textContent = FERRY_OPERATION_FORECAST_STATUS_LABELS[nextStatus];
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-forecast-reset-btn')) {
+      writeFerryOperationForecastState(buildDefaultFerryOperationForecastState());
+      refreshFerryOperationForecastPanel(section);
+      setFerryOperationFeedback('forecast', '내일의 운항예보를 초기화했습니다.', 'success');
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-forecast-save-btn')) {
+      await saveFerryOperationCapture({
+        captureId: 'ferry-op-forecast-capture',
+        footerId: 'ferry-op-forecast-footer-time',
+        fileName: `내일의운항예보_${readFerryOperationForecastDate()}.png`,
+        feedbackKey: 'forecast'
+      });
+      return;
+    }
+
+    const toggleVesselButton = event.target.closest('[data-ferry-op-toggle-vessel]');
+    if (toggleVesselButton) {
+      const card = toggleVesselButton.closest('[data-ferry-op-vessel-card]');
+      if (card) card.classList.toggle('is-collapsed');
+      return;
+    }
+
+    const editVesselButton = event.target.closest('[data-ferry-op-edit-vessel]');
+    if (editVesselButton) {
+      const vesselKey = String(editVesselButton.dataset.ferryOpEditVessel || '');
+      const card = Array.from(section.querySelectorAll('[data-ferry-op-vessel-card]')).find(
+        (item) => item.dataset.ferryOpVesselCard === vesselKey
+      );
+      if (!card) return;
+      const isEditing = card.classList.toggle('is-editing');
+      editVesselButton.textContent = isEditing ? '편집 완료' : '편집';
+      card.querySelectorAll('[data-ferry-op-voyage-dep], [data-ferry-op-voyage-route]').forEach((input) => {
+        input.readOnly = !isEditing;
+      });
+      return;
+    }
+
+    const seasonButton = event.target.closest('[data-ferry-op-season]');
+    if (seasonButton) {
+      const vesselKey = String(seasonButton.dataset.ferryOpSeasonVessel || '');
+      const seasonKey = String(seasonButton.dataset.ferryOpSeason || '');
+      mutateFerryOperationWeatherState((state) => {
+        const vessel = state.vessels[vesselKey];
+        if (!vessel) return;
+        const previousByTime = new Map((vessel.voyages || []).map((voyage) => [voyage.depTime, voyage]));
+        vessel.season = seasonKey;
+        vessel.voyages = getFerryOperationVoyageBlueprint(vesselKey, seasonKey).map(([depTime, route]) => {
+          const previous = previousByTime.get(depTime);
+          return {
+            depTime,
+            route,
+            state: normalizeFerryOperationWeatherStatus(previous?.state),
+            note: String(previous?.note || '')
+          };
+        });
+      });
+      refreshFerryOperationWeatherPanel(section);
+      return;
+    }
+
+    const voyageStatusButton = event.target.closest('[data-ferry-op-voyage-status]');
+    if (voyageStatusButton) {
+      const vesselKey = String(voyageStatusButton.dataset.ferryOpVoyageVessel || '');
+      const voyageIndex = Number(voyageStatusButton.dataset.ferryOpVoyageIndex);
+      const nextState = mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (!voyage) return;
+        const currentStatus = normalizeFerryOperationWeatherStatus(voyage.state);
+        const nextIndex = (FERRY_OPERATION_WEATHER_STATUS_ORDER.indexOf(currentStatus) + 1) % FERRY_OPERATION_WEATHER_STATUS_ORDER.length;
+        voyage.state = FERRY_OPERATION_WEATHER_STATUS_ORDER[nextIndex];
+      });
+      const nextStatus = nextState.vessels[vesselKey]?.voyages?.[voyageIndex]?.state || 'blank';
+      voyageStatusButton.dataset.state = nextStatus;
+      voyageStatusButton.textContent = FERRY_OPERATION_WEATHER_STATUS_LABELS[nextStatus];
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-weather-reset-btn')) {
+      writeFerryOperationWeatherState(buildDefaultFerryOperationWeatherState());
+      refreshFerryOperationWeatherPanel(section);
+      setFerryOperationFeedback('weather', '기상악화 운항표를 초기화했습니다.', 'success');
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-weather-save-btn')) {
+      await saveFerryOperationCapture({
+        captureId: 'ferry-op-weather-capture',
+        footerId: 'ferry-op-weather-footer-time',
+        fileName: `기상악화_${getFerryOperationTodayString()}.png`,
+        feedbackKey: 'weather'
+      });
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-weather-extract-btn')) {
+      openFerryOperationExtractModal();
+    }
+  });
+
+  section.addEventListener('input', (event) => {
+    const forecastDateInput = event.target.closest('#ferry-op-forecast-date-input');
+    if (forecastDateInput) {
+      writeFerryOperationForecastDate(forecastDateInput.value);
+      const dateDisplay = section.querySelector('#ferry-op-forecast-date-display');
+      if (dateDisplay) dateDisplay.textContent = formatFerryOperationDisplayDate(forecastDateInput.value);
+      return;
+    }
+
+    const forecastNoteInput = event.target.closest('[data-ferry-op-forecast-note]');
+    if (forecastNoteInput) {
+      const vesselKey = String(forecastNoteInput.dataset.ferryOpForecastNote || '');
+      mutateFerryOperationForecastState((state) => {
+        if (!state[vesselKey]) state[vesselKey] = { am: 'blank', pm: 'blank', note: '' };
+        state[vesselKey].note = forecastNoteInput.value;
+      });
+      return;
+    }
+
+    const vesselNameInput = event.target.closest('[data-ferry-op-vessel-name-input]');
+    if (vesselNameInput) {
+      const vesselKey = String(vesselNameInput.dataset.ferryOpVesselNameInput || '');
+      mutateFerryOperationWeatherState((state) => {
+        const vessel = state.vessels[vesselKey];
+        if (!vessel) return;
+        vessel.displayName = vesselNameInput.value.trim() || vesselKey;
+      });
+      const label = vesselNameInput.closest('[data-ferry-op-vessel-card]')?.querySelector('.ferry-op-vessel-name-label');
+      if (label) label.textContent = vesselNameInput.value.trim() || vesselKey;
+      return;
+    }
+
+    const voyageDepInput = event.target.closest('[data-ferry-op-voyage-dep]');
+    if (voyageDepInput) {
+      const vesselKey = String(voyageDepInput.dataset.ferryOpVoyageDep || '');
+      const voyageIndex = Number(voyageDepInput.dataset.ferryOpVoyageIndex);
+      mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (voyage) voyage.depTime = voyageDepInput.value;
+      });
+      return;
+    }
+
+    const voyageRouteInput = event.target.closest('[data-ferry-op-voyage-route]');
+    if (voyageRouteInput) {
+      const vesselKey = String(voyageRouteInput.dataset.ferryOpVoyageRoute || '');
+      const voyageIndex = Number(voyageRouteInput.dataset.ferryOpVoyageIndex);
+      mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (voyage) voyage.route = voyageRouteInput.value;
+      });
+      return;
+    }
+
+    const voyageNoteInput = event.target.closest('[data-ferry-op-voyage-note]');
+    if (voyageNoteInput) {
+      const vesselKey = String(voyageNoteInput.dataset.ferryOpVoyageNote || '');
+      const voyageIndex = Number(voyageNoteInput.dataset.ferryOpVoyageIndex);
+      mutateFerryOperationWeatherState((state) => {
+        const voyage = state.vessels[vesselKey]?.voyages?.[voyageIndex];
+        if (voyage) voyage.note = voyageNoteInput.value;
+      });
+    }
+  });
+
+  section.dataset.ferryOperationBound = 'true';
+}
+
+async function saveFerryOperationCapture({ captureId, footerId, fileName, feedbackKey }) {
+  try {
+    if (typeof window.html2canvas !== 'function') {
+      throw new Error('이미지 저장 라이브러리를 불러오지 못했습니다.');
+    }
+    const footer = document.getElementById(footerId);
+    if (footer) footer.textContent = `생성: ${getFerryOperationNowText()}`;
+    document.activeElement?.blur?.();
+    const target = document.getElementById(captureId);
+    if (!target) throw new Error('저장할 화면을 찾지 못했습니다.');
+    const canvas = await window.html2canvas(target, {
+      scale: 2,
+      backgroundColor: '#020617',
+      useCORS: true
+    });
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    setFerryOperationFeedback(feedbackKey, '이미지로 저장했습니다.', 'success');
+  } catch (error) {
+    setFerryOperationFeedback(feedbackKey, `저장 실패: ${error.message}`, 'error');
+  }
+}
+
+function extractFerryOperationWeatherText() {
+  const weatherState = readFerryOperationWeatherState();
+  const all = [];
+  const allNotes = [];
+
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const vessel = weatherState.vessels[vesselKey];
+    if (!vessel) return;
+    vessel.voyages.forEach((voyage) => {
+      const state = normalizeFerryOperationWeatherStatus(voyage.state);
+      const depRaw = String(voyage.depTime || '').trim();
+      const route = String(voyage.route || '').trim();
+      const note = String(voyage.note || '').trim();
+      const depTime = depRaw.split('/')[0].trim();
+      const origin = route.split(/[↔→]/)[0].trim();
+      const stops = route.split(/[↔→]/).map((item) => item.trim()).filter(Boolean);
+      const simpleRoute = stops.length >= 2 ? `${stops[0]}-${stops[stops.length - 1]}` : route;
+      const sortKey = depTime.replace(':', '') || '9999';
+      const displayName = String(vessel.displayName || vesselKey).trim() || vesselKey;
+
+      if (state === 'control' || state === 'stop') {
+        all.push({ sortKey, simpleRoute, vessel: displayName, depTime, origin, note });
+      }
+
+      if (note) {
+        allNotes.push({ sortKey, simpleRoute, vessel: displayName, depTime, origin, note });
+      }
+    });
+  });
+
+  all.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  allNotes.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+  const seen = new Set();
+  const items = [];
+  all.forEach((item) => {
+    if (seen.has(item.vessel)) return;
+    seen.add(item.vessel);
+    items.push(item);
+  });
+
+  if (!items.length && !allNotes.length) {
+    return '통제/비운항 항차가 없습니다.';
+  }
+
+  const mainLines = items.map((item, index) => `${index + 1}. ${item.simpleRoute} ${item.vessel}호(${item.depTime} ${item.origin}출항)`);
+  const noteLines = allNotes.map((item) => `* ${item.simpleRoute} ${item.vessel}호(${item.depTime} ${item.origin}출항)[${item.note}]`);
+
+  let result = mainLines.length ? `아래 항로 기상악화로 통제합니다.\n\n${mainLines.join('\n')}` : '';
+  if (noteLines.length) {
+    result += `${result ? '\n\n' : ''}${noteLines.join('\n')}`;
+  }
+  return result || '통제/비운항 항차가 없습니다.';
+}
+
+function openFerryOperationExtractModal() {
+  const extractText = extractFerryOperationWeatherText();
+  showModal('기상악화 문구', `
+    <div class="space-y-4">
+      <textarea id="ferry-op-extract-text" class="ferry-op-extract-textarea" readonly>${escapeHtml(extractText)}</textarea>
+      <button id="ferry-op-extract-copy-btn" class="w-full rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">클립보드 복사</button>
+    </div>`);
+}
 
 // 비밀번호 초기화 (localStorage 사용)
 /* (삭제) - 이제 이 기능은 Firestore에서 처리합니다.
@@ -2980,8 +4079,8 @@ const DATASETS = [
         </div>
         <div id="visibility-limit-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-violet-500">
           <i class="fa-solid fa-eye-low-vision text-3xl text-violet-400 mb-3"></i>
-          <h2 class="text-xl font-semibold">시계제한</h2>
-          <p class="text-slate-400 text-sm">자동 밴드 로직 점검 메모</p>
+          <h2 class="text-xl font-semibold">여객선 운항 관리</h2>
+          <p class="text-slate-400 text-sm">시계제한 · 기상악화 · 운항예보</p>
         </div>
         <div id="dangerous-goods-btn" class="category-card bg-slate-800 p-6 rounded-lg text-center border border-slate-700 cursor-pointer hover:border-amber-500">
           <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-3"></i>
@@ -3031,8 +4130,8 @@ const DATASETS = [
         </div>
         <div id="visibility-limit-btn" class="category-card bg-slate-800 p-4 md:p-5 rounded-2xl text-center border border-slate-700 cursor-pointer hover:border-violet-500 min-h-[144px] flex flex-col items-center justify-center">
           <i class="fa-solid fa-eye-low-vision text-2xl md:text-3xl text-violet-400 mb-3"></i>
-          <h2 class="text-sm md:text-lg font-semibold leading-tight">시계제한</h2>
-          <p class="text-slate-400 text-[11px] md:text-sm mt-2 leading-tight">자동 밴드 열기</p>
+          <h2 class="text-sm md:text-lg font-semibold leading-tight">여객선 운항<br>관리</h2>
+          <p class="text-slate-400 text-[11px] md:text-sm mt-2 leading-tight">시계제한 · 기상악화 · 예보</p>
         </div>
         <div id="dangerous-goods-btn" class="category-card bg-slate-800 p-4 md:p-5 rounded-2xl text-center border border-slate-700 cursor-pointer hover:border-amber-500 min-h-[144px] flex flex-col items-center justify-center">
           <i class="fa-solid fa-triangle-exclamation text-2xl md:text-3xl text-amber-400 mb-3"></i>
@@ -3323,107 +4422,9 @@ const DATASETS = [
           break;
 
         case 'visibility-limit-section':
-          headerSubtitle.textContent = '시계제한';
-          section.innerHTML = `
-            <div class="flex items-center gap-4 mb-8">
-              <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
-              <div>
-                <h2 class="text-2xl font-bold text-violet-400">시계제한</h2>
-                <p class="text-sm text-slate-400 mt-1">자동 밴드 현재 로직과 수정 포인트를 먼저 정리해둔 메모 화면입니다.</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-5 xl:grid-cols-4 mb-6">
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상황</p>
-                <p class="mt-3 text-lg font-bold text-white">시계제한 · 기상악화 · 그 외 비운항</p>
-                <p class="mt-2 text-sm text-slate-400">현재 자동 밴드는 세 가지 상황값 중 하나를 먼저 선택하게 되어 있습니다.</p>
-              </div>
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">상태</p>
-                <p class="mt-3 text-lg font-bold text-white">출항 대기 · 통제 · 정상운항 · 결항</p>
-                <p class="mt-2 text-sm text-slate-400">상태에 따라 기본 사유와 문장 끝 suffix가 자동으로 붙는 구조입니다.</p>
-              </div>
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">데이터 규모</p>
-                <p class="mt-3 text-lg font-bold text-white">항로 6개 · 선박 7척</p>
-                <p class="mt-2 text-sm text-slate-400">각 선박별 기본 공지 출항시각과 전체 출항 목록이 JSON으로 저장되어 있습니다.</p>
-              </div>
-              <div class="rounded-2xl border border-violet-500/30 bg-slate-800/90 p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-violet-300/80">출력 방식</p>
-                <p class="mt-3 text-lg font-bold text-white">1건은 한 줄 · 여러 건은 번호 목록</p>
-                <p class="mt-2 text-sm text-slate-400">확정 항목이 여러 개면 “아래 항로 …” 헤더와 번호 목록으로 자동 전환됩니다.</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)] gap-6">
-              <div class="space-y-6">
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">현재 문구 생성 순서</h3>
-                  <div class="mt-5 space-y-3">
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">1. 상황 선택</p>
-                      <p class="mt-1 text-sm text-slate-400">시계제한, 기상악화, 그 외 비운항 중 하나를 고릅니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">2. 상태 선택</p>
-                      <p class="mt-1 text-sm text-slate-400">출항 대기, 통제, 정상운항, 결항에 따라 suffix가 달라집니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">3. 항로 → 선박 → 출항 선택</p>
-                      <p class="mt-1 text-sm text-slate-400">선택된 항목은 개별 1건 또는 여러 건으로 확정 목록에 쌓을 수 있습니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">4. 자동 사유 입력</p>
-                      <p class="mt-1 text-sm text-slate-400">시계제한은 시계제한으로, 정상운항은 시계호전되어처럼 기본 사유가 자동 설정됩니다.</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                      <p class="text-sm font-semibold text-white">5. 결과 문구 생성</p>
-                      <p class="mt-1 text-sm text-slate-400">1건이면 단일 문장, 여러 건이면 아래 항로 헤더와 번호 목록으로 결과가 만들어집니다.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">현재 등록 항로</h3>
-                  <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${VISIBILITY_LIMIT_ROUTE_SUMMARY.map((item) => `
-                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                        <p class="text-sm font-semibold text-white">${item.route}</p>
-                        <p class="mt-2 text-sm text-slate-400">${item.ships}</p>
-                      </div>`).join('')}
-                  </div>
-                </div>
-              </div>
-
-              <div class="space-y-6">
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">상태별 기본 문구</h3>
-                  <div class="mt-5 space-y-3">
-                    ${VISIBILITY_LIMIT_STATUS_SUMMARY.map((item) => `
-                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                          <p class="text-sm font-semibold text-white">${item.name}</p>
-                          <span class="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-200">${item.suffix}</span>
-                        </div>
-                        <p class="mt-2 text-sm text-slate-400">기본 사유: ${item.reason}</p>
-                      </div>`).join('')}
-                  </div>
-                </div>
-
-                <div class="rounded-2xl border border-slate-700 bg-slate-800/90 p-6">
-                  <h3 class="text-xl font-bold text-violet-300">로직 수정할 파일</h3>
-                  <div class="mt-5 space-y-3">
-                    ${VISIBILITY_LIMIT_UPDATE_POINTS.map((item) => `
-                      <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-                        <p class="text-sm font-semibold text-white">${item.title}</p>
-                        <p class="mt-2 break-all text-xs text-violet-200">${item.file}</p>
-                        <p class="mt-2 text-sm text-slate-400">${item.detail}</p>
-                      </div>`).join('')}
-                  </div>
-                </div>
-              </div>
-            </div>`;
+          headerSubtitle.textContent = '여객선 운항 관리';
+          section.innerHTML = buildFerryOperationManagerSection();
+          bindFerryOperationManagerSection(section);
           break;
 
         case 'tide-section':
@@ -4203,6 +5204,24 @@ case 'ship-detail-section':
         await handleCaptainDutySettingsSave();
         return;
       }
+      if (target.id === 'ferry-op-extract-copy-btn') {
+        const extractTextarea = document.getElementById('ferry-op-extract-text');
+        const textToCopy = extractTextarea?.value || extractTextarea?.textContent || '';
+        if (textToCopy && navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(textToCopy);
+            target.textContent = '복사 완료';
+            setTimeout(() => {
+              if (document.getElementById('ferry-op-extract-copy-btn') === target) {
+                target.textContent = '클립보드 복사';
+              }
+            }, 1200);
+          } catch (error) {
+            target.textContent = '복사 실패';
+          }
+        }
+        return;
+      }
       if (target.id === 'ship-info-btn') switchView('ship-search-section');
       if (target.id === 'weather-btn') switchView('weather-section');
       if (target.id === 'timetable-btn') switchView('timetable-section');
@@ -4214,7 +5233,7 @@ case 'ship-detail-section':
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
       if (target.id === 'vehicle-loading-btn') switchView('vehicle-loading-section');
       if (target.id === 'visibility-limit-btn') {
-        openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+        switchView('visibility-limit-section');
         return;
       }
       if (target.id === 'dangerous-goods-btn') switchView('dangerous-goods-search-section');
