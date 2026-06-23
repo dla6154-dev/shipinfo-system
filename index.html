@@ -2082,12 +2082,12 @@ function buildWeatherCaptureVesselHtml(vesselKey, vessel) {
   const rows = vessel.voyages.map((v, i) => {
     const stateStyle = STATUS_STYLE[v.state] || STATUS_STYLE.blank;
     const stateLabel = STATUS_LABEL[v.state] || '미입력';
-    const note = v.note ? `<span style="font-size:0.68rem;color:#64748b;margin-left:4px;">[${escapeHtml(v.note)}]</span>` : '';
-    return `<div style="display:grid;grid-template-columns:2rem 6.5rem 1fr 4rem;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1f5f9;">
-      <span style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-align:center;">${i+1}항</span>
-      <span style="font-size:0.78rem;font-weight:700;color:#334155;text-align:center;">${escapeHtml(v.depTime)}</span>
-      <span style="font-size:0.75rem;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(v.route)}${note}</span>
-      <span style="font-size:0.75rem;font-weight:800;border-radius:6px;padding:3px 0;text-align:center;${stateStyle}">${escapeHtml(stateLabel)}</span>
+    const note = v.note ? `<div style="font-size:0.65rem;color:#64748b;margin-top:2px;">[${escapeHtml(v.note)}]</div>` : '';
+    return `<div style="display:grid;grid-template-columns:2.2rem 7rem 1fr 4.2rem;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+      <span style="font-size:0.72rem;font-weight:700;color:#94a3b8;text-align:center;">${i+1}항</span>
+      <span style="font-size:0.8rem;font-weight:700;color:#334155;text-align:center;">${escapeHtml(v.depTime)}</span>
+      <span style="font-size:0.75rem;color:#475569;word-break:keep-all;line-height:1.4;">${escapeHtml(v.route)}${note}</span>
+      <span style="font-size:0.8rem;font-weight:800;border-radius:6px;padding:5px 0;text-align:center;align-self:center;${stateStyle}">${escapeHtml(stateLabel)}</span>
     </div>`;
   }).join('');
   return `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px;">
