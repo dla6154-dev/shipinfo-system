@@ -294,34 +294,40 @@
       gap: 0.5rem;
     }
     .ferry-op-weather-voyage-card {
+      display: grid;
+      grid-template-columns: auto minmax(5rem, 5.6rem) minmax(0, 1fr) minmax(3.6rem, 4rem) minmax(3.1rem, 3.4rem);
+      gap: 0.35rem;
+      align-items: center;
       border: 1px solid rgba(71, 85, 105, 0.78);
       border-radius: 1rem;
       background: rgba(2, 6, 23, 0.34);
       padding: 0.45rem;
     }
-    .ferry-op-weather-voyage-top {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) minmax(4.4rem, 4.9rem) minmax(4rem, 4.5rem);
-      gap: 0.35rem;
-      align-items: center;
-    }
     .ferry-op-weather-voyage-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 2.5rem;
-      padding: 0 0.8rem;
+      min-height: 2.1rem;
+      padding: 0 0.65rem;
       border-radius: 0.85rem;
       background: rgba(30, 41, 59, 0.95);
       color: #e2e8f0;
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 800;
       white-space: nowrap;
     }
-    .ferry-op-weather-voyage-main {
-      margin-top: 0.25rem;
-      display: grid;
-      gap: 0.25rem;
+    .ferry-op-weather-voyage-card .ferry-op-inline-input,
+    .ferry-op-weather-voyage-card .ferry-op-note-input,
+    .ferry-op-weather-voyage-card .ferry-op-voyage-status-btn {
+      min-height: 2.1rem;
+      padding: 0.3rem 0.36rem;
+      font-size: 0.68rem;
+    }
+    .ferry-op-weather-voyage-card .ferry-op-inline-input,
+    .ferry-op-weather-voyage-card .ferry-op-note-input {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .ferry-op-extract-textarea {
       width: 100%;
@@ -370,16 +376,20 @@
         font-size: 0.74rem;
       }
       .ferry-op-weather-voyage-card {
+        grid-template-columns: auto minmax(4.7rem, 5.1rem) minmax(0, 1fr) minmax(3.2rem, 3.5rem) minmax(2.8rem, 3rem);
         padding: 0.5rem;
       }
-      .ferry-op-weather-voyage-top {
-        grid-template-columns: auto minmax(0, 1fr) minmax(4.1rem, 4.5rem) minmax(3.8rem, 4.1rem);
-        gap: 0.3rem;
-      }
       .ferry-op-weather-voyage-badge {
-        min-height: 2.35rem;
-        padding: 0 0.55rem;
-        font-size: 0.72rem;
+        min-height: 1.95rem;
+        padding: 0 0.5rem;
+        font-size: 0.68rem;
+      }
+      .ferry-op-weather-voyage-card .ferry-op-inline-input,
+      .ferry-op-weather-voyage-card .ferry-op-note-input,
+      .ferry-op-weather-voyage-card .ferry-op-voyage-status-btn {
+        min-height: 1.95rem;
+        padding: 0.22rem 0.26rem;
+        font-size: 0.6rem;
       }
       .ferry-op-forecast-table th {
         letter-spacing: 0.08em;
@@ -1558,17 +1568,13 @@ function buildFerryOperationWeatherVesselSelectorHtml() {
 function buildFerryOperationWeatherVesselCardHtml(vesselKey, vessel) {
   const voyageRows = vessel.voyages.map((voyage, index) => `
       <div class="ferry-op-weather-voyage-card">
-        <div class="ferry-op-weather-voyage-top">
-          <span class="ferry-op-weather-voyage-badge">${escapeHtml(String(index + 1))}항</span>
-          <input type="text" class="ferry-op-inline-input text-center text-sm font-semibold" data-ferry-op-voyage-dep="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.depTime)}" readonly />
-          <button type="button" class="ferry-op-voyage-status-btn" data-state="${escapeHtml(voyage.state)}" data-ferry-op-voyage-status="true" data-ferry-op-voyage-vessel="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}">
-            ${escapeHtml(FERRY_OPERATION_WEATHER_STATUS_LABELS[voyage.state])}
-          </button>
-          <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" />
-        </div>
-        <div class="ferry-op-weather-voyage-main">
-          <input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-route="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.route)}" readonly />
-        </div>
+        <span class="ferry-op-weather-voyage-badge">${escapeHtml(String(index + 1))}항</span>
+        <input type="text" class="ferry-op-inline-input text-center text-sm font-semibold" data-ferry-op-voyage-dep="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.depTime)}" readonly />
+        <input type="text" class="ferry-op-inline-input text-sm" data-ferry-op-voyage-route="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.route)}" readonly title="${escapeHtml(voyage.route)}" />
+        <button type="button" class="ferry-op-voyage-status-btn" data-state="${escapeHtml(voyage.state)}" data-ferry-op-voyage-status="true" data-ferry-op-voyage-vessel="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}">
+          ${escapeHtml(FERRY_OPERATION_WEATHER_STATUS_LABELS[voyage.state])}
+        </button>
+        <input type="text" class="ferry-op-note-input text-sm" data-ferry-op-voyage-note="${escapeHtml(vesselKey)}" data-ferry-op-voyage-index="${escapeHtml(String(index))}" value="${escapeHtml(voyage.note)}" placeholder="비고" />
       </div>`).join('');
 
   return `
