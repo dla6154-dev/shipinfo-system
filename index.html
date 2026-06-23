@@ -2071,6 +2071,34 @@ function bindFerryOperationManagerSection(section) {
   section.dataset.ferryOperationBound = 'true';
 }
 
+function buildWeatherCaptureVesselHtml(vesselKey, vessel) {
+  const STATUS_STYLE = {
+    blank:   'background:#e2e8f0;color:#64748b;',
+    go:      'background:#16a34a;color:#ffffff;',
+    control: 'background:#dc2626;color:#ffffff;',
+    stop:    'background:#475569;color:#ffffff;'
+  };
+  const STATUS_LABEL = { blank:'미입력', go:'운항', control:'통제', stop:'비운항' };
+  const rows = vessel.voyages.map((v, i) => {
+    const stateStyle = STATUS_STYLE[v.state] || STATUS_STYLE.blank;
+    const stateLabel = STATUS_LABEL[v.state] || '미입력';
+    const note = v.note ? `<span style="font-size:0.68rem;color:#64748b;margin-left:4px;">[${escapeHtml(v.note)}]</span>` : '';
+    return `<div style="display:grid;grid-template-columns:2rem 6.5rem 1fr 4rem;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1f5f9;">
+      <span style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-align:center;">${i+1}항</span>
+      <span style="font-size:0.78rem;font-weight:700;color:#334155;text-align:center;">${escapeHtml(v.depTime)}</span>
+      <span style="font-size:0.75rem;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(v.route)}${note}</span>
+      <span style="font-size:0.75rem;font-weight:800;border-radius:6px;padding:3px 0;text-align:center;${stateStyle}">${escapeHtml(stateLabel)}</span>
+    </div>`;
+  }).join('');
+  return `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px;">
+    <div style="background:#1e293b;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:0.9rem;font-weight:900;color:#f8fafc;">${escapeHtml(vessel.displayName)}</span>
+      <span style="font-size:0.7rem;color:#94a3b8;">${vessel.voyages.length}항차</span>
+    </div>
+    ${rows}
+  </div>`;
+}
+
 async function saveFerryOperationWeatherAllCapture(activeVessels, weatherState) {
   if (typeof window.html2canvas !== 'function') {
     setFerryOperationFeedback('weather', '이미지 저장 라이브러리를 불러오지 못했습니다.', 'error');
@@ -2078,42 +2106,51 @@ async function saveFerryOperationWeatherAllCapture(activeVessels, weatherState) 
   }
   const todayStr = getFerryOperationTodayString();
   const nowText = getFerryOperationNowText();
-  const vesselBlocksHtml = activeVessels.map(k => buildFerryOperationWeatherVesselCardHtml(k, weatherState.vessels[k])).join('');
+  const vesselBlocksHtml = activeVessels.map(k => buildWeatherCaptureVesselHtml(k, weatherState.vessels[k])).join('');
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;font-family:system-ui,sans-serif;';
   wrapper.innerHTML = `
-    <div id="_weather_all_capture" style="width:400px;background:#ffffff;border-radius:1.25rem;border:1px solid #cbd5e1;overflow:hidden;font-family:inherit;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e2e8f0;background:rgba(239,68,68,0.08);padding:12px 16px;">
-        <div style="font-size:1rem;font-weight:900;color:#1e293b;">기상악화 운항여부</div>
-        <div style="font-size:0.75rem;font-weight:600;color:#475569;">${escapeHtml(formatFerryOperationDisplayDate(todayStr))}</div>
+    <div id="_weather_all_capture" style="width:420px;background:#f8fafc;overflow:hidden;">
+      <div style="background:#0f172a;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:0.65rem;font-weight:600;color:#94a3b8;letter-spacing:0.12em;">기상악화 운항여부</div>
+          <div style="font-size:1.05rem;font-weight:900;color:#f8fafc;margin-top:2px;">항차별 운항현황</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.78rem;font-weight:700;color:#f87171;">${escapeHtml(formatFerryOperationDisplayDate(todayStr))}</div>
+          <div style="font-size:0.65rem;color:#64748b;margin-top:2px;">목포운항관리센터 진도사무소</div>
+        </div>
       </div>
-      <div style="padding:12px;display:flex;flex-direction:column;gap:12px;">${vesselBlocksHtml}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #e2e8f0;padding:12px 16px;font-size:0.7rem;color:#64748b;">
-        <span>생성: ${escapeHtml(nowText)}</span>
-        <span>목포운항관리센터 진도사무소</span>
+      <div style="padding:10px 10px 4px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;padding:6px 8px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;">
+          <span style="font-size:0.68rem;font-weight:700;background:#e2e8f0;color:#64748b;border-radius:4px;padding:2px 7px;">미입력</span>
+          <span style="font-size:0.68rem;font-weight:700;background:#16a34a;color:#fff;border-radius:4px;padding:2px 7px;">운항</span>
+          <span style="font-size:0.68rem;font-weight:700;background:#dc2626;color:#fff;border-radius:4px;padding:2px 7px;">통제</span>
+          <span style="font-size:0.68rem;font-weight:700;background:#475569;color:#fff;border-radius:4px;padding:2px 7px;">비운항</span>
+        </div>
+        ${vesselBlocksHtml}
+      </div>
+      <div style="padding:8px 16px;background:#f1f5f9;border-top:1px solid #e2e8f0;font-size:0.65rem;color:#94a3b8;">
+        생성: ${escapeHtml(nowText)}
       </div>
     </div>`;
   document.body.appendChild(wrapper);
   try {
     const target = wrapper.querySelector('#_weather_all_capture');
-    const { clone, cleanup } = buildFerryOperationCaptureClone(target);
+    const w = target.offsetWidth;
     try {
-      const cloneRect = clone.getBoundingClientRect();
-      const canvas = await window.html2canvas(clone, {
-        scale: 2, backgroundColor: '#ffffff', useCORS: true,
-        width: Math.ceil(cloneRect.width), height: Math.ceil(cloneRect.height),
-        windowWidth: window.innerWidth, windowHeight: window.innerHeight
+      const canvas = await window.html2canvas(target, {
+        scale: 2, backgroundColor: '#f8fafc', useCORS: true,
+        width: w, windowWidth: w + 40
       });
       const link = document.createElement('a');
       link.download = `기상악화_${todayStr}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       setFerryOperationFeedback('weather', '저장했습니다.', 'success');
-    } finally {
-      cleanup();
+    } catch(e) {
+      setFerryOperationFeedback('weather', `저장 실패: ${e.message}`, 'error');
     }
-  } catch(e) {
-    setFerryOperationFeedback('weather', `저장 실패: ${e.message}`, 'error');
   } finally {
     document.body.removeChild(wrapper);
   }
