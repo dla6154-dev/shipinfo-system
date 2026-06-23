@@ -118,6 +118,9 @@
       padding: 0.7rem 0.55rem;
       font-size: 0.85rem;
       font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+      word-break: keep-all;
       transition: transform 0.12s ease, filter 0.12s ease;
       cursor: pointer;
     }
@@ -164,8 +167,21 @@
       background: rgba(15, 23, 42, 0.88);
       color: #f8fafc;
       padding: 0.7rem 0.8rem;
+      line-height: 1.35;
       outline: none;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .ferry-op-note-input::placeholder,
+    .ferry-op-inline-input::placeholder {
+      color: #94a3b8;
+      opacity: 1;
+    }
+    .ferry-op-capture-field {
+      display: flex;
+      align-items: center;
+      min-height: 2.8rem;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .ferry-op-note-input:focus,
     .ferry-op-inline-input:focus {
@@ -219,6 +235,20 @@
       background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
       overflow: hidden;
     }
+    .ferry-op-forecast-table {
+      width: 100%;
+      table-layout: fixed;
+    }
+    .ferry-op-forecast-table col:nth-child(1) {
+      width: 34%;
+    }
+    .ferry-op-forecast-table col:nth-child(2),
+    .ferry-op-forecast-table col:nth-child(3) {
+      width: 18%;
+    }
+    .ferry-op-forecast-table col:nth-child(4) {
+      width: 30%;
+    }
     .ferry-op-extract-textarea {
       width: 100%;
       min-height: 260px;
@@ -244,6 +274,22 @@
     }
     #keypad-display.error {
       animation: shake 0.4s ease-in-out;
+    }
+    @media (max-width: 480px) {
+      .ferry-op-status-btn,
+      .ferry-op-voyage-status-btn {
+        padding: 0.7rem 0.3rem;
+        font-size: 0.76rem;
+      }
+      .ferry-op-note-input,
+      .ferry-op-inline-input,
+      .ferry-op-capture-field {
+        padding: 0.65rem 0.7rem;
+        font-size: 0.82rem;
+      }
+      .ferry-op-forecast-table th {
+        letter-spacing: 0.08em;
+      }
     }
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
@@ -1333,7 +1379,13 @@ function buildFerryOperationForecastPanel() {
           <div id="ferry-op-forecast-date-display" class="text-sm font-semibold text-cyan-100">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
         </div>
         <div class="overflow-x-auto">
-          <table class="min-w-full table-fixed">
+          <table class="ferry-op-forecast-table">
+            <colgroup>
+              <col />
+              <col />
+              <col />
+              <col />
+            </colgroup>
             <thead class="bg-slate-900/70 text-xs uppercase tracking-[0.2em] text-slate-300">
               <tr>
                 <th class="px-3 py-3 text-left">선명</th>
@@ -1810,6 +1862,7 @@ function bindFerryOperationManagerSection(section) {
 }
 
 async function saveFerryOperationCapture({ captureId, footerId, fileName, feedbackKey }) {
+  let restoreCaptureFields = () => {};
   try {
     if (typeof window.html2canvas !== 'function') {
       throw new Error('이미지 저장 라이브러리를 불러오지 못했습니다.');
@@ -1819,6 +1872,7 @@ async function saveFerryOperationCapture({ captureId, footerId, fileName, feedba
     document.activeElement?.blur?.();
     const target = document.getElementById(captureId);
     if (!target) throw new Error('저장할 화면을 찾지 못했습니다.');
+    restoreCaptureFields = prepareFerryOperationCaptureFields(target);
     const canvas = await window.html2canvas(target, {
       scale: 2,
       backgroundColor: '#020617',
@@ -1831,7 +1885,29 @@ async function saveFerryOperationCapture({ captureId, footerId, fileName, feedba
     setFerryOperationFeedback(feedbackKey, '이미지로 저장했습니다.', 'success');
   } catch (error) {
     setFerryOperationFeedback(feedbackKey, `저장 실패: ${error.message}`, 'error');
+  } finally {
+    restoreCaptureFields();
   }
+}
+
+function prepareFerryOperationCaptureFields(target) {
+  const restoreTasks = [];
+  target.querySelectorAll('input[type="text"]').forEach((input) => {
+    const text = String(input.value || '').trim() || String(input.placeholder || '').trim() || '-';
+    const replacement = document.createElement('div');
+    replacement.className = `${input.className} ferry-op-capture-field`;
+    replacement.textContent = text;
+    replacement.setAttribute('aria-hidden', 'true');
+    input.style.display = 'none';
+    input.insertAdjacentElement('afterend', replacement);
+    restoreTasks.push(() => {
+      replacement.remove();
+      input.style.display = '';
+    });
+  });
+  return () => {
+    restoreTasks.reverse().forEach((restore) => restore());
+  };
 }
 
 function extractFerryOperationWeatherText() {
