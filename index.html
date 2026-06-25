@@ -343,14 +343,14 @@
       table-layout: fixed;
     }
     .ferry-op-forecast-table col:nth-child(1) {
-      width: 42%;
+      width: 30%;
     }
     .ferry-op-forecast-table col:nth-child(2),
     .ferry-op-forecast-table col:nth-child(3) {
-      width: 15%;
+      width: 20%;
     }
     .ferry-op-forecast-table col:nth-child(4) {
-      width: 28%;
+      width: 30%;
     }
     .ferry-op-forecast-vessel-cell {
       font-size: 1.02rem;
@@ -1576,12 +1576,11 @@ function buildFerryOperationForecastPanel() {
         <div class="flex items-center justify-between gap-3 border-b border-slate-700 bg-cyan-500/10 px-4 py-3">
           <div style="line-height:1.35">
             <div class="text-base font-black text-white">여객선<br>운항관리</div>
-            <span id="ferry-op-header-visibility-btn" style="cursor:pointer;font-size:0.7rem;color:#a5b4fc;text-decoration:underline dotted;text-underline-offset:3px;">시계제한</span>
           </div>
           <div class="text-right" style="line-height:1.45">
             <div class="text-xs font-semibold text-slate-300">진도사무소</div>
             <div class="text-sm font-black text-white">내일의 운항예보</div>
-            <div id="ferry-op-forecast-date-display" class="text-xs font-semibold text-cyan-100 mt-1">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
+            <div id="ferry-op-forecast-date-display" class="mt-1 text-xs font-bold text-slate-700">${escapeHtml(formatFerryOperationDisplayDate(forecastDate))}</div>
           </div>
         </div>
         <div>
@@ -1884,11 +1883,6 @@ function bindFerryOperationManagerSection(section) {
       writeFerryOperationForecastState(buildDefaultFerryOperationForecastState());
       refreshFerryOperationForecastPanel(section);
       setFerryOperationFeedback('forecast', '내일의 운항예보를 초기화했습니다.', 'success');
-      return;
-    }
-
-    if (event.target.closest('#ferry-op-header-visibility-btn')) {
-      openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
       return;
     }
 
@@ -2998,6 +2992,22 @@ const DATASETS = [
         return `${text.slice(4, 6)}/${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}`;
       }
       return formatWeatherIsoTimestamp(text);
+    }
+
+    function getWeatherWarningReleaseTime(warning) {
+      if (!warning || typeof warning !== 'object') return '';
+      const candidates = [
+        warning.endTimeText,
+        warning.endTime,
+        warning.endAt,
+        warning.releaseAt,
+        warning.releasedAt,
+        warning.clearAt,
+        warning.clearTime,
+        warning.expiresAt,
+      ];
+      const matched = candidates.find((value) => String(value || '').trim());
+      return String(matched || '').trim();
     }
 
     function formatWeatherHhmm(value) {
@@ -4315,11 +4325,23 @@ const DATASETS = [
               ? `<div class="mt-4 space-y-3">
                   ${warnings.map((warning) => {
                     const warningTone = getWarningTone(warning.level);
+                    const releaseTime = getWeatherWarningReleaseTime(warning);
+                    const releaseLabel = releaseTime
+                      ? formatWeatherCompactTimestamp(releaseTime)
+                      : '원본 API 공란';
                     return `
                       <div class="rounded-2xl border p-4 ${buildWarningDetailClasses(warningTone)}">
-                        <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
-                        <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
-                        <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
+                          <div class="min-w-0 flex-1">
+                            <div class="font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
+                            <div class="mt-2 text-sm text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
+                            <div class="mt-1 text-sm text-slate-400">발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
+                          </div>
+                          <div class="shrink-0 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 sm:min-w-[132px]">
+                            <div class="text-[11px] font-semibold tracking-[0.08em] text-cyan-200">해제시점</div>
+                            <div class="mt-2 text-base font-bold text-cyan-100">${escapeHtml(releaseLabel)}</div>
+                          </div>
+                        </div>
                       </div>`;
                   }).join('')}
                 </div>`
