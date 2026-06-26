@@ -1834,7 +1834,10 @@ function buildVisibilityNoticeHelper() {
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
       <div class="flex gap-2" id="visibility-notice-type-btns">${typeButtons}</div>
       <div class="space-y-2" id="visibility-notice-cards">${cards}</div>
-      <p id="visibility-notice-feedback" class="text-xs text-center text-emerald-400 hidden">✓ 클립보드에 복사됐어요</p>
+      <div id="visibility-notice-feedback" class="hidden rounded-xl border border-emerald-500/30 bg-emerald-900/20 p-3">
+        <pre id="visibility-notice-feedback-text" class="text-xs text-slate-200 whitespace-pre-wrap font-sans mb-2"></pre>
+        <p class="text-xs text-center font-bold text-emerald-400">✓ 복사됐어요</p>
+      </div>
     </div>`;
 }
 
@@ -1964,9 +1967,11 @@ function bindFerryOperationManagerSection(section) {
       const text = buildVisibilityNoticeText(card);
       navigator.clipboard.writeText(text).then(() => {
         const fb = section.querySelector('#visibility-notice-feedback');
+        const fbText = section.querySelector('#visibility-notice-feedback-text');
         if (!fb) return;
+        if (fbText) fbText.textContent = text;
         fb.classList.remove('hidden');
-        setTimeout(() => fb.classList.add('hidden'), 2000);
+        setTimeout(() => fb.classList.add('hidden'), 4000);
       });
       return;
     }
