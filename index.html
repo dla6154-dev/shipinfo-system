@@ -1911,10 +1911,6 @@ function bindFerryOperationManagerSection(section) {
   section.addEventListener('click', async (event) => {
     const tabButton = event.target.closest('[data-ferry-op-tab-btn]');
     if (tabButton) {
-      if (tabButton.dataset.ferryOpTabBtn === 'visibility') {
-        openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
-        return;
-      }
       setFerryOperationActivePanel(section, tabButton.dataset.ferryOpTabBtn);
       return;
     }
