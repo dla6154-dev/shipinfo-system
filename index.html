@@ -94,6 +94,25 @@
       margin-right: .5rem; 
     }
 
+    #notice-copy-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      z-index: 9999;
+      min-width: 280px;
+      max-width: calc(100vw - 2rem);
+      background: #0f172a;
+      border: 1px solid rgba(52,211,153,0.4);
+      border-radius: 1rem;
+      padding: 1rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+    }
+    #notice-copy-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
     .ferry-op-subtab-btn {
       border: 1px solid rgba(148, 163, 184, 0.28);
       background: rgba(15, 23, 42, 0.7);
@@ -1834,10 +1853,6 @@ function buildVisibilityNoticeHelper() {
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
       <div class="flex gap-2" id="visibility-notice-type-btns">${typeButtons}</div>
       <div class="space-y-2" id="visibility-notice-cards">${cards}</div>
-      <div id="visibility-notice-feedback" class="hidden rounded-xl border border-emerald-500/30 bg-emerald-900/20 p-3">
-        <pre id="visibility-notice-feedback-text" class="text-xs text-slate-200 whitespace-pre-wrap font-sans mb-2"></pre>
-        <p class="text-xs text-center font-bold text-emerald-400">✓ 복사됐어요</p>
-      </div>
     </div>`;
 }
 
@@ -1966,12 +1981,13 @@ function bindFerryOperationManagerSection(section) {
       if (!card) return;
       const text = buildVisibilityNoticeText(card);
       navigator.clipboard.writeText(text).then(() => {
-        const fb = section.querySelector('#visibility-notice-feedback');
-        const fbText = section.querySelector('#visibility-notice-feedback-text');
-        if (!fb) return;
-        if (fbText) fbText.textContent = text;
-        fb.classList.remove('hidden');
-        setTimeout(() => fb.classList.add('hidden'), 4000);
+        const toast = document.getElementById('notice-copy-toast');
+        const toastText = document.getElementById('notice-copy-toast-text');
+        if (!toast) return;
+        if (toastText) toastText.textContent = text;
+        toast.classList.add('show');
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 3500);
       });
       return;
     }
@@ -6294,5 +6310,9 @@ case 'ship-detail-section':
       unlockAndInitializeApp();
     }
   </script>
+  <div id="notice-copy-toast">
+    <pre id="notice-copy-toast-text" style="font-family:inherit;font-size:0.8rem;color:#e2e8f0;white-space:pre-wrap;margin-bottom:0.5rem;"></pre>
+    <p style="font-size:0.75rem;font-weight:700;color:#34d399;text-align:center;">✓ 복사됐어요</p>
+  </div>
 </body>
 </html>
