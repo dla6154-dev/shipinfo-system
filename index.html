@@ -5891,7 +5891,7 @@ case 'ship-detail-section':
       }
       if (target.id === 'tide-btn') switchView('tide-section');
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
-      if (target.id === 'vehicle-loading-btn') switchView('vehicle-loading-section');
+      if (target.id === 'vehicle-loading-btn') { window.location.href = './jindo_vehicle_loading.html'; return; }
       if (target.id === 'visibility-limit-btn') {
         switchView('visibility-limit-section');
         return;
