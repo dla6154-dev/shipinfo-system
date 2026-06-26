@@ -1161,6 +1161,25 @@ const VISIBILITY_LIMIT_UPDATE_POINTS = [
     detail: '버튼, 목록, 결과 문구 레이아웃과 색상 같은 화면 스타일을 바꾸는 파일입니다.'
   }
 ];
+const VISIBILITY_NOTICE_CARDS = [
+  { vessels: [{ route: '우수영/상태동리', name: '해진고속카페리', time: '06:00', depart: '우수영' }] },
+  { vessels: [{ route: '쉬미/가사', name: '가사페리', time: '07:00', depart: '쉬미' }] },
+  { vessels: [
+    { route: '진도/서거차', name: '한림페리11호', time: '07:30', depart: '진도' },
+    { route: '율목/진도', name: '새섬두레', time: '07:20', depart: '창유' }
+  ]},
+  { vessels: [
+    { route: '제주/진도', name: '산타모니카', time: '08:00', depart: '진도' },
+    { route: '율목/진도(관매)', name: '새섬관매', time: '08:15', depart: '진도' }
+  ]},
+  { vessels: [{ route: '진도/죽도', name: '섬사랑9호', time: '09:00', depart: '진도' }] }
+];
+const VISIBILITY_NOTICE_TYPES = [
+  { key: 'wait',   label: '출항대기', header: '시계제한으로 아래항로 출항대기합니다.', footer: '' },
+  { key: 'ctrl',   label: '통제',     header: '시계제한으로 아래항로 통제합니다.',     footer: '\n* 시계호전 시 다음항차부터 정상운항합니다.' },
+  { key: 'normal', label: '정상운항', header: '시계호전되어 아래항로 정상운항합니다.', footer: '' }
+];
+let visibilityNoticeActiveType = 'wait';
 const FERRY_OPERATION_TAB_KEYS = ['visibility', 'weather', 'forecast'];
 const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
 const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
@@ -1744,6 +1763,47 @@ function buildFerryOperationWeatherPanel() {
     </div>`;
 }
 
+function buildVisibilityNoticeText(card) {
+  const activeType = VISIBILITY_NOTICE_TYPES.find(t => t.key === visibilityNoticeActiveType) || VISIBILITY_NOTICE_TYPES[0];
+  const lines = card.vessels.map((v, i) => `${i + 1}. ${v.route} ${v.name}(${v.time} ${v.depart} 출항)`);
+  return `${activeType.header}\n${lines.join('\n')}${activeType.footer}`;
+}
+
+function buildVisibilityNoticeHelper() {
+  const typeButtons = VISIBILITY_NOTICE_TYPES.map(t => {
+    const active = t.key === visibilityNoticeActiveType;
+    const colorClass = active
+      ? t.key === 'ctrl' ? 'border-red-400/80 bg-red-500/20 text-red-200'
+        : t.key === 'normal' ? 'border-emerald-400/80 bg-emerald-500/20 text-emerald-200'
+        : 'border-amber-400/80 bg-amber-500/20 text-amber-200'
+      : 'border-slate-600 bg-slate-800/60 text-slate-400';
+    return `<button type="button" class="flex-1 rounded-xl border px-3 py-2 text-sm font-bold transition ${colorClass}" data-notice-type="${t.key}">${t.label}</button>`;
+  }).join('');
+
+  const cards = VISIBILITY_NOTICE_CARDS.map((card, idx) => {
+    const text = buildVisibilityNoticeText(card);
+    const lines = text.split('\n');
+    const previewHtml = lines.map((line, i) => {
+      if (i === 0) return `<p class="text-xs font-semibold text-slate-300 mb-1">${escapeHtml(line)}</p>`;
+      if (line.startsWith('*')) return `<p class="text-xs text-slate-400 mt-1">${escapeHtml(line)}</p>`;
+      return `<p class="text-xs text-slate-200">${escapeHtml(line)}</p>`;
+    }).join('');
+    return `
+      <button type="button" class="w-full rounded-2xl border border-slate-600 bg-slate-800/70 p-3 text-left hover:border-violet-400/60 hover:bg-violet-500/10 transition active:scale-[0.98]" data-notice-card="${idx}">
+        ${previewHtml}
+        <p class="mt-2 text-right text-[10px] font-semibold text-slate-500">탭하면 복사</p>
+      </button>`;
+  }).join('');
+
+  return `
+    <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+      <div class="flex gap-2" id="visibility-notice-type-btns">${typeButtons}</div>
+      <div class="space-y-2" id="visibility-notice-cards">${cards}</div>
+      <p id="visibility-notice-feedback" class="text-xs text-center text-emerald-400 hidden">✓ 클립보드에 복사됐어요</p>
+    </div>`;
+}
+
 function buildFerryOperationVisibilityPanel() {
   return `
     <div class="space-y-4">
@@ -1783,6 +1843,8 @@ function buildFerryOperationVisibilityPanel() {
           </div>
         </div>
       </div>
+
+      ${buildVisibilityNoticeHelper()}
     </div>`;
 }
 
@@ -1859,6 +1921,29 @@ function bindFerryOperationManagerSection(section) {
 
     if (event.target.closest('#ferry-op-open-visibility-manual-btn')) {
       openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
+      return;
+    }
+
+    const noticeTypeBtn = event.target.closest('[data-notice-type]');
+    if (noticeTypeBtn) {
+      visibilityNoticeActiveType = noticeTypeBtn.dataset.noticeType;
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+      return;
+    }
+
+    const noticeCardBtn = event.target.closest('[data-notice-card]');
+    if (noticeCardBtn) {
+      const idx = parseInt(noticeCardBtn.dataset.noticeCard, 10);
+      const card = VISIBILITY_NOTICE_CARDS[idx];
+      if (!card) return;
+      const text = buildVisibilityNoticeText(card);
+      navigator.clipboard.writeText(text).then(() => {
+        const fb = section.querySelector('#visibility-notice-feedback');
+        if (!fb) return;
+        fb.classList.remove('hidden');
+        setTimeout(() => fb.classList.add('hidden'), 2000);
+      });
       return;
     }
 
