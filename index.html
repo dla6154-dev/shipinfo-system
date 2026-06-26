@@ -1820,17 +1820,12 @@ function buildVisibilityNoticeHelper() {
   }).join('');
 
   const cards = VISIBILITY_NOTICE_CARDS.map((card, idx) => {
-    const text = buildVisibilityNoticeText(card);
-    const lines = text.split('\n');
-    const previewHtml = lines.map((line, i) => {
-      if (i === 0) return `<p class="text-xs font-semibold text-slate-300 mb-1">${escapeHtml(line)}</p>`;
-      if (line.startsWith('*')) return `<p class="text-xs text-slate-400 mt-1">${escapeHtml(line)}</p>`;
-      return `<p class="text-xs text-slate-200">${escapeHtml(line)}</p>`;
-    }).join('');
+    const vesselLines = card.vessels.map(v =>
+      `<span class="inline-block mr-3 text-xs text-slate-200"><span class="font-bold text-violet-300">${escapeHtml(v.route)}</span> ${escapeHtml(v.name)} <span class="text-slate-400">(${escapeHtml(v.time)}, ${escapeHtml(v.depart)})</span></span>`
+    ).join('');
     return `
-      <button type="button" class="w-full rounded-2xl border border-slate-600 bg-slate-800/70 p-3 text-left hover:border-violet-400/60 hover:bg-violet-500/10 transition active:scale-[0.98]" data-notice-card="${idx}">
-        ${previewHtml}
-        <p class="mt-2 text-right text-[10px] font-semibold text-slate-500">탭하면 복사</p>
+      <button type="button" class="w-full rounded-2xl border border-slate-600 bg-slate-800/70 px-4 py-3 text-left hover:border-violet-400/60 hover:bg-violet-500/10 transition active:scale-[0.98]" data-notice-card="${idx}">
+        <div class="flex flex-wrap gap-y-1">${vesselLines}</div>
       </button>`;
   }).join('');
 
