@@ -1239,7 +1239,8 @@ const VISIBILITY_NOTICE_TYPES = [
   { key: 'normal', label: '정상운항', header: '시계호전되어 아래항로 정상운항합니다.', footer: '' }
 ];
 let visibilityNoticeActiveType = 'wait';
-let visibilityNoticeSelectedItems = new Set();
+const visibilityNoticeSelectedByType = { wait: new Set(), ctrl: new Set(), normal: new Set() };
+const visibilityNoticeSelectedItems = { get size() { return visibilityNoticeSelectedByType[visibilityNoticeActiveType].size; }, has(i) { return visibilityNoticeSelectedByType[visibilityNoticeActiveType].has(i); }, add(i) { visibilityNoticeSelectedByType[visibilityNoticeActiveType].add(i); }, delete(i) { visibilityNoticeSelectedByType[visibilityNoticeActiveType].delete(i); } };
 const FERRY_OPERATION_TAB_KEYS = ['visibility', 'weather', 'forecast'];
 const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
 const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
@@ -1826,7 +1827,7 @@ function buildFerryOperationWeatherPanel() {
 function buildVisibilityNoticeTextFromSelected() {
   const activeType = VISIBILITY_NOTICE_TYPES.find(t => t.key === visibilityNoticeActiveType) || VISIBILITY_NOTICE_TYPES[0];
   const allItems = VISIBILITY_NOTICE_CARDS.flatMap(card => card.vessels);
-  const selected = [...visibilityNoticeSelectedItems].sort((a, b) => {
+  const selected = [...visibilityNoticeSelectedByType[visibilityNoticeActiveType]].sort((a, b) => {
     const [ah, am] = allItems[a].time.split(':').map(Number);
     const [bh, bm] = allItems[b].time.split(':').map(Number);
     return (ah * 60 + am) - (bh * 60 + bm);
@@ -1869,13 +1870,21 @@ function buildVisibilityNoticeHelper() {
     const rowClass = sel ? 'border-violet-400/80 bg-violet-500/15' : 'border-slate-600 bg-slate-800/70';
     const circleClass = sel ? 'border-violet-400 bg-violet-500' : 'border-slate-500';
     const check = sel ? `<svg viewBox="0 0 12 12" fill="none" class="w-3 h-3"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+    const otherBadges = VISIBILITY_NOTICE_TYPES
+      .filter(t => t.key !== visibilityNoticeActiveType && visibilityNoticeSelectedByType[t.key].has(idx))
+      .map(t => {
+        const badgeColor = t.key === 'ctrl' ? 'bg-red-500/20 text-red-300 border-red-500/40'
+          : t.key === 'normal' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+          : 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+        return `<span class="text-[10px] font-bold border rounded px-1 py-0.5 ${badgeColor}">${t.label}</span>`;
+      }).join('');
     return `
       <button type="button" class="w-full rounded-xl border ${rowClass} px-4 py-2.5 text-left flex items-center gap-3 transition active:scale-[0.98]" data-notice-item="${idx}">
         <span class="shrink-0 w-5 h-5 rounded-full border-2 ${circleClass} flex items-center justify-center">${check}</span>
-        <span class="flex-1 text-sm leading-snug">
-          <span class="font-bold text-violet-300">${escapeHtml(v.route)}</span>
-          <span class="text-slate-200"> ${escapeHtml(v.name)}</span>
-          <span class="text-slate-400 text-xs"> (${escapeHtml(v.time)}, ${escapeHtml(v.depart)} 출항)</span>
+        <span class="shrink-0 text-base font-bold text-white w-12">${escapeHtml(v.time)}</span>
+        <span class="flex-1 leading-snug">
+          <span class="text-sm font-bold text-slate-100">${escapeHtml(v.name)}</span>
+          <span class="block text-xs text-slate-400">${escapeHtml(v.route)} · ${escapeHtml(v.depart)} 출항${otherBadges ? ' ' : ''}${otherBadges}</span>
         </span>
       </button>`;
   }).join('');
