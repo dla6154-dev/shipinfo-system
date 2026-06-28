@@ -1843,8 +1843,7 @@ function buildVisibilityNoticeHelper() {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const minMin = nowMin - 120;
   const maxMin = nowMin + 180;
-  const pad = n => String(((n % 1440) + 1440) % 1440 < 60 ? ((n % 1440) + 1440) % 1440 : ((n % 1440) + 1440) % 1440).padStart ? String(Math.floor(((n % 1440) + 1440) % 1440 / 60)).padStart(2,'0') + ':' + String(((n % 1440) + 1440) % 1440 % 60).padStart(2,'0') : '00:00';
-  const fmtMin = m => { const t = ((m % 1440) + 1440) % 1440; return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'); };
+  const fmtMin = m => { const t = ((m % 1440) + 1440) % 1440; return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
   const timeLabel = `${fmtMin(minMin)} ~ ${fmtMin(maxMin)}`;
 
   const allItems = VISIBILITY_NOTICE_CARDS.flatMap(card => card.vessels);
