@@ -1239,6 +1239,7 @@ const VISIBILITY_NOTICE_TYPES = [
   { key: 'normal', label: '정상운항', header: '시계호전되어 아래항로 정상운항합니다.', footer: '' }
 ];
 let visibilityNoticeActiveType = 'wait';
+let visibilityNoticeSelectedItems = new Set();
 const FERRY_OPERATION_TAB_KEYS = ['visibility', 'weather', 'forecast'];
 const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
 const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
@@ -1822,13 +1823,32 @@ function buildFerryOperationWeatherPanel() {
     </div>`;
 }
 
-function buildVisibilityNoticeText(card) {
+function buildVisibilityNoticeTextFromSelected() {
   const activeType = VISIBILITY_NOTICE_TYPES.find(t => t.key === visibilityNoticeActiveType) || VISIBILITY_NOTICE_TYPES[0];
-  const lines = card.vessels.map((v, i) => `${i + 1}. ${v.route} ${v.name}(${v.time} ${v.depart} 출항)`);
+  const allItems = VISIBILITY_NOTICE_CARDS.flatMap(card => card.vessels);
+  const selected = [...visibilityNoticeSelectedItems].sort((a, b) => {
+    const [ah, am] = allItems[a].time.split(':').map(Number);
+    const [bh, bm] = allItems[b].time.split(':').map(Number);
+    return (ah * 60 + am) - (bh * 60 + bm);
+  });
+  const lines = selected.map((idx, i) => {
+    const v = allItems[idx];
+    return `${i + 1}. ${v.route} ${v.name}(${v.time} ${v.depart} 출항)`;
+  });
   return `${activeType.header}\n${lines.join('\n')}${activeType.footer}`;
 }
 
 function buildVisibilityNoticeHelper() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const minMin = nowMin - 120;
+  const maxMin = nowMin + 180;
+  const pad = n => String(((n % 1440) + 1440) % 1440 < 60 ? ((n % 1440) + 1440) % 1440 : ((n % 1440) + 1440) % 1440).padStart ? String(Math.floor(((n % 1440) + 1440) % 1440 / 60)).padStart(2,'0') + ':' + String(((n % 1440) + 1440) % 1440 % 60).padStart(2,'0') : '00:00';
+  const fmtMin = m => { const t = ((m % 1440) + 1440) % 1440; return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'); };
+  const timeLabel = `${fmtMin(minMin)} ~ ${fmtMin(maxMin)}`;
+
+  const allItems = VISIBILITY_NOTICE_CARDS.flatMap(card => card.vessels);
+
   const typeButtons = VISIBILITY_NOTICE_TYPES.map(t => {
     const active = t.key === visibilityNoticeActiveType;
     const colorClass = active
@@ -1839,21 +1859,40 @@ function buildVisibilityNoticeHelper() {
     return `<button type="button" class="flex-1 rounded-xl border px-3 py-2 text-sm font-bold transition ${colorClass}" data-notice-type="${t.key}">${t.label}</button>`;
   }).join('');
 
-  const cards = VISIBILITY_NOTICE_CARDS.map((card, idx) => {
-    const vesselLines = card.vessels.map(v =>
-      `<span class="inline-block mr-3 text-xs text-slate-200"><span class="font-bold text-violet-300">${escapeHtml(v.route)}</span> ${escapeHtml(v.name)} <span class="text-slate-400">(${escapeHtml(v.time)}, ${escapeHtml(v.depart)})</span></span>`
-    ).join('');
+  const filteredItems = allItems.map((v, idx) => ({ v, idx })).filter(({ v }) => {
+    const [h, m] = v.time.split(':').map(Number);
+    const vMin = h * 60 + m;
+    return vMin >= minMin && vMin <= maxMin;
+  });
+
+  const itemRows = filteredItems.map(({ v, idx }) => {
+    const sel = visibilityNoticeSelectedItems.has(idx);
+    const rowClass = sel ? 'border-violet-400/80 bg-violet-500/15' : 'border-slate-600 bg-slate-800/70';
+    const circleClass = sel ? 'border-violet-400 bg-violet-500' : 'border-slate-500';
+    const check = sel ? `<svg viewBox="0 0 12 12" fill="none" class="w-3 h-3"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
     return `
-      <button type="button" class="w-full rounded-2xl border border-slate-600 bg-slate-800/70 px-4 py-3 text-left hover:border-violet-400/60 hover:bg-violet-500/10 transition active:scale-[0.98]" data-notice-card="${idx}">
-        <div class="flex flex-wrap gap-y-1">${vesselLines}</div>
+      <button type="button" class="w-full rounded-xl border ${rowClass} px-4 py-2.5 text-left flex items-center gap-3 transition active:scale-[0.98]" data-notice-item="${idx}">
+        <span class="shrink-0 w-5 h-5 rounded-full border-2 ${circleClass} flex items-center justify-center">${check}</span>
+        <span class="flex-1 text-sm leading-snug">
+          <span class="font-bold text-violet-300">${escapeHtml(v.route)}</span>
+          <span class="text-slate-200"> ${escapeHtml(v.name)}</span>
+          <span class="text-slate-400 text-xs"> (${escapeHtml(v.time)}, ${escapeHtml(v.depart)} 출항)</span>
+        </span>
       </button>`;
   }).join('');
+
+  const hasSelection = visibilityNoticeSelectedItems.size > 0;
+  const copyBtnClass = hasSelection
+    ? 'w-full rounded-xl border border-violet-400/80 bg-violet-500/20 text-violet-200 px-4 py-2.5 text-sm font-bold transition active:scale-[0.98]'
+    : 'w-full rounded-xl border border-slate-700 bg-slate-800/40 text-slate-500 px-4 py-2.5 text-sm font-bold cursor-not-allowed';
 
   return `
     <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
       <div class="flex gap-2" id="visibility-notice-type-btns">${typeButtons}</div>
-      <div class="space-y-2" id="visibility-notice-cards">${cards}</div>
+      <p class="text-xs text-slate-400">표시 시간대: ${timeLabel}</p>
+      <div class="space-y-2" id="visibility-notice-items">${filteredItems.length ? itemRows : '<p class="text-xs text-slate-500 text-center py-2">해당 시간대 항차 없음</p>'}</div>
+      <button type="button" class="${copyBtnClass}" ${hasSelection ? '' : 'disabled'} data-notice-copy-btn>${hasSelection ? `${visibilityNoticeSelectedItems.size}개 선택 · 복사` : '항목을 선택하세요'}</button>
     </div>`;
 }
 
@@ -1975,12 +2014,22 @@ function bindFerryOperationManagerSection(section) {
       return;
     }
 
-    const noticeCardBtn = event.target.closest('[data-notice-card]');
-    if (noticeCardBtn) {
-      const idx = parseInt(noticeCardBtn.dataset.noticeCard, 10);
-      const card = VISIBILITY_NOTICE_CARDS[idx];
-      if (!card) return;
-      const text = buildVisibilityNoticeText(card);
+    const noticeItemBtn = event.target.closest('[data-notice-item]');
+    if (noticeItemBtn) {
+      const idx = parseInt(noticeItemBtn.dataset.noticeItem, 10);
+      if (visibilityNoticeSelectedItems.has(idx)) {
+        visibilityNoticeSelectedItems.delete(idx);
+      } else {
+        visibilityNoticeSelectedItems.add(idx);
+      }
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+      return;
+    }
+
+    const noticeCopyBtn = event.target.closest('[data-notice-copy-btn]');
+    if (noticeCopyBtn && visibilityNoticeSelectedItems.size > 0) {
+      const text = buildVisibilityNoticeTextFromSelected();
       navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('notice-copy-toast');
         const toastText = document.getElementById('notice-copy-toast-text');
