@@ -2040,7 +2040,11 @@ function bindFerryOperationManagerSection(section) {
     if (noticeCopyBtn && visibilityNoticeSelectedItems.size > 0) {
       const text = buildVisibilityNoticeTextFromSelected();
       const activeKey = visibilityNoticeActiveType;
-      visibilityNoticeSelectedByType[activeKey].forEach(idx => visibilityNoticeCopiedByType[activeKey].add(idx));
+      visibilityNoticeSelectedByType[activeKey].forEach(idx => {
+        visibilityNoticeCopiedByType[activeKey].add(idx);
+        if (activeKey === 'ctrl') visibilityNoticeCopiedByType['normal'].delete(idx);
+        if (activeKey === 'normal') visibilityNoticeCopiedByType['ctrl'].delete(idx);
+      });
       visibilityNoticeSelectedByType[activeKey].clear();
       const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
       if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
