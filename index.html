@@ -1240,7 +1240,24 @@ const VISIBILITY_NOTICE_TYPES = [
 ];
 let visibilityNoticeActiveType = 'wait';
 const visibilityNoticeSelectedByType = { wait: new Set(), ctrl: new Set(), normal: new Set() };
-const visibilityNoticeCopiedByType = { wait: new Set(), ctrl: new Set(), normal: new Set() };
+const NOTICE_COPIED_STORAGE_KEY = 'visibilityNoticeCopied.v1';
+function _loadNoticeCopied() {
+  try {
+    const raw = localStorage.getItem(NOTICE_COPIED_STORAGE_KEY);
+    if (!raw) return { wait: new Set(), ctrl: new Set(), normal: new Set() };
+    const parsed = JSON.parse(raw);
+    return { wait: new Set(parsed.wait||[]), ctrl: new Set(parsed.ctrl||[]), normal: new Set(parsed.normal||[]) };
+  } catch { return { wait: new Set(), ctrl: new Set(), normal: new Set() }; }
+}
+function _saveNoticeCopied() {
+  localStorage.setItem(NOTICE_COPIED_STORAGE_KEY, JSON.stringify({
+    wait: [...visibilityNoticeCopiedByType.wait],
+    ctrl: [...visibilityNoticeCopiedByType.ctrl],
+    normal: [...visibilityNoticeCopiedByType.normal]
+  }));
+}
+const visibilityNoticeCopiedByType = _loadNoticeCopied();
+let visibilityNoticeCopiedBackup = null;
 const visibilityNoticeSelectedItems = { get size() { return visibilityNoticeSelectedByType[visibilityNoticeActiveType].size; }, has(i) { return visibilityNoticeSelectedByType[visibilityNoticeActiveType].has(i); }, add(i) { visibilityNoticeSelectedByType[visibilityNoticeActiveType].add(i); }, delete(i) { visibilityNoticeSelectedByType[visibilityNoticeActiveType].delete(i); } };
 const FERRY_OPERATION_TAB_KEYS = ['visibility', 'weather', 'forecast'];
 const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
@@ -1894,6 +1911,12 @@ function buildVisibilityNoticeHelper() {
   const copyBtnClass = hasSelection
     ? 'w-full rounded-xl border border-violet-400/80 bg-violet-500/20 text-violet-200 px-4 py-2.5 text-sm font-bold transition active:scale-[0.98]'
     : 'w-full rounded-xl border border-slate-700 bg-slate-800/40 text-slate-500 px-4 py-2.5 text-sm font-bold cursor-not-allowed';
+  const hasCopied = ['wait','ctrl','normal'].some(k => visibilityNoticeCopiedByType[k].size > 0);
+  const resetBtn = visibilityNoticeCopiedBackup
+    ? `<button type="button" class="w-full rounded-xl border border-sky-400/60 bg-sky-500/10 text-sky-300 px-4 py-2 text-xs font-bold transition active:scale-[0.98]" data-notice-restore-btn>↩ 복원</button>`
+    : hasCopied
+      ? `<button type="button" class="w-full rounded-xl border border-slate-600 bg-slate-800/40 text-slate-400 px-4 py-2 text-xs font-bold transition active:scale-[0.98]" data-notice-reset-btn>이력 초기화</button>`
+      : '';
 
   return `
     <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
@@ -1902,6 +1925,7 @@ function buildVisibilityNoticeHelper() {
       <p class="text-xs text-slate-400">표시 시간대: ${timeLabel}</p>
       <div class="space-y-2" id="visibility-notice-items">${filteredItems.length ? itemRows : '<p class="text-xs text-slate-500 text-center py-2">해당 시간대 항차 없음</p>'}</div>
       <button type="button" class="${copyBtnClass}" ${hasSelection ? '' : 'disabled'} data-notice-copy-btn>${hasSelection ? `${visibilityNoticeSelectedItems.size}개 선택 · 복사` : '항목을 선택하세요'}</button>
+      ${resetBtn}
     </div>`;
 }
 
@@ -2046,6 +2070,8 @@ function bindFerryOperationManagerSection(section) {
         if (activeKey === 'normal') visibilityNoticeCopiedByType['ctrl'].delete(idx);
       });
       visibilityNoticeSelectedByType[activeKey].clear();
+      visibilityNoticeCopiedBackup = null;
+      _saveNoticeCopied();
       const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
       if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
       navigator.clipboard.writeText(text).then(() => {
@@ -2057,6 +2083,34 @@ function bindFerryOperationManagerSection(section) {
         clearTimeout(toast._hideTimer);
         toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 3500);
       });
+      return;
+    }
+
+    const noticeResetBtn = event.target.closest('[data-notice-reset-btn]');
+    if (noticeResetBtn) {
+      visibilityNoticeCopiedBackup = {
+        wait: new Set(visibilityNoticeCopiedByType.wait),
+        ctrl: new Set(visibilityNoticeCopiedByType.ctrl),
+        normal: new Set(visibilityNoticeCopiedByType.normal)
+      };
+      visibilityNoticeCopiedByType.wait.clear();
+      visibilityNoticeCopiedByType.ctrl.clear();
+      visibilityNoticeCopiedByType.normal.clear();
+      _saveNoticeCopied();
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+      return;
+    }
+
+    const noticeRestoreBtn = event.target.closest('[data-notice-restore-btn]');
+    if (noticeRestoreBtn && visibilityNoticeCopiedBackup) {
+      visibilityNoticeCopiedByType.wait = new Set(visibilityNoticeCopiedBackup.wait);
+      visibilityNoticeCopiedByType.ctrl = new Set(visibilityNoticeCopiedBackup.ctrl);
+      visibilityNoticeCopiedByType.normal = new Set(visibilityNoticeCopiedBackup.normal);
+      visibilityNoticeCopiedBackup = null;
+      _saveNoticeCopied();
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
       return;
     }
 
