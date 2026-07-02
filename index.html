@@ -6336,6 +6336,7 @@ case 'ship-detail-section':
       appContainer.classList.remove('hidden');
       appContainer.classList.add('modal-enter'); // fadeIn
 
+      sessionStorage.setItem('appUnlocked', '1');
       switchView('main-menu');
       openManualFromQuery();
       // 3. (중요) 메인 앱 데이터 로드 및 시작
@@ -6428,7 +6429,7 @@ case 'ship-detail-section':
     // switchView('main-menu');
     // --> 이 로직들은 unlockAndInitializeApp() 함수 내부로 이동됨.
     const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
-    if (isPreviewMode) {
+    if (isPreviewMode || sessionStorage.getItem('appUnlocked') === '1') {
       unlockAndInitializeApp();
     }
   </script>
