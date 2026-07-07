@@ -2030,6 +2030,10 @@ function bindFerryOperationManagerSection(section) {
   section.addEventListener('click', async (event) => {
     const tabButton = event.target.closest('[data-ferry-op-tab-btn]');
     if (tabButton) {
+      if (tabButton.dataset.ferryOpTabBtn === 'weather') {
+        openFerryOperationExtractModal();
+        return;
+      }
       setFerryOperationActivePanel(section, tabButton.dataset.ferryOpTabBtn);
       return;
     }
