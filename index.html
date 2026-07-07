@@ -306,6 +306,12 @@
       background: #ffffff;
       overflow: hidden;
     }
+    .ferry-op-forecast-status-btn {
+      border-radius: 0 !important;
+      min-height: 44px !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
     /* 카드 헤더 */
     .ferry-op-capture-card > div:first-child {
       border-bottom-color: #e2e8f0 !important;
@@ -1636,15 +1642,15 @@ function buildFerryOperationForecastRowsHtml() {
   return FERRY_OPERATION_VESSELS.map((vesselKey) => {
     const row = forecastState[vesselKey];
     return `
-      <tr class="border-b border-slate-700/70 last:border-b-0">
-        <td class="ferry-op-forecast-vessel-cell px-2 py-2.5 text-left font-bold text-white">${escapeHtml(vesselKey)}</td>
-        <td class="px-2 py-2.5">
-          <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.am)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="am">
+      <tr class="border-b border-slate-200/60 last:border-b-0">
+        <td class="ferry-op-forecast-vessel-cell px-3 py-0 text-left font-bold" style="vertical-align:middle;">${escapeHtml(vesselKey)}</td>
+        <td style="padding:0;vertical-align:stretch;">
+          <button type="button" class="ferry-op-status-btn ferry-op-forecast-status-btn" data-state="${escapeHtml(row.am)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="am">
             ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.am])}
           </button>
         </td>
-        <td class="px-2 py-2.5">
-          <button type="button" class="ferry-op-status-btn" data-state="${escapeHtml(row.pm)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="pm">
+        <td style="padding:0;vertical-align:stretch;">
+          <button type="button" class="ferry-op-status-btn ferry-op-forecast-status-btn" data-state="${escapeHtml(row.pm)}" data-ferry-op-forecast-status="true" data-ferry-op-forecast-vessel="${escapeHtml(vesselKey)}" data-ferry-op-forecast-period="pm">
             ${escapeHtml(FERRY_OPERATION_FORECAST_STATUS_LABELS[row.pm])}
           </button>
         </td>
