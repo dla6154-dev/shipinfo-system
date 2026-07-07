@@ -2642,13 +2642,114 @@ function extractFerryOperationWeatherText() {
   return result || '통제/비운항 항차가 없습니다.';
 }
 
+let weatherExtractCause = 'wave'; // 'wave' | 'bad'
+const weatherExtractSelected = new Set(); // "vesselKey-rowIdx"
+
+function _weatherExtractGetVoyages() {
+  const weatherState = readFerryOperationWeatherState();
+  return FERRY_OPERATION_VESSELS.map((vesselKey) => {
+    const vessel = weatherState.vessels[vesselKey];
+    const displayName = String((vessel && vessel.displayName) || vesselKey).trim();
+    const voyages = (vessel && vessel.voyages) ? vessel.voyages : [];
+    return {
+      key: vesselKey,
+      name: displayName,
+      voyages: voyages.map((v) => {
+        const depRaw = String(v.depTime || '').trim();
+        const route = String(v.route || '').trim();
+        const depTime = depRaw.split('/')[0].trim();
+        const stops = route.split(/[↔→]/).map((s) => s.trim()).filter(Boolean);
+        const simpleRoute = stops.length >= 2 ? `${stops[0]}-${stops[stops.length - 1]}` : route;
+        const origin = stops[0] || '';
+        return { depTime, simpleRoute, origin };
+      })
+    };
+  });
+}
+
+function _weatherExtractBuildText() {
+  if (!weatherExtractSelected.size) return '';
+  const vessels = _weatherExtractGetVoyages();
+  const causeWord = weatherExtractCause === 'wave' ? '풍랑주의보' : '기상악화';
+  const items = [];
+  weatherExtractSelected.forEach((id) => {
+    const [vi, ri] = id.split('-').map(Number);
+    const v = vessels[vi];
+    if (!v) return;
+    const voy = v.voyages[ri];
+    if (!voy) return;
+    const sortKey = voy.depTime.replace(':', '') || '9999';
+    items.push({ sortKey, text: `${voy.simpleRoute} ${v.name}(${voy.depTime} ${voy.origin}출항)` });
+  });
+  items.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  const lines = items.map((it, i) => `${i + 1}. ${it.text}`);
+  return `${causeWord}로 아래항로 통제합니다.\n\n${lines.join('\n')}`;
+}
+
+function _weatherExtractRenderTable() {
+  const vessels = _weatherExtractGetVoyages();
+  const maxRows = Math.max(...vessels.map((v) => v.voyages.length), 1);
+  const colW = 130;
+  const totalW = colW * vessels.length;
+
+  let thead = `<thead><tr>${vessels.map((v) => `<th style="width:${colW}px;min-width:${colW}px;padding:8px 4px;font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap;border-right:1px solid #1e293b;text-align:center;overflow:hidden;text-overflow:ellipsis;background:#0d1422;">${escapeHtml(v.name)}</th>`).join('')}</tr></thead>`;
+
+  let tbody = '<tbody>';
+  for (let r = 0; r < maxRows; r++) {
+    tbody += `<tr style="border-top:1px solid #1e293b;">${vessels.map((v, vi) => {
+      const voy = v.voyages[r];
+      if (!voy) return `<td style="width:${colW}px;min-width:${colW}px;border-right:1px solid #1e293b;background:#0f172a;"></td>`;
+      const id = `${vi}-${r}`;
+      const sel = weatherExtractSelected.has(id);
+      const bg = sel ? 'rgba(248,113,113,.15)' : '#0f172a';
+      const tc = sel ? '#fca5a5' : '#64748b';
+      const rc = sel ? '#f87171' : '#334155';
+      return `<td style="width:${colW}px;min-width:${colW}px;border-right:1px solid #1e293b;vertical-align:top;padding:0;"><div data-wx-voy="${id}" style="padding:9px 8px;cursor:pointer;text-align:center;background:${bg};border-bottom:1px solid #1e293b;"><div style="font-size:14px;font-weight:700;color:${tc};">${escapeHtml(voy.depTime)}</div><div style="font-size:11px;color:${rc};">${escapeHtml(voy.simpleRoute)}</div></div></td>`;
+    }).join('')}</tr>`;
+  }
+  tbody += '</tbody>';
+
+  return `<table id="wx-voy-tbl" style="border-collapse:collapse;width:${totalW}px;table-layout:fixed;">${thead}${tbody}</table>`;
+}
+
+function _weatherExtractRenderResult() {
+  const txt = _weatherExtractBuildText();
+  const el = document.getElementById('wx-result-box');
+  if (el) el.textContent = txt || '항차를 선택하세요';
+}
+
+function _weatherExtractRenderAll() {
+  const tblWrap = document.getElementById('wx-tbl-wrap');
+  if (tblWrap) tblWrap.innerHTML = _weatherExtractRenderTable();
+  _weatherExtractRenderResult();
+  // cause buttons
+  const bw = document.getElementById('wx-cause-wave');
+  const bb = document.getElementById('wx-cause-bad');
+  if (bw) { bw.style.borderColor = weatherExtractCause === 'wave' ? '#60a5fa' : '#475569'; bw.style.color = weatherExtractCause === 'wave' ? '#93c5fd' : '#64748b'; bw.style.background = weatherExtractCause === 'wave' ? 'rgba(96,165,250,.12)' : 'rgba(30,41,59,.6)'; }
+  if (bb) { bb.style.borderColor = weatherExtractCause === 'bad' ? '#f87171' : '#475569'; bb.style.color = weatherExtractCause === 'bad' ? '#fca5a5' : '#64748b'; bb.style.background = weatherExtractCause === 'bad' ? 'rgba(248,113,113,.12)' : 'rgba(30,41,59,.6)'; }
+}
+
 function openFerryOperationExtractModal() {
-  const extractText = extractFerryOperationWeatherText();
+  weatherExtractSelected.clear();
+  weatherExtractCause = 'wave';
+
+  const causeBtn = (id, label, active) =>
+    `<button id="${id}" type="button" data-wx-cause="${id}" style="flex:1;padding:9px 4px;border-radius:12px;border:1px solid ${active?'#60a5fa':'#475569'};background:${active?'rgba(96,165,250,.12)':'rgba(30,41,59,.6)'};color:${active?'#93c5fd':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;">${label}</button>`;
+
   showModal('기상악화 문구', `
-    <div class="space-y-4">
-      <textarea id="ferry-op-extract-text" class="ferry-op-extract-textarea" readonly>${escapeHtml(extractText)}</textarea>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;gap:8px;">
+        ${causeBtn('wx-cause-wave','풍랑주의보',true)}
+        ${causeBtn('wx-cause-bad','기상악화',false)}
+      </div>
+      <div id="wx-tbl-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #1e293b;border-radius:12px;"></div>
+      <div style="font-size:10px;color:#475569;text-align:right;margin-top:-6px;">← 가로 스크롤</div>
+      <div style="font-size:11px;color:#94a3b8;font-weight:600;">복사될 문구</div>
+      <div id="wx-result-box" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px;font-size:12px;color:#e2e8f0;line-height:1.8;white-space:pre-wrap;min-height:52px;">항차를 선택하세요</div>
       <button id="ferry-op-extract-copy-btn" class="w-full rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-500/20">클립보드 복사</button>
     </div>`);
+
+  requestAnimationFrame(() => _weatherExtractRenderAll());
 }
 
 // 비밀번호 초기화 (localStorage 사용)
@@ -5985,9 +6086,23 @@ case 'ship-detail-section':
         await handleCaptainDutySettingsSave();
         return;
       }
+      // 기상악화 문구 — 원인 선택
+      const wxCauseBtn = target.closest('[data-wx-cause]');
+      if (wxCauseBtn) {
+        weatherExtractCause = wxCauseBtn.dataset.wxCause === 'wx-cause-wave' ? 'wave' : 'bad';
+        _weatherExtractRenderAll();
+        return;
+      }
+      // 기상악화 문구 — 항차 선택/해제
+      const wxVoy = target.closest('[data-wx-voy]');
+      if (wxVoy) {
+        const id = wxVoy.dataset.wxVoy;
+        weatherExtractSelected.has(id) ? weatherExtractSelected.delete(id) : weatherExtractSelected.add(id);
+        _weatherExtractRenderAll();
+        return;
+      }
       if (target.id === 'ferry-op-extract-copy-btn') {
-        const extractTextarea = document.getElementById('ferry-op-extract-text');
-        const textToCopy = extractTextarea?.value || extractTextarea?.textContent || '';
+        const textToCopy = _weatherExtractBuildText();
         if (textToCopy && navigator.clipboard?.writeText) {
           try {
             await navigator.clipboard.writeText(textToCopy);
