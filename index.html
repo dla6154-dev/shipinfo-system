@@ -4405,18 +4405,38 @@ const DATASETS = [
       return `${ym.slice(0,4)}년 ${ym.slice(4)}월`;
     }
 
-    async function _fetchTideMonthly(ym) {
+    async function _fetchTideMonthly(ym, onFirstLoad) {
       if (_tideMonthlyCache[ym]) return _tideMonthlyCache[ym];
+      const sbH = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+      const cacheId = `kma-tide-monthly-${ym}`;
+
+      // 1. Supabase 캐시 직접 확인 (빠름)
+      const cacheRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.${encodeURIComponent(cacheId)}&select=payload,expiresAt`,
+        { headers: sbH }
+      );
+      if (cacheRes.ok) {
+        const rows = await cacheRes.json();
+        if (rows.length && rows[0].payload) {
+          const expiresAt = rows[0].expiresAt ? new Date(rows[0].expiresAt).getTime() : 0;
+          if (Date.now() < expiresAt) {
+            _tideMonthlyCache[ym] = rows[0].payload;
+            return rows[0].payload;
+          }
+        }
+      }
+
+      // 2. 캐시 없음 → Edge Function 호출 (첫 로드 시 30~55초 소요)
+      if (onFirstLoad) onFirstLoad();
       const res = await fetch(
         `${SUPABASE_URL}/functions/v1/fetch-kma-tide-monthly?ym=${ym}`,
-        { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+        { headers: sbH }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || '데이터 오류');
-      const payload = json.payload;
-      _tideMonthlyCache[ym] = payload;
-      return payload;
+      _tideMonthlyCache[ym] = json.payload;
+      return json.payload;
     }
 
     function _buildTideCalendarHtml(payload, station, ym) {
@@ -4496,10 +4516,17 @@ const DATASETS = [
         body.innerHTML = `<div class="flex items-center justify-center py-20 text-slate-400"><i class="fa-solid fa-water animate-pulse mr-2"></i>불러오는 중...</div>`;
         monthLabel.textContent = _tideMonthlyLabel(currentYm);
         try {
-          const payload = await _fetchTideMonthly(currentYm);
+          const payload = await _fetchTideMonthly(currentYm, () => {
+            body.innerHTML = `<div class="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
+              <i class="fa-solid fa-water animate-pulse text-2xl text-blue-400"></i>
+              <p class="text-sm font-semibold text-slate-300">한 달치 조석 데이터 수집 중...</p>
+              <p class="text-xs text-slate-500">처음 로드 시 30~60초 소요됩니다</p>
+            </div>`;
+          });
           body.innerHTML = _buildTideCalendarHtml(payload, currentStation, currentYm);
         } catch (err) {
-          body.innerHTML = `<div class="text-center py-12 text-amber-300"><i class="fa-solid fa-triangle-exclamation mr-2"></i>${escapeHtml(String(err))}<br><button onclick="this.closest('#tc-calendar-body').querySelector('div').remove();renderCalendar()" class="mt-3 text-xs text-blue-400 border border-blue-500/30 px-3 py-1 rounded">다시 시도</button></div>`;
+          body.innerHTML = `<div class="text-center py-12 text-amber-300"><i class="fa-solid fa-triangle-exclamation mr-2"></i>${escapeHtml(String(err))}<br><p class="text-xs text-slate-500 mt-2">Render 서버가 잠들어 있을 수 있습니다. 1분 후 다시 시도해 보세요.</p><button id="tc-retry-btn" class="mt-3 text-xs text-blue-400 border border-blue-500/30 px-3 py-1 rounded">다시 시도</button></div>`;
+          body.querySelector('#tc-retry-btn')?.addEventListener('click', renderCalendar);
         }
       }
 
