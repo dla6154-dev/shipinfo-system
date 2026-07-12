@@ -4305,9 +4305,19 @@ const DATASETS = [
             }];
         if (!days.some(day => Array.isArray(day.entries) && day.entries.length)) throw new Error('조석 데이터가 비어 있습니다');
         const now = new Date();
+        // 오늘 날짜 (YYYY-MM-DD, KST)
+        const todayStr = (() => {
+          const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 10);
+        })();
+        // 과거 날짜 day는 제거, 남은 day의 label을 오늘/내일/모레로 재부여
+        const dayLabels = ['오늘', '내일', '모레'];
+        const futureDays = days.filter(day => !day.dateStr || day.dateStr >= todayStr);
+        const relabledDays = futureDays.map((day, i) => ({ ...day, label: dayLabels[i] || day.label }));
+        const finalDays = relabledDays.length ? relabledDays : days;
         const stale = snap.meta?.stale || snap.Meta?.stale || false;
         const dateStr = snap.dateStr || snap.DateStr || '';
-        initializeTideCarousel(container, days, now, stale, dateStr);
+        initializeTideCarousel(container, finalDays, now, stale, dateStr);
       } catch (err) {
         container.innerHTML = `<div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-8 text-center">
           <i class="fa-solid fa-triangle-exclamation text-amber-400 text-3xl mb-3"></i>
