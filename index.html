@@ -610,6 +610,14 @@
       background: rgba(251, 191, 36, 0.22) !important;
       color: #fde68a !important;
     }
+    .captain-duty-table tbody tr.row-today th,
+    .captain-duty-table tbody tr.row-today td {
+      background: rgba(56, 189, 248, 0.12) !important;
+    }
+    .captain-duty-table tbody tr.row-today th {
+      color: #38bdf8 !important;
+      font-weight: 700;
+    }
     .captain-duty-ship-name {
       display: block;
       font-size: 0.85rem;
@@ -4690,13 +4698,18 @@ const DATASETS = [
           <span class="captain-duty-ship-name">${escapeHtml(row.shipName || '미정')}</span>
         </th>`;
       }).join('');
+      const now = new Date();
+      const todayYm = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      const todayDay = now.getDate();
+      const isCurrentMonth = yearMonth === todayYm;
       const bodyRows = Array.from({ length: daysInMonth }, (_, index) => {
         const day = index + 1;
+        const isToday = isCurrentMonth && day === todayDay;
         const cells = config.rows.map((row) => {
           const isRelief = isCaptainDutyReliefActive(row, day);
           return `<td class="captain-duty-name-cell${isRelief ? ' is-relief' : ''}">${escapeHtml(getCaptainDutyNameForDay(row, day))}</td>`;
         }).join('');
-        return `<tr><th scope="row" class="captain-duty-date-cell">${day}일</th>${cells}</tr>`;
+        return `<tr${isToday ? ' class="row-today"' : ''}><th scope="row" class="captain-duty-date-cell">${day}일</th>${cells}</tr>`;
       }).join('');
 
       return `
