@@ -4305,11 +4305,8 @@ const DATASETS = [
             }];
         if (!days.some(day => Array.isArray(day.entries) && day.entries.length)) throw new Error('조석 데이터가 비어 있습니다');
         const now = new Date();
-        // 오늘 날짜 (YYYY-MM-DD, KST)
-        const todayStr = (() => {
-          const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-          return kst.toISOString().slice(0, 10);
-        })();
+        // 오늘 날짜 (YYYY-MM-DD, 로컬 기준)
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         // 과거 날짜 day는 제거, 남은 day의 label을 오늘/내일/모레로 재부여
         const dayLabels = ['오늘', '내일', '모레'];
         const futureDays = days.filter(day => !day.dateStr || day.dateStr >= todayStr);
