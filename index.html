@@ -802,6 +802,60 @@
       }
     }
 
+    /* ── 월별 조석 달력 ──────────────────────────────────────────────── */
+    .tc-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .tc-weekday {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      padding: 6px 0 8px;
+    }
+    .tc-cell {
+      background: #1e293b;
+      border-radius: 6px;
+      padding: 6px 4px 5px;
+      min-height: 72px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .tc-cell.tc-empty { background: transparent; }
+    .tc-cell.tc-today { background: #1e3a5f; outline: 1px solid #3b82f6; }
+    .tc-day-num {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .tc-tides {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+    .tc-high {
+      font-size: 10px;
+      color: #fca5a5;
+      line-height: 1.3;
+    }
+    .tc-low {
+      font-size: 10px;
+      color: #93c5fd;
+      line-height: 1.3;
+    }
+    .tc-cm {
+      color: #94a3b8;
+      font-size: 9px;
+    }
+    @media (max-width: 480px) {
+      .tc-cell { min-height: 60px; padding: 4px 3px; }
+      .tc-high, .tc-low { font-size: 9px; }
+      .tc-day-num { font-size: 11px; }
+    }
   </style>
 </head>
 <body class="bg-slate-900 text-white antialiased">
@@ -4028,7 +4082,7 @@ const DATASETS = [
         ? `현재 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> · <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span>`
         : `${escapeHtml(card.dayLabel || '예보')} 조석 예보`;
       const badgeText = card.nextLabel || (card.dayLabel ? `${card.dayLabel} 조석 예보` : '조석 예보');
-      return `<article class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 shadow-lg">
+      return `<article class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 shadow-lg cursor-pointer hover:border-blue-500/60 transition-colors" data-tide-calendar="${escapeHtml(card.station)}">
         <div class="border-b border-slate-700/60 px-5 py-4">
           <div class="flex items-center justify-between gap-3">
             <div>
@@ -4045,6 +4099,9 @@ const DATASETS = [
             <p class="text-sm font-bold text-white mt-0.5">${escapeHtml(p.time)}</p>
             <p class="text-xs text-slate-400">${escapeHtml(String(p.level))}cm</p>
           </div>`).join('')}
+        </div>
+        <div class="border-t border-slate-700/40 px-5 py-2 flex items-center justify-end gap-1 text-xs text-slate-500">
+          <i class="fa-solid fa-calendar-days"></i><span>월별 달력 보기</span>
         </div>
       </article>`;
     }
@@ -4334,6 +4391,147 @@ const DATASETS = [
         </div>`;
       }
     }
+    /* ── 월별 조석 달력 ──────────────────────────────────────────────── */
+    const TIDE_STATIONS_LIST = ['서망','진도옥도','쉬미','서거차도'];
+    let _tideMonthlyCache = {}; // { 'YYYYMM': payload }
+
+    function _tideMonthlyYm(offset = 0) {
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    function _tideMonthlyLabel(ym) {
+      return `${ym.slice(0,4)}년 ${ym.slice(4)}월`;
+    }
+
+    async function _fetchTideMonthly(ym) {
+      if (_tideMonthlyCache[ym]) return _tideMonthlyCache[ym];
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/fetch-kma-tide-monthly?ym=${ym}`,
+        { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || '데이터 오류');
+      const payload = json.payload;
+      _tideMonthlyCache[ym] = payload;
+      return payload;
+    }
+
+    function _buildTideCalendarHtml(payload, station, ym) {
+      const year = parseInt(ym.slice(0,4), 10);
+      const month = parseInt(ym.slice(4), 10);
+      const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
+      const numDays = new Date(year, month, 0).getDate();
+      const dayMap = {};
+      for (const day of (payload.days || [])) {
+        const d = parseInt(day.date.slice(6,8), 10);
+        dayMap[d] = day.entries.filter(e => e.stationName === station);
+      }
+      const weekdays = ['일','월','화','수','목','금','토'];
+      let cells = '';
+      // 빈 칸 (1일 이전)
+      for (let i = 0; i < firstDay; i++) cells += `<div class="tc-cell tc-empty"></div>`;
+      for (let d = 1; d <= numDays; d++) {
+        const entries = dayMap[d] || [];
+        const highs = entries.filter(e => e.tideType === '고조');
+        const lows = entries.filter(e => e.tideType === '저조');
+        const isToday = (() => {
+          const now = new Date();
+          return now.getFullYear() === year && now.getMonth() + 1 === month && now.getDate() === d;
+        })();
+        const dayOfWeek = new Date(year, month - 1, d).getDay();
+        const dayClr = dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-slate-200';
+        const todayBg = isToday ? 'tc-today' : '';
+        const highHtml = highs.map(e =>
+          `<span class="tc-high">${escapeHtml(e.timeStr)}<br><span class="tc-cm">${e.levelCm != null ? Math.round(e.levelCm) : '-'}cm</span></span>`
+        ).join('');
+        const lowHtml = lows.map(e =>
+          `<span class="tc-low">${escapeHtml(e.timeStr)}<br><span class="tc-cm">${e.levelCm != null ? Math.round(e.levelCm) : '-'}cm</span></span>`
+        ).join('');
+        cells += `<div class="tc-cell ${todayBg}">
+          <span class="tc-day-num ${dayClr}">${d}</span>
+          <div class="tc-tides">${highHtml}${lowHtml}</div>
+        </div>`;
+      }
+      return `<div class="tc-grid">
+        ${weekdays.map(w=>`<div class="tc-weekday">${w}</div>`).join('')}
+        ${cells}
+      </div>`;
+    }
+
+    function openTideMonthlyCalendar(initialStation) {
+      let currentYm = _tideMonthlyYm(0);
+      let currentStation = initialStation || TIDE_STATIONS_LIST[0];
+
+      const overlay = document.createElement('div');
+      overlay.id = 'tide-monthly-overlay';
+      overlay.className = 'fixed inset-0 z-[9000] flex flex-col';
+      overlay.style.cssText = 'background:#0d1422;overflow-y:auto;';
+      overlay.innerHTML = `
+        <div style="max-width:900px;margin:0 auto;width:100%;padding:16px;">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-calendar-days text-blue-400"></i>월별 조석표</h2>
+            <button id="tc-close-btn" class="text-slate-400 hover:text-white text-2xl leading-none px-2">&times;</button>
+          </div>
+          <div class="flex items-center gap-2 mb-4 flex-wrap">
+            ${TIDE_STATIONS_LIST.map(s=>`<button class="tc-station-btn px-3 py-1.5 rounded-full text-sm font-semibold border ${s===currentStation?'bg-blue-600 border-blue-500 text-white':'bg-slate-800 border-slate-600 text-slate-300'}" data-tc-station="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
+          </div>
+          <div class="flex items-center justify-between mb-3">
+            <button id="tc-prev-btn" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm flex items-center gap-1"><i class="fa-solid fa-chevron-left"></i>이전달</button>
+            <span id="tc-month-label" class="text-white font-bold text-base">${_tideMonthlyLabel(currentYm)}</span>
+            <button id="tc-next-btn" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm flex items-center gap-1">다음달<i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+          <div id="tc-calendar-body">
+            <div class="flex items-center justify-center py-20 text-slate-400"><i class="fa-solid fa-water animate-pulse mr-2"></i>불러오는 중...</div>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+
+      const body = overlay.querySelector('#tc-calendar-body');
+      const monthLabel = overlay.querySelector('#tc-month-label');
+
+      async function renderCalendar() {
+        body.innerHTML = `<div class="flex items-center justify-center py-20 text-slate-400"><i class="fa-solid fa-water animate-pulse mr-2"></i>불러오는 중...</div>`;
+        monthLabel.textContent = _tideMonthlyLabel(currentYm);
+        try {
+          const payload = await _fetchTideMonthly(currentYm);
+          body.innerHTML = _buildTideCalendarHtml(payload, currentStation, currentYm);
+        } catch (err) {
+          body.innerHTML = `<div class="text-center py-12 text-amber-300"><i class="fa-solid fa-triangle-exclamation mr-2"></i>${escapeHtml(String(err))}<br><button onclick="this.closest('#tc-calendar-body').querySelector('div').remove();renderCalendar()" class="mt-3 text-xs text-blue-400 border border-blue-500/30 px-3 py-1 rounded">다시 시도</button></div>`;
+        }
+      }
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target.id === 'tc-close-btn' || e.target === overlay) {
+          overlay.remove(); return;
+        }
+        const stBtn = e.target.closest('[data-tc-station]');
+        if (stBtn) {
+          currentStation = stBtn.dataset.tcStation;
+          overlay.querySelectorAll('.tc-station-btn').forEach(b => {
+            const active = b.dataset.tcStation === currentStation;
+            b.className = `tc-station-btn px-3 py-1.5 rounded-full text-sm font-semibold border ${active?'bg-blue-600 border-blue-500 text-white':'bg-slate-800 border-slate-600 text-slate-300'}`;
+          });
+          renderCalendar(); return;
+        }
+        if (e.target.id === 'tc-prev-btn' || e.target.closest('#tc-prev-btn')) {
+          const y = parseInt(currentYm.slice(0,4),10), m = parseInt(currentYm.slice(4),10);
+          const prev = m === 1 ? `${y-1}12` : `${y}${String(m-1).padStart(2,'0')}`;
+          currentYm = prev; renderCalendar(); return;
+        }
+        if (e.target.id === 'tc-next-btn' || e.target.closest('#tc-next-btn')) {
+          const y = parseInt(currentYm.slice(0,4),10), m = parseInt(currentYm.slice(4),10);
+          const next = m === 12 ? `${y+1}01` : `${y}${String(m+1).padStart(2,'0')}`;
+          currentYm = next; renderCalendar(); return;
+        }
+      });
+
+      renderCalendar();
+    }
+    /* ── End 월별 조석 달력 ──────────────────────────────────────────── */
+
     /* ── End 조석 네이티브 렌더링 ──────────────────────────────────────── */
 
     function getCurrentCaptainDutyYearMonth() {
@@ -6151,6 +6349,8 @@ case 'ship-detail-section':
         return;
       }
       if (target.id === 'tide-btn') switchView('tide-section');
+      const tideCalCard = target.closest('[data-tide-calendar]');
+      if (tideCalCard) { openTideMonthlyCalendar(tideCalCard.dataset.tideCalendar); return; }
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
       if (target.id === 'vehicle-loading-btn') { window.location.href = './jindo_vehicle_loading.html'; return; }
       if (target.id === 'visibility-limit-btn') {
