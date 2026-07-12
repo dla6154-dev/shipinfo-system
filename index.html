@@ -4305,11 +4305,19 @@ const DATASETS = [
             }];
         if (!days.some(day => Array.isArray(day.entries) && day.entries.length)) throw new Error('조석 데이터가 비어 있습니다');
         const now = new Date();
-        // 오늘 날짜 (YYYY-MM-DD, 로컬 기준)
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        // dateStr에서 숫자만 추출해 YYYYMMDD 숫자로 변환 (형식 무관)
+        const parseDateNum = (str) => {
+          if (!str) return 0;
+          const nums = String(str).match(/\d+/g);
+          if (!nums) return 0;
+          if (nums.length === 1 && nums[0].length === 8) return parseInt(nums[0], 10); // 20260711
+          if (nums.length >= 3) return parseInt(`${nums[0]}${nums[1].padStart(2,'0')}${nums[2].padStart(2,'0')}`, 10);
+          return 0;
+        };
+        const todayNum = now.getFullYear() * 10000 + (now.getMonth()+1) * 100 + now.getDate();
         // 과거 날짜 day는 제거, 남은 day의 label을 오늘/내일/모레로 재부여
         const dayLabels = ['오늘', '내일', '모레'];
-        const futureDays = days.filter(day => !day.dateStr || day.dateStr >= todayStr);
+        const futureDays = days.filter(day => !day.dateStr || parseDateNum(day.dateStr) >= todayNum);
         const relabledDays = futureDays.map((day, i) => ({ ...day, label: dayLabels[i] || day.label }));
         const finalDays = relabledDays.length ? relabledDays : days;
         const stale = snap.meta?.stale || snap.Meta?.stale || false;
