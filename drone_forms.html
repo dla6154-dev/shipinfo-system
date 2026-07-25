@@ -400,9 +400,9 @@
     /* 비행 기록부: 가로 스크롤 유지 */
     table.flightlog { min-width: 640px; }
 
-    /* 통합 입력 모달 entry-grid: 3열 → 1열 */
-    .entry-grid { grid-template-columns: 1fr !important; }
-    .entry-grid .wide { grid-column: span 1 !important; }
+    /* 통합 입력 모달 entry-grid: 3열 → 2열 */
+    .entry-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .entry-grid .wide { grid-column: span 2 !important; }
     .entry-grid .field input,
     .entry-grid .field select { font-size: 15px; padding: 9px 10px; }
     .entry-grid .field label { font-size: 13px; }
