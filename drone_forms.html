@@ -309,6 +309,83 @@
   .home-card-sub{font-size:12px;color:#777;margin-top:2px;}
   .home-card .arrow{margin-left:auto;font-size:22px;color:var(--accent);}
 
+  /* ── 모바일 반응형 ───────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    body { padding: 10px 8px 60px; font-size: 14px; }
+
+    /* 탑바 */
+    .topbar { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 12px; }
+
+    /* 홈 카드 */
+    .home-card { padding: 14px; }
+    .home-card-title { font-size: 15px; }
+
+    /* 탭 */
+    .tabs button { font-size: 13px; padding: 10px 6px; }
+
+    /* 시트 */
+    .sheet { padding: 14px 12px 20px; }
+    h1.title { font-size: 17px; letter-spacing: 1px; }
+
+    /* 공통정보 footer-table: 2열 → 1열 */
+    table.footer-table { display: block; }
+    table.footer-table tbody,
+    table.footer-table tr { display: block; width: 100%; }
+    table.footer-table td { display: block; width: 100% !important; border: none; padding: 4px 0; }
+    table.footer-table td.label {
+      background: none; font-size: 12px; color: #555;
+      padding: 8px 0 2px; border-top: 1px solid #e5e5e5; width: 100% !important;
+    }
+    table.footer-table td.label:first-child { border-top: none; }
+    table.footer-table input,
+    table.footer-table select {
+      width: 100% !important; display: block !important;
+      border: 1px solid #ccc !important; border-radius: 6px !important;
+      padding: 9px 10px !important; font-size: 15px !important; box-sizing: border-box;
+    }
+    /* 조종자/보조, 풍속/온도, 비행시작/종료 — 인라인 쌍 → 각각 full width */
+    table.footer-table td input[style*="width:45%"],
+    table.footer-table td input[style*="display:inline-block"] {
+      width: 100% !important; display: block !important; margin: 4px 0 0 !important;
+    }
+
+    /* 체크리스트 테이블 */
+    table.checklist { font-size: 12px; }
+    table.checklist col.no  { width: 8%; }
+    table.checklist col.cat { width: 14%; }
+    table.checklist col.content { width: 44%; }
+    table.checklist col.result  { width: 17%; }
+    .radio-pair { flex-direction: column; gap: 4px; align-items: center; }
+    .radio-pair label { font-size: 12px; }
+    .radio-pair input[type="radio"] { width: 18px; height: 18px; }
+
+    /* 서명란 */
+    .sign-line { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .sigbox-preview { width: 100%; height: 60px; }
+
+    /* 액션 바 버튼 */
+    .action-bar { flex-direction: column; }
+    .action-bar button { width: 100%; text-align: center; padding: 12px; font-size: 15px; }
+
+    /* 비행 기록부: 가로 스크롤 유지 */
+    table.flightlog { min-width: 640px; }
+
+    /* 통합 입력 모달 entry-grid: 3열 → 1열 */
+    .entry-grid { grid-template-columns: 1fr !important; }
+    .entry-grid .wide { grid-column: span 1 !important; }
+    .entry-grid .field input,
+    .entry-grid .field select { font-size: 15px; padding: 9px 10px; }
+    .entry-grid .field label { font-size: 13px; }
+
+    /* 모달 박스 */
+    .modal-box { padding: 14px 12px; max-height: 95vh; }
+    .modal-actions button { padding: 10px 14px; font-size: 14px; }
+
+    /* 최근 기록 테이블 */
+    table.flightlog th, table.flightlog td { font-size: 11px; padding: 5px 4px; }
+  }
+  /* ── End 모바일 반응형 ──────────────────────────────────────────── */
+
   @media print{
     body{background:#fff;padding:0;}
     .topbar, .tabs, .action-bar, .modal-overlay, .sig-actions, .btn-open-entry, .home-card, .no-print{display:none !important;}
