@@ -1080,13 +1080,15 @@ async function loadChecklistRecord(id){
 }
 
 function resetChecklistForm(){
-  ["f_date","f_assist","f_location","f_purpose","f_wind","f_temp","f_start","f_end","f_duration"].forEach(id=>{
+  ["f_assist","f_location","f_purpose","f_wind","f_temp","f_start","f_end","f_duration"].forEach(id=>{
     document.getElementById(id).value = "";
   });
+  document.getElementById("f_date").value = new Date().toLocaleDateString("sv-SE");
   document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
   setStatus(document.getElementById("statusMsg1"), "", "");
 }
 
+document.getElementById("f_date").value = new Date().toLocaleDateString("sv-SE");
 document.getElementById("btnSave1").addEventListener("click", saveChecklist);
 document.getElementById("btnNew1").addEventListener("click", resetChecklistForm);
 document.getElementById("btnPrint1").addEventListener("click", ()=>window.print());
