@@ -665,7 +665,7 @@
           <option value="동영상">동영상</option>
         </select>
       </div>
-      <div class="field"><label>시정(km)</label><input type="text" id="f_visibility" data-sync="visibility"></div>
+      <div class="field"><label>시정(km)</label><input type="text" id="f_visibility" data-sync="visibility" value="10"></div>
       <div class="field"><label>비행시간(자동계산)</label><input type="text" id="f_duration" disabled placeholder="비행시작/종료 입력 시 자동 계산"></div>
       <div class="field wide"><label>특이 비행 사항</label><input type="text" id="f_notes" data-sync="special_notes"></div>
     </div>
@@ -1146,7 +1146,9 @@ function buildFlightLogPayload(){
     flight_duration: document.getElementById("f_duration").value,
     wind_speed: document.getElementById("f_wind").value,
     temperature: document.getElementById("f_temp").value,
-    visibility: document.getElementById("f_visibility").value
+    visibility: document.getElementById("f_visibility").value,
+    flight_approval: "O",
+    photo_approval: "O"
   };
 }
 async function postFlightLog(payload){
