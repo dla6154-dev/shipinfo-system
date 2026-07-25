@@ -211,6 +211,56 @@
   }
   table.footer-table input:focus, table.footer-table select:focus{outline:1px solid var(--accent);}
 
+  /* ── 모바일: footer-table 2칸 레이아웃 (미디어쿼리 없이 항상 적용) ── */
+  @media (max-width: 900px) {
+    table.footer-table,
+    table.footer-table tbody { display: block; }
+    table.footer-table tr {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      flex-wrap: nowrap !important;
+      gap: 4px 5px;
+      padding: 9px 2px;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-bottom: 1px solid #ddd !important;
+    }
+    table.footer-table td {
+      display: block !important;
+      border: none !important;
+      padding: 2px 3px !important;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    table.footer-table td.label {
+      background: none !important;
+      font-size: 11px;
+      color: #555;
+      font-weight: 700;
+      white-space: nowrap;
+      flex: 0 0 auto !important;
+      width: auto !important;
+      text-align: left !important;
+    }
+    table.footer-table input,
+    table.footer-table select {
+      width: 100% !important;
+      box-sizing: border-box !important;
+      border: 1px solid #ccc !important;
+      border-radius: 6px !important;
+      padding: 8px 7px !important;
+      font-size: 14px !important;
+    }
+    table.footer-table td input[style*="width:45%"] {
+      width: 42% !important;
+      display: inline-block !important;
+      font-size: 12px !important;
+      padding: 6px 4px !important;
+    }
+  }
+
   .action-bar{
     display:flex;flex-wrap:wrap;gap:10px;
     margin-top:20px;padding-top:14px;border-top:1px dashed #bbb;
@@ -327,27 +377,7 @@
     .sheet { padding: 14px 12px 20px; }
     h1.title { font-size: 17px; letter-spacing: 1px; }
 
-    /* 공통정보 footer-table: 2열 → 1열 */
-    table.footer-table { display: block; }
-    table.footer-table tbody,
-    table.footer-table tr { display: block; width: 100%; }
-    table.footer-table td { display: block; width: 100% !important; border: none; padding: 4px 0; }
-    table.footer-table td.label {
-      background: none; font-size: 12px; color: #555;
-      padding: 8px 0 2px; border-top: 1px solid #e5e5e5; width: 100% !important;
-    }
-    table.footer-table td.label:first-child { border-top: none; }
-    table.footer-table input,
-    table.footer-table select {
-      width: 100% !important; display: block !important;
-      border: 1px solid #ccc !important; border-radius: 6px !important;
-      padding: 9px 10px !important; font-size: 15px !important; box-sizing: border-box;
-    }
-    /* 조종자/보조, 풍속/온도, 비행시작/종료 — 인라인 쌍 → 각각 full width */
-    table.footer-table td input[style*="width:45%"],
-    table.footer-table td input[style*="display:inline-block"] {
-      width: 100% !important; display: block !important; margin: 4px 0 0 !important;
-    }
+    /* footer-table 모바일 스타일은 위쪽 @media(max-width:900px) 블록에서 처리 */
 
     /* 체크리스트 테이블 */
     table.checklist { font-size: 12px; }
