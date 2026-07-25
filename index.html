@@ -6436,9 +6436,7 @@ case 'ship-detail-section':
       }
       if (target.id === 'tide-btn') switchView('tide-section');
       if (target.id === 'drone-forms-btn') {
-        const frame = document.getElementById('drone-forms-frame');
-        if (!frame.src || frame.src === window.location.href) frame.src = './drone_forms.html';
-        document.getElementById('drone-forms-overlay').classList.add('open');
+        window.location.href = './drone_forms.html';
         return;
       }
       const tideCalCard = target.closest('[data-tide-calendar]');
