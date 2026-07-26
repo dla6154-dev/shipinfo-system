@@ -420,6 +420,24 @@
     body{background:#fff;padding:0;}
     .topbar, .tabs, .action-bar, .modal-overlay, .sig-actions, .btn-open-entry, .home-card, .no-print{display:none !important;}
     .sheet{box-shadow:none;border:none;max-width:100%;margin:0 0 14px;padding:0;}
+    /* 폼 요소를 텍스트처럼 출력 */
+    table.footer-table input,
+    table.footer-table select {
+      border: none !important;
+      border-bottom: 1px solid #555 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 2px 0 !important;
+      font-size: 11px !important;
+      appearance: none; -webkit-appearance: none;
+    }
+    table.footer-table td { border: 1px solid #555 !important; }
+    table.footer-table td.label { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* 체크박스 라디오버튼 크기 고정 */
+    input[type="radio"] { width: 12px; height: 12px; }
+    .sign-line { border-top: 1px solid #555; margin-top: 8px; padding-top: 6px; }
+    .sigbox-preview img { max-height: 60px; }
   }
   /* "비행 기록하기" 모달 안에서는 정식 서식처럼 보일 필요가 없으므로
      같은 입력 요소를 재사용하되 평범한 데이터 입력창처럼 보이도록 스타일만 재정의 */
@@ -670,6 +688,7 @@
         <button type="button" id="btnAutoWeather" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap;">🌤 현재 기상 불러오기</button>
         <span id="autoWeatherMsg" style="font-size:12px;color:#666;"></span>
       </div>
+      <div class="field"><label>기상 기타</label><input type="text" id="f_weather_etc" data-sync="weather_etc" placeholder="예: 맑음, 흐림"></div>
       <div class="field"><label>비행시간(자동계산)</label><input type="text" id="f_duration" disabled placeholder="비행시작/종료 입력 시 자동 계산"></div>
       <div class="field wide"><label>특이 비행 사항</label><input type="text" id="f_notes" data-sync="special_notes"></div>
     </div>
@@ -1177,6 +1196,7 @@ function buildFlightLogPayload(){
     wind_speed: document.getElementById("f_wind").value,
     temperature: document.getElementById("f_temp").value,
     visibility: document.getElementById("f_visibility").value,
+    weather_etc: document.getElementById("f_weather_etc").value,
     flight_approval: "O",
     photo_approval: "O"
   };
