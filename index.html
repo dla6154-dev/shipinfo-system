@@ -810,46 +810,6 @@
       }
     }
 
-    /* ── 전자 서식 iframe 오버레이 ──────────────────────────────────── */
-    #drone-forms-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 9100;
-      display: none;
-      flex-direction: column;
-      background: #fff;
-    }
-    #drone-forms-overlay.open { display: flex; }
-    #drone-forms-topbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: #1e293b;
-      padding: 10px 16px;
-      flex-shrink: 0;
-    }
-    #drone-forms-topbar span {
-      color: #e2e8f0;
-      font-size: 15px;
-      font-weight: 700;
-    }
-    #drone-forms-close {
-      margin-left: auto;
-      background: none;
-      border: 1px solid #475569;
-      color: #94a3b8;
-      border-radius: 6px;
-      padding: 5px 14px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    #drone-forms-close:hover { background: #334155; color: #fff; }
-    #drone-forms-frame {
-      flex: 1;
-      width: 100%;
-      border: none;
-    }
-    /* ── End 전자 서식 iframe 오버레이 ──────────────────────────────── */
 
     /* ── 월별 조석 달력 ──────────────────────────────────────────────── */
     .tc-grid {
@@ -5324,11 +5284,6 @@ const DATASETS = [
           <h2 class="text-sm md:text-lg font-semibold leading-tight">위험물<br>정보</h2>
           <p class="text-slate-400 text-[11px] md:text-sm mt-2 leading-tight">위험물 조회</p>
         </div>
-        <div id="drone-forms-btn" class="category-card bg-slate-800 p-4 md:p-5 rounded-2xl text-center border border-slate-700 cursor-pointer hover:border-indigo-500 min-h-[144px] flex flex-col items-center justify-center">
-          <i class="fa-solid fa-file-pen text-2xl md:text-3xl text-indigo-400 mb-3"></i>
-          <h2 class="text-sm md:text-lg font-semibold leading-tight">전자<br>서식</h2>
-          <p class="text-slate-400 text-[11px] md:text-sm mt-2 leading-tight">점검 체크리스트<br>비행 기록부</p>
-        </div>
       </div>`;
 
     const sections = {
@@ -6435,10 +6390,6 @@ case 'ship-detail-section':
         return;
       }
       if (target.id === 'tide-btn') switchView('tide-section');
-      if (target.id === 'drone-forms-btn') {
-        window.location.href = './drone_forms.html';
-        return;
-      }
       const tideCalCard = target.closest('[data-tide-calendar]');
       if (tideCalCard) { openTideMonthlyCalendar(tideCalCard.dataset.tideCalendar); return; }
       if (target.id === 'captain-duty-btn') switchView('captain-duty-section');
@@ -6474,10 +6425,6 @@ case 'ship-detail-section':
         return;
       }
       
-      if (e.target.id === 'drone-forms-close' || e.target.closest('#drone-forms-close')) {
-        document.getElementById('drone-forms-overlay').classList.remove('open');
-        return;
-      }
 
       const backBtn = e.target.closest('.back-btn');
       if (backBtn) {
@@ -6873,14 +6820,5 @@ case 'ship-detail-section':
     <p style="font-size:0.75rem;font-weight:700;color:#34d399;text-align:center;">✓ 복사됐어요</p>
   </div>
 
-  <!-- 전자 서식 iframe 오버레이 -->
-  <div id="drone-forms-overlay">
-    <div id="drone-forms-topbar">
-      <i class="fa-solid fa-file-pen" style="color:#818cf8;font-size:16px;"></i>
-      <span>전자 서식</span>
-      <button id="drone-forms-close"><i class="fa-solid fa-xmark mr-1"></i>닫기</button>
-    </div>
-    <iframe id="drone-forms-frame" src="" title="전자 서식"></iframe>
-  </div>
 </body>
 </html>
