@@ -421,6 +421,19 @@
     body { background:#fff; padding:0; }
     .topbar, .tabs, .action-bar, .modal-overlay, .sig-actions, .btn-open-entry, .home-card, .no-print { display:none !important; }
     .sheet { box-shadow:none; border:none; max-width:100%; margin:0 0 14px; padding:0; }
+    /* 공통정보 헤더: input/select 테두리 숨겨서 표 셀처럼 보이게 */
+    table.footer-table input,
+    table.footer-table select {
+      border: none !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      -webkit-appearance: none;
+      appearance: none;
+      padding: 2px 4px !important;
+    }
+    /* 날짜 옆 캘린더 아이콘 숨김 */
+    input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
   }
   /* "비행 기록하기" 모달 안에서는 정식 서식처럼 보일 필요가 없으므로
      같은 입력 요소를 재사용하되 평범한 데이터 입력창처럼 보이도록 스타일만 재정의 */
@@ -1181,7 +1194,7 @@ function buildFlightLogPayload(){
     visibility: document.getElementById("f_visibility").value,
     weather_etc: document.getElementById("f_weather_etc").value,
     flight_approval: "O",
-    photo_approval: "O"
+    shooting_approval: "O"
   };
 }
 async function postFlightLog(payload){
