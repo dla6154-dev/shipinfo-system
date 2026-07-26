@@ -765,10 +765,14 @@ function initSyncedFields(){
     if(common[key] !== undefined){
       el.value = common[key];
     }
-    el.addEventListener("change", ()=>{
+    const saveSync = ()=>{
       const c = getCommonInfo();
       c[key] = el.value;
       setCommonInfo(c);
+    };
+    el.addEventListener("input", saveSync);
+    el.addEventListener("change", ()=>{
+      saveSync();
       document.querySelectorAll(`[data-sync="${key}"]`).forEach(other=>{
         if(other !== el) other.value = el.value;
       });
@@ -1080,9 +1084,7 @@ async function loadChecklistRecord(id){
     const rows = await res.json();
     if(!rows.length) return;
     const r = rows[0];
-    if(r.inspection_date){
-      document.getElementById("f_date").value = r.inspection_date;
-    }
+    // 날짜는 항상 오늘로 유지 (과거 기록 날짜로 덮어쓰지 않음)
     document.getElementById("f_reg").value = r.registration_no || AIRCRAFT_LIST[0];
     document.getElementById("f_assist").value = r.assistant_name || "";
     document.getElementById("f_location").value = r.flight_location || "";
