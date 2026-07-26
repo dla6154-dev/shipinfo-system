@@ -666,6 +666,10 @@
         </select>
       </div>
       <div class="field"><label>시정(km)</label><input type="text" id="f_visibility" data-sync="visibility" value="10"></div>
+      <div class="field wide" style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+        <button type="button" id="btnAutoWeather" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap;">🌤 현재 기상 불러오기</button>
+        <span id="autoWeatherMsg" style="font-size:12px;color:#666;"></span>
+      </div>
       <div class="field"><label>비행시간(자동계산)</label><input type="text" id="f_duration" disabled placeholder="비행시작/종료 입력 시 자동 계산"></div>
       <div class="field wide"><label>특이 비행 사항</label><input type="text" id="f_notes" data-sync="special_notes"></div>
     </div>
@@ -1089,6 +1093,30 @@ function resetChecklistForm(){
 }
 
 document.getElementById("f_date").value = new Date().toLocaleDateString("sv-SE");
+
+document.getElementById("btnAutoWeather").addEventListener("click", async () => {
+  const msg = document.getElementById("autoWeatherMsg");
+  msg.textContent = "불러오는 중...";
+  msg.style.color = "#666";
+  try {
+    const res = await fetch("https://mokpo-weather-dashboard.onrender.com/api/sfc/obs?stn=268");
+    const d = await res.json();
+    if (!d.ok) throw new Error(d.error || "오류");
+    document.getElementById("f_wind").value = d.wind_range;
+    document.getElementById("f_temp").value = d.temperature;
+    document.getElementById("f_visibility").value = d.visibility_km;
+    ["f_wind","f_temp","f_visibility"].forEach(id =>
+      document.getElementById(id).dispatchEvent(new Event("input"))
+    );
+    const t = d.tm;
+    msg.textContent = `✓ ${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)} ${t.slice(8,10)}:00 진도군`;
+    msg.style.color = "#16a34a";
+  } catch(e) {
+    msg.textContent = "실패: " + e.message;
+    msg.style.color = "#dc2626";
+  }
+});
+
 document.getElementById("btnSave1").addEventListener("click", saveChecklist);
 document.getElementById("btnNew1").addEventListener("click", resetChecklistForm);
 document.getElementById("btnPrint1").addEventListener("click", ()=>window.print());
