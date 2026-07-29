@@ -1952,8 +1952,8 @@ function buildVisibilityNoticeHelper() {
       const vMin = h * 60 + m;
       return vMin >= minMin && vMin <= maxMin;
     }
-    // 통제/정상운항: 출항대기로 등록된 항목만 표시
-    return visibilityNoticeSelectedByType.wait.has(idx);
+    // 통제/정상운항: 현재 출항대기 선택 중이거나 이미 출항대기로 복사된 항목만 표시
+    return visibilityNoticeSelectedByType.wait.has(idx) || visibilityNoticeCopiedByType.wait.has(idx);
   });
 
   const itemRows = filteredItems.map(({ v, idx }) => {
