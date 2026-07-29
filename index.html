@@ -1222,6 +1222,11 @@ const VISIBILITY_LIMIT_ROUTE_SUMMARY = [
   { route: '진도 / 제주', ships: '산타모니카' },
   { route: '우수영 / 상태동리', ships: '해진고속카페리' }
 ];
+const FERRY_OPERATION_API_URL = 'https://apis.data.go.kr/B554035/oprt-schd-info-v2/get-oprt-schd-info-v2';
+const FERRY_OPERATION_API_SERVICE_KEY = '4063f2c2047eaf451ca47bba11369c953e228d145a62d2be87ad7af1d0f3960f';
+const FERRY_OPERATION_API_PAGE_SIZE = 1000;
+const FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY = 'ferryOperation.registeredApiRoutes.v1';
+const FERRY_OPERATION_REGISTERED_ROUTE_LIMIT = 6;
 const VISIBILITY_LIMIT_STATUS_SUMMARY = [
   { name: '출항 대기', reason: '상황값에 따라 자동', suffix: '운항대기합니다.' },
   { name: '통제', reason: '상황값에 따라 자동', suffix: '출항 통제합니다.' },
@@ -1307,9 +1312,20 @@ const VISIBILITY_NOTICE_TYPES = [
   { key: 'ctrl',   label: '통제',     header: '시계제한으로 아래항로 통제합니다.',     footer: '\n* 시계호전 시 다음항차부터 정상운항합니다.' },
   { key: 'normal', label: '정상운항', header: '시계호전되어 아래항로 정상운항합니다.', footer: '' }
 ];
+let ferryOperationRegisteredRoutes = readFerryOperationRegisteredRoutes();
+let ferryOperationApiRouteCatalog = [];
+let ferryOperationApiRouteCatalogLoadedAt = '';
+let ferryOperationApiRouteCatalogLoading = false;
+let ferryOperationApiRouteCatalogError = '';
+let ferryOperationApiRouteSearchQuery = '';
+let visibilityNoticeApiItems = [];
+let visibilityNoticeApiLoading = false;
+let visibilityNoticeApiError = '';
+let visibilityNoticeApiLoadedAt = '';
+let visibilityNoticeApiObservedDate = '';
 let visibilityNoticeActiveType = 'wait';
 const visibilityNoticeSelectedByType = { wait: new Set(), ctrl: new Set(), normal: new Set() };
-const NOTICE_COPIED_STORAGE_KEY = 'visibilityNoticeCopied.v1';
+const NOTICE_COPIED_STORAGE_KEY = 'visibilityNoticeCopied.v2';
 function _loadNoticeCopied() {
   try {
     const raw = localStorage.getItem(NOTICE_COPIED_STORAGE_KEY);
@@ -1503,6 +1519,527 @@ function writeLocalStorageJson(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
     // Ignore storage failures in limited environments.
+  }
+}
+
+function normalizeCompactText(value) {
+  return String(value || '').replace(/\s+/g, '').trim().toLowerCase();
+}
+
+function normalizeFerryOperationRegisteredRoutes(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value.reduce((accumulator, item) => {
+    const routeKey = String(item?.routeKey || '').trim();
+    const routeName = String(item?.routeName || '').trim();
+    if (!routeKey || !routeName || seen.has(routeKey)) return accumulator;
+    seen.add(routeKey);
+    accumulator.push({
+      routeKey,
+      routeName,
+      routeCode: String(item?.routeCode || '').trim(),
+      ships: Array.isArray(item?.ships) ? [...new Set(item.ships.map((ship) => String(ship || '').trim()).filter(Boolean))] : []
+    });
+    return accumulator;
+  }, []).slice(0, FERRY_OPERATION_REGISTERED_ROUTE_LIMIT);
+}
+
+function readFerryOperationRegisteredRoutes() {
+  return normalizeFerryOperationRegisteredRoutes(readLocalStorageJson(FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY, []));
+}
+
+function writeFerryOperationRegisteredRoutes(nextRoutes) {
+  ferryOperationRegisteredRoutes = normalizeFerryOperationRegisteredRoutes(nextRoutes);
+  writeLocalStorageJson(FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY, ferryOperationRegisteredRoutes);
+  return ferryOperationRegisteredRoutes;
+}
+
+function getFerryOperationApiDateString() {
+  return getFerryOperationTodayString().replace(/-/g, '');
+}
+
+async function fetchFerryOperationApiRows() {
+  const allRows = [];
+  let pageNo = 1;
+  let totalCount = Infinity;
+
+  while (allRows.length < totalCount) {
+    const params = new URLSearchParams({
+      serviceKey: FERRY_OPERATION_API_SERVICE_KEY,
+      pageNo: String(pageNo),
+      numOfRows: String(FERRY_OPERATION_API_PAGE_SIZE),
+      dataType: 'JSON',
+      rlvtYmd: getFerryOperationApiDateString()
+    });
+
+    const response = await fetch(`${FERRY_OPERATION_API_URL}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`항로 API 조회 실패 (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const header = payload?.response?.header;
+    if (String(header?.resultCode || '') !== '200') {
+      throw new Error(header?.resultMsg || '항로 API 응답이 정상이 아닙니다.');
+    }
+
+    const body = payload?.response?.body || {};
+    totalCount = Number(body.totalCount || 0);
+    const items = Array.isArray(body?.items?.item)
+      ? body.items.item
+      : body?.items?.item
+        ? [body.items.item]
+        : [];
+
+    allRows.push(...items);
+    if (!items.length || items.length < FERRY_OPERATION_API_PAGE_SIZE) break;
+    pageNo += 1;
+  }
+
+  return allRows;
+}
+
+async function fetchFerryOperationApiRouteCatalog() {
+  const allRows = await fetchFerryOperationApiRows();
+
+  const routeMap = new Map();
+  allRows.forEach((row) => {
+    const routeCode = String(row?.lcns_seawy_cd || '').trim();
+    const routeName = String(row?.lcns_seawy_nm || '').trim();
+    const shipName = String(row?.psnshp_nm || '').trim();
+    const statusText = [
+      row?.nvg_se_nm,
+      row?.nvg_stts_nm,
+      row?.nnavi_rsn_nm,
+      row?.cntrl_rsn_nm,
+      row?.cnls_etc_rsn
+    ].map((value) => String(value || '').trim()).join(' ');
+    if (!routeName) return;
+    const routeKey = routeCode || routeName;
+    const current = routeMap.get(routeKey) || {
+      routeKey,
+      routeCode,
+      routeName,
+      ships: new Set(),
+      hasSelectableVoyage: false
+    };
+    if (shipName) current.ships.add(shipName);
+    if (!/비운/.test(statusText)) current.hasSelectableVoyage = true;
+    routeMap.set(routeKey, current);
+  });
+
+  ferryOperationApiRouteCatalog = [...routeMap.values()]
+    .map((item) => ({
+      routeKey: item.routeKey,
+      routeCode: item.routeCode,
+      routeName: item.routeName,
+      ships: [...item.ships].sort((a, b) => a.localeCompare(b, 'ko')),
+      disabled: !item.hasSelectableVoyage
+    }))
+    .sort((a, b) => a.routeName.localeCompare(b.routeName, 'ko'));
+
+  ferryOperationApiRouteCatalogLoadedAt = new Date().toISOString();
+  ferryOperationApiRouteCatalogError = '';
+  return ferryOperationApiRouteCatalog;
+}
+
+function normalizeFerryOperationApiDate(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length !== 8) return String(value || '').trim();
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
+function normalizeFerryOperationApiTime(value) {
+  return String(value || '').replace(/\D/g, '').padStart(4, '0').slice(-4);
+}
+
+function ferryOperationTimeToMinutes(value) {
+  const digits = normalizeFerryOperationApiTime(value);
+  return Number(digits.slice(0, 2)) * 60 + Number(digits.slice(2, 4));
+}
+
+function formatFerryOperationApiTime(value) {
+  const digits = normalizeFerryOperationApiTime(value);
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
+}
+
+function normalizeVisibilityApiNoticeItem(row) {
+  const routeCode = String(row?.lcns_seawy_cd || '').trim();
+  const routeName = String(row?.lcns_seawy_nm || '').trim();
+  const shipCode = String(row?.psnshp_cd || '').trim();
+  const shipName = String(row?.psnshp_nm || '').trim();
+  const departureCode = String(row?.oport_cd || '').trim();
+  const departureName = String(row?.oport_nm || '').trim();
+  const arrivalCode = String(row?.dest_cd || '').trim();
+  const arrivalName = String(row?.dest_nm || '').trim();
+  const sailTime = normalizeFerryOperationApiTime(row?.sail_tm);
+  const observedDate = normalizeFerryOperationApiDate(row?.rlvt_ymd);
+  const statusText = [
+    row?.nvg_se_nm,
+    row?.nvg_stts_nm,
+    row?.nnavi_rsn_nm,
+    row?.cntrl_rsn_nm,
+    row?.cnls_etc_rsn
+  ].map((value) => String(value || '').trim()).join(' ');
+  return {
+    routeKey: routeCode || routeName,
+    routeCode,
+    routeName,
+    shipCode,
+    shipName,
+    departureCode,
+    departureName,
+    arrivalCode,
+    arrivalName,
+    sailTime,
+    observedDate,
+    statusText,
+    routeTypeCode: String(row?.seawy_se_cd || '').trim(),
+    routeTypeLabel: String(row?.seawy_se_nm || '').trim(),
+    directionCode: String(row?.nvg_drc_cd || '').trim(),
+    itemId: [
+      observedDate,
+      routeCode || routeName,
+      shipCode || shipName,
+      sailTime,
+      departureCode,
+      arrivalCode
+    ].join('|')
+  };
+}
+
+function isVisibilityNonOperatingItem(item) {
+  return /비운/.test(String(item?.statusText || '').trim());
+}
+
+function buildVisibilityNoticeClusterKey(item) {
+  return [
+    item.observedDate,
+    item.routeCode || item.routeName,
+    item.shipCode || item.shipName,
+    item.routeTypeCode || item.routeTypeLabel
+  ].join('|');
+}
+
+function isVisibilityOneWayRoute(item) {
+  return /편도/.test(String(item?.routeTypeLabel || '').trim());
+}
+
+function canCollapseVisibilityReturnLeg(current, next) {
+  if (!current || !next) return false;
+  if (!isVisibilityOneWayRoute(current) || !isVisibilityOneWayRoute(next)) return false;
+  if ((current.routeCode || current.routeName) !== (next.routeCode || next.routeName)) return false;
+  if ((current.shipCode || current.shipName) !== (next.shipCode || next.shipName)) return false;
+  if (!current.departureCode || !current.arrivalCode || !next.departureCode || !next.arrivalCode) return false;
+  return current.departureCode === next.arrivalCode && current.arrivalCode === next.departureCode;
+}
+
+function collapseVisibilityOneWayVoyages(items) {
+  const grouped = new Map();
+  items.forEach((item) => {
+    const key = buildVisibilityNoticeClusterKey(item);
+    const bucket = grouped.get(key) || [];
+    bucket.push(item);
+    grouped.set(key, bucket);
+  });
+
+  const collapsed = [];
+  grouped.forEach((bucket) => {
+    const sorted = [...bucket].sort((a, b) => ferryOperationTimeToMinutes(a.sailTime) - ferryOperationTimeToMinutes(b.sailTime));
+    for (let index = 0; index < sorted.length; index += 1) {
+      const current = sorted[index];
+      const next = sorted[index + 1];
+      if (canCollapseVisibilityReturnLeg(current, next)) {
+        collapsed.push(current);
+        index += 1;
+        continue;
+      }
+      collapsed.push(current);
+    }
+  });
+
+  return collapsed;
+}
+
+function dedupeVisibilityNoticeItems(items) {
+  const itemMap = new Map();
+  items.forEach((item) => {
+    if (!item?.itemId || itemMap.has(item.itemId)) return;
+    itemMap.set(item.itemId, item);
+  });
+  return [...itemMap.values()];
+}
+
+function getRegisteredVisibilityRouteMatchers() {
+  return {
+    routeCodes: new Set(ferryOperationRegisteredRoutes.map((route) => String(route.routeCode || '').trim()).filter(Boolean)),
+    routeNames: new Set(ferryOperationRegisteredRoutes.map((route) => normalizeCompactText(route.routeName)))
+  };
+}
+
+function getVisibilityNoticeItems() {
+  return [...visibilityNoticeApiItems].sort((a, b) => {
+    const timeDiff = ferryOperationTimeToMinutes(a.sailTime) - ferryOperationTimeToMinutes(b.sailTime);
+    if (timeDiff !== 0) return timeDiff;
+    return a.routeName.localeCompare(b.routeName, 'ko') || a.shipName.localeCompare(b.shipName, 'ko');
+  });
+}
+
+function getCurrentVisibilityWindowItems() {
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return getVisibilityNoticeItems().filter((item) => {
+    const diff = Math.abs(ferryOperationTimeToMinutes(item.sailTime) - nowMinutes);
+    return Math.min(diff, 1440 - diff) <= 120;
+  });
+}
+
+function getVisibilityNoticeAllItemIds() {
+  return new Set(getVisibilityNoticeItems().map((item) => item.itemId));
+}
+
+async function fetchVisibilityNoticeApiItems(section, { force = false } = {}) {
+  if (visibilityNoticeApiLoading) return;
+  if (!ferryOperationRegisteredRoutes.length) {
+    visibilityNoticeApiItems = [];
+    visibilityNoticeApiError = '';
+    visibilityNoticeApiLoadedAt = '';
+    visibilityNoticeApiObservedDate = '';
+    const panel = section?.querySelector('[data-ferry-op-tab-panel="visibility"]');
+    if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+    return;
+  }
+  if (visibilityNoticeApiItems.length && visibilityNoticeApiObservedDate === getFerryOperationTodayString() && !force) {
+    return;
+  }
+
+  try {
+    visibilityNoticeApiLoading = true;
+    visibilityNoticeApiError = '';
+    const panel = section?.querySelector('[data-ferry-op-tab-panel="visibility"]');
+    if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+
+    const rows = await fetchFerryOperationApiRows();
+    const matchers = getRegisteredVisibilityRouteMatchers();
+    const filteredItems = rows
+      .map((row) => normalizeVisibilityApiNoticeItem(row))
+      .filter((item) => item.routeName && item.shipName && item.sailTime)
+      .filter((item) => !isVisibilityNonOperatingItem(item))
+      .filter((item) => matchers.routeCodes.has(item.routeCode) || matchers.routeNames.has(normalizeCompactText(item.routeName)));
+
+    visibilityNoticeApiItems = dedupeVisibilityNoticeItems(collapseVisibilityOneWayVoyages(filteredItems));
+    visibilityNoticeApiLoadedAt = new Date().toISOString();
+    visibilityNoticeApiObservedDate = getFerryOperationTodayString();
+
+    const validItemIds = getVisibilityNoticeAllItemIds();
+    Object.keys(visibilityNoticeSelectedByType).forEach((typeKey) => {
+      visibilityNoticeSelectedByType[typeKey] = new Set([...visibilityNoticeSelectedByType[typeKey]].filter((itemId) => validItemIds.has(itemId)));
+      visibilityNoticeCopiedByType[typeKey] = new Set([...visibilityNoticeCopiedByType[typeKey]].filter((itemId) => validItemIds.has(itemId)));
+    });
+    _saveNoticeCopied();
+  } catch (error) {
+    visibilityNoticeApiError = error instanceof Error ? error.message : 'API 항차를 불러오지 못했습니다.';
+  } finally {
+    visibilityNoticeApiLoading = false;
+    const panel = section?.querySelector('[data-ferry-op-tab-panel="visibility"]');
+    if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+  }
+}
+
+function getFilteredFerryOperationApiRoutes(query = ferryOperationApiRouteSearchQuery) {
+  const keyword = normalizeCompactText(query);
+  if (!keyword) return [...ferryOperationApiRouteCatalog];
+  return ferryOperationApiRouteCatalog.filter((route) => {
+    const searchBase = normalizeCompactText(`${route.routeName} ${route.ships.join(' ')}`);
+    return searchBase.includes(keyword);
+  });
+}
+
+function buildRegisteredRouteChipMarkup(route, removable = false) {
+  return `
+    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+      <span>${escapeHtml(route.routeName)}</span>
+      ${removable ? `<button type="button" class="rounded-full bg-emerald-950/40 px-1.5 py-0 text-[11px] leading-none text-emerald-200" data-ferry-op-remove-registered-route="${escapeHtml(route.routeKey)}" aria-label="${escapeHtml(route.routeName)} 제거">×</button>` : ''}
+    </span>`;
+}
+
+function buildFerryOperationRegisteredRoutesMarkup() {
+  if (!ferryOperationRegisteredRoutes.length) {
+    return '<p class="text-sm text-slate-400">아직 등록한 항로가 없습니다. API 항로 선택 창에서 추가하세요.</p>';
+  }
+  return `<div class="flex flex-wrap gap-2">${ferryOperationRegisteredRoutes.map((route) => buildRegisteredRouteChipMarkup(route, true)).join('')}</div>`;
+}
+
+function buildFerryOperationApiRouteModalContent() {
+  const filteredRoutes = getFilteredFerryOperationApiRoutes();
+  const routeCountLabel = `${ferryOperationRegisteredRoutes.length}/${FERRY_OPERATION_REGISTERED_ROUTE_LIMIT}`;
+
+  if (ferryOperationApiRouteCatalogLoading) {
+    return '<div class="space-y-3"><p class="text-sm text-slate-300">항로 목록을 불러오는 중입니다.</p></div>';
+  }
+
+  if (ferryOperationApiRouteCatalogError) {
+    return `
+      <div class="space-y-4">
+        <p class="text-sm text-red-300">${escapeHtml(ferryOperationApiRouteCatalogError)}</p>
+        <button type="button" id="ferry-op-api-route-retry-btn" class="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20">다시 불러오기</button>
+      </div>`;
+  }
+
+  const routeRows = filteredRoutes.length
+    ? filteredRoutes.map((route) => {
+        const isRegistered = ferryOperationRegisteredRoutes.some((item) => item.routeKey === route.routeKey);
+        const isFull = !isRegistered && ferryOperationRegisteredRoutes.length >= FERRY_OPERATION_REGISTERED_ROUTE_LIMIT;
+        const isDisabled = !!route.disabled;
+        const buttonLabel = isRegistered ? '등록됨' : isFull ? '가득 참' : '등록';
+        const buttonClass = isRegistered
+          ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+          : isFull
+            ? 'border-slate-700 bg-slate-800/60 text-slate-500 cursor-not-allowed'
+            : 'border-violet-400/30 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20';
+        return `
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-base font-bold text-white">${escapeHtml(route.routeName)}</p>
+                <p class="mt-1 text-xs text-slate-400">${escapeHtml(route.ships.join(', ') || '선박 정보 없음')}</p>
+                ${isDisabled ? '<p class="mt-2 text-[11px] font-semibold text-amber-300">오늘 기준 비운항 항로입니다.</p>' : ''}
+              </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${buttonClass}"
+                data-ferry-op-register-route="${escapeHtml(route.routeKey)}"
+                ${isRegistered || isFull ? 'disabled' : ''}
+              >${buttonLabel}</button>
+            </div>
+          </div>`;
+      }).join('')
+    : '<p class="rounded-2xl border border-slate-700 bg-slate-900/60 px-4 py-6 text-center text-sm text-slate-400">검색 결과가 없습니다.</p>';
+
+  return `
+    <div class="space-y-4">
+      <div class="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-white">등록된 항로</p>
+            <p class="mt-1 text-xs text-slate-400">기존 앱에 연결할 API 항로를 최대 ${FERRY_OPERATION_REGISTERED_ROUTE_LIMIT}개까지 고를 수 있습니다.</p>
+          </div>
+          <span class="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">${routeCountLabel}</span>
+        </div>
+        <div class="mt-3">${buildFerryOperationRegisteredRoutesMarkup()}</div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            id="ferry-op-api-route-search-input"
+            type="text"
+            value="${escapeHtml(ferryOperationApiRouteSearchQuery)}"
+            placeholder="항로명 또는 선명 검색"
+            class="flex-1 rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+          />
+          <button type="button" id="ferry-op-api-route-refresh-btn" class="rounded-full border border-slate-600 bg-slate-800/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500">새로고침</button>
+        </div>
+        <div class="grid gap-3">${routeRows}</div>
+      </div>
+    </div>`;
+}
+
+function renderFerryOperationApiRouteModal(section, { focusSearchInput = false, searchSelectionStart = null, searchSelectionEnd = null } = {}) {
+  if (modalContainer.classList.contains('hidden')) return;
+  modalTitle.textContent = 'API 항로 선택';
+  modalBody.innerHTML = buildFerryOperationApiRouteModalContent();
+
+  const searchInput = document.getElementById('ferry-op-api-route-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (event) => {
+      ferryOperationApiRouteSearchQuery = event.target.value;
+      if (event.isComposing) return;
+      renderFerryOperationApiRouteModal(section, {
+        focusSearchInput: true,
+        searchSelectionStart: event.target.selectionStart,
+        searchSelectionEnd: event.target.selectionEnd
+      });
+    });
+
+    searchInput.addEventListener('compositionend', (event) => {
+      ferryOperationApiRouteSearchQuery = event.target.value;
+      renderFerryOperationApiRouteModal(section, {
+        focusSearchInput: true,
+        searchSelectionStart: event.target.selectionStart,
+        searchSelectionEnd: event.target.selectionEnd
+      });
+    });
+  }
+
+  if (searchInput && focusSearchInput) {
+    requestAnimationFrame(() => {
+      const nextInput = document.getElementById('ferry-op-api-route-search-input');
+      if (!nextInput) return;
+      nextInput.focus();
+      const start = typeof searchSelectionStart === 'number' ? searchSelectionStart : nextInput.value.length;
+      const end = typeof searchSelectionEnd === 'number' ? searchSelectionEnd : start;
+      nextInput.setSelectionRange(start, end);
+    });
+  }
+
+  const refreshButton = document.getElementById('ferry-op-api-route-refresh-btn');
+  if (refreshButton) {
+    refreshButton.addEventListener('click', async () => {
+      await openFerryOperationApiRoutePicker(section, { force: true });
+    });
+  }
+
+  const retryButton = document.getElementById('ferry-op-api-route-retry-btn');
+  if (retryButton) {
+    retryButton.addEventListener('click', async () => {
+      await openFerryOperationApiRoutePicker(section, { force: true });
+    });
+  }
+
+  modalBody.querySelectorAll('[data-ferry-op-register-route]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const routeKey = String(button.getAttribute('data-ferry-op-register-route') || '').trim();
+      const route = ferryOperationApiRouteCatalog.find((item) => item.routeKey === routeKey);
+      if (!route) return;
+      writeFerryOperationRegisteredRoutes([...ferryOperationRegisteredRoutes, route]);
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+      await fetchVisibilityNoticeApiItems(section, { force: true });
+      renderFerryOperationApiRouteModal(section);
+    });
+  });
+
+  modalBody.querySelectorAll('[data-ferry-op-remove-registered-route]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const routeKey = String(button.getAttribute('data-ferry-op-remove-registered-route') || '').trim();
+      writeFerryOperationRegisteredRoutes(ferryOperationRegisteredRoutes.filter((route) => route.routeKey !== routeKey));
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+      await fetchVisibilityNoticeApiItems(section, { force: true });
+      renderFerryOperationApiRouteModal(section);
+    });
+  });
+}
+
+async function openFerryOperationApiRoutePicker(section, { force = false } = {}) {
+  ferryOperationApiRouteSearchQuery = '';
+  showModal('API 항로 선택', buildFerryOperationApiRouteModalContent());
+  renderFerryOperationApiRouteModal(section);
+
+  if (ferryOperationApiRouteCatalogLoading) return;
+  if (ferryOperationApiRouteCatalog.length && !force) return;
+
+  try {
+    ferryOperationApiRouteCatalogLoading = true;
+    ferryOperationApiRouteCatalogError = '';
+    renderFerryOperationApiRouteModal(section);
+    await fetchFerryOperationApiRouteCatalog();
+  } catch (error) {
+    ferryOperationApiRouteCatalogError = error instanceof Error ? error.message : '항로 목록을 불러오지 못했습니다.';
+  } finally {
+    ferryOperationApiRouteCatalogLoading = false;
+    renderFerryOperationApiRouteModal(section);
   }
 }
 
@@ -1913,16 +2450,18 @@ function buildFerryOperationWeatherPanel() {
 
 function buildVisibilityNoticeTextFromSelected() {
   const activeType = VISIBILITY_NOTICE_TYPES.find(t => t.key === visibilityNoticeActiveType) || VISIBILITY_NOTICE_TYPES[0];
-  const allItems = VISIBILITY_NOTICE_CARDS.flatMap(card => card.vessels);
+  const allItems = getVisibilityNoticeItems();
+  const itemMap = new Map(allItems.map((item) => [item.itemId, item]));
   const selected = [...visibilityNoticeSelectedByType[visibilityNoticeActiveType]].sort((a, b) => {
-    const [ah, am] = allItems[a].time.split(':').map(Number);
-    const [bh, bm] = allItems[b].time.split(':').map(Number);
-    return (ah * 60 + am) - (bh * 60 + bm);
+    const aItem = itemMap.get(a);
+    const bItem = itemMap.get(b);
+    if (!aItem || !bItem) return 0;
+    return ferryOperationTimeToMinutes(aItem.sailTime) - ferryOperationTimeToMinutes(bItem.sailTime);
   });
-  const lines = selected.map((idx, i) => {
-    const v = allItems[idx];
-    return `${i + 1}. ${v.route} ${v.name}(${v.time} ${v.depart} 출항)`;
-  });
+  const lines = selected.map((itemId, i) => {
+    const item = itemMap.get(itemId);
+    return item ? `${i + 1}. ${item.routeName} ${item.shipName}(${formatFerryOperationApiTime(item.sailTime)} ${item.departureName} 출항)` : '';
+  }).filter(Boolean);
   return `${activeType.header}\n${lines.join('\n')}${activeType.footer}`;
 }
 
@@ -1934,7 +2473,40 @@ function buildVisibilityNoticeHelper() {
   const fmtMin = m => { const t = ((m % 1440) + 1440) % 1440; return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
   const timeLabel = `${fmtMin(minMin)} ~ ${fmtMin(maxMin)}`;
 
-  const allItems = VISIBILITY_NOTICE_CARDS.flatMap(card => card.vessels);
+  if (!ferryOperationRegisteredRoutes.length) {
+    return `
+      <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+        <p class="text-sm text-slate-400">먼저 위에서 API 항로를 등록하세요.</p>
+      </div>`;
+  }
+
+  if (visibilityNoticeApiLoading) {
+    return `
+      <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+        <p class="text-sm text-slate-300">등록한 항로 기준 오늘 항차를 불러오는 중입니다.</p>
+      </div>`;
+  }
+
+  if (visibilityNoticeApiError) {
+    return `
+      <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+        <p class="text-sm text-red-300">${escapeHtml(visibilityNoticeApiError)}</p>
+        <button type="button" id="ferry-op-visibility-refresh-btn" class="w-full rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-100 hover:bg-cyan-500/20">항차 다시 불러오기</button>
+      </div>`;
+  }
+
+  const allItems = getVisibilityNoticeItems();
+  if (!allItems.length) {
+    return `
+      <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+        <p class="text-sm text-slate-400">등록한 항로 기준으로 오늘 표시할 항차가 없습니다.</p>
+        <button type="button" id="ferry-op-visibility-refresh-btn" class="w-full rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-100 hover:bg-cyan-500/20">항차 새로고침</button>
+      </div>`;
+  }
 
   const typeButtons = VISIBILITY_NOTICE_TYPES.map(t => {
     const active = t.key === visibilityNoticeActiveType;
@@ -1946,23 +2518,21 @@ function buildVisibilityNoticeHelper() {
     return `<button type="button" class="flex-1 rounded-xl border px-3 py-2 text-sm font-bold transition ${colorClass}" data-notice-type="${t.key}">${t.label}</button>`;
   }).join('');
 
-  const filteredItems = allItems.map((v, idx) => ({ v, idx })).filter(({ v, idx }) => {
+  const filteredItems = allItems.filter((item) => {
     if (visibilityNoticeActiveType === 'wait') {
-      const [h, m] = v.time.split(':').map(Number);
-      const vMin = h * 60 + m;
+      const vMin = ferryOperationTimeToMinutes(item.sailTime);
       return vMin >= minMin && vMin <= maxMin;
     }
-    // 통제/정상운항: 현재 출항대기 선택 중이거나 이미 출항대기로 복사된 항목만 표시
-    return visibilityNoticeSelectedByType.wait.has(idx) || visibilityNoticeCopiedByType.wait.has(idx);
+    return visibilityNoticeSelectedByType.wait.has(item.itemId) || visibilityNoticeCopiedByType.wait.has(item.itemId);
   });
 
-  const itemRows = filteredItems.map(({ v, idx }) => {
-    const sel = visibilityNoticeSelectedItems.has(idx);
+  const itemRows = filteredItems.map((item) => {
+    const sel = visibilityNoticeSelectedItems.has(item.itemId);
     const rowClass = sel ? 'border-violet-400/80 bg-violet-500/15' : 'border-slate-600 bg-slate-800/70';
     const circleClass = sel ? 'border-violet-400 bg-violet-500' : 'border-slate-500';
     const check = sel ? `<svg viewBox="0 0 12 12" fill="none" class="w-3 h-3"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
     const otherBadges = VISIBILITY_NOTICE_TYPES
-      .filter(t => visibilityNoticeCopiedByType[t.key].has(idx))
+      .filter(t => visibilityNoticeCopiedByType[t.key].has(item.itemId))
       .map(t => {
         const badgeColor = t.key === 'ctrl' ? 'bg-red-500/20 text-red-300 border-red-500/40'
           : t.key === 'normal' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
@@ -1970,12 +2540,12 @@ function buildVisibilityNoticeHelper() {
         return `<span class="text-[10px] font-bold border rounded px-1 py-0.5 ${badgeColor}">${t.label}</span>`;
       }).join('');
     return `
-      <button type="button" class="w-full rounded-xl border ${rowClass} px-4 py-2.5 text-left flex items-center gap-3 transition active:scale-[0.98]" data-notice-item="${idx}">
+      <button type="button" class="w-full rounded-xl border ${rowClass} px-4 py-2.5 text-left flex items-center gap-3 transition active:scale-[0.98]" data-notice-item="${escapeHtml(item.itemId)}">
         <span class="shrink-0 w-5 h-5 rounded-full border-2 ${circleClass} flex items-center justify-center">${check}</span>
-        <span class="shrink-0 text-base font-bold text-white w-12">${escapeHtml(v.time)}</span>
+        <span class="shrink-0 text-base font-bold text-white w-12">${escapeHtml(formatFerryOperationApiTime(item.sailTime))}</span>
         <span class="flex-1 leading-snug">
-          <span class="text-sm font-bold text-slate-100">${escapeHtml(v.name)}</span>
-          <span class="block text-xs text-slate-400">${escapeHtml(v.route)} · ${escapeHtml(v.depart)} 출항${otherBadges ? ' ' : ''}${otherBadges}</span>
+          <span class="text-sm font-bold text-slate-100">${escapeHtml(item.shipName)}</span>
+          <span class="block text-xs text-slate-400">${escapeHtml(item.routeName)} · ${escapeHtml(item.departureName)} 출항${item.arrivalName ? ` → ${escapeHtml(item.arrivalName)}` : ''}${otherBadges ? ' ' : ''}${otherBadges}</span>
         </span>
       </button>`;
   }).join('');
@@ -1993,7 +2563,10 @@ function buildVisibilityNoticeHelper() {
 
   return `
     <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 space-y-3">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-300/80">밴드 공지 도우미</p>
+        <button type="button" id="ferry-op-visibility-refresh-btn" class="rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-bold text-cyan-100 hover:bg-cyan-500/20">항차 새로고침</button>
+      </div>
       <div class="flex gap-2" id="visibility-notice-type-btns">${typeButtons}</div>
       <p class="text-xs text-slate-400">표시 시간대: ${timeLabel}</p>
       <div class="space-y-2" id="visibility-notice-items">${filteredItems.length ? itemRows : '<p class="text-xs text-slate-500 text-center py-2">해당 시간대 항차 없음</p>'}</div>
@@ -2027,6 +2600,21 @@ function buildFerryOperationVisibilityPanel() {
 
   return `
     <div class="space-y-4">
+      <div class="hidden rounded-2xl border border-slate-700 bg-slate-800/80 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-300/80">API 항로 등록</p>
+            <p class="mt-1 text-sm text-slate-300">API 항로 선택 창에서 고른 항로를 기존 앱에 등록합니다.</p>
+            <p class="mt-1 text-xs text-slate-500">현재 등록 ${escapeHtml(String(ferryOperationRegisteredRoutes.length))}/${escapeHtml(String(FERRY_OPERATION_REGISTERED_ROUTE_LIMIT))}개${visibilityNoticeApiLoading ? ' · 오늘 항차 조회 중' : visibilityNoticeApiLoadedAt ? ` · 오늘 항차 ${escapeHtml(String(getVisibilityNoticeItems().length))}건` : ''}</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="ferry-op-visibility-refresh-btn-top" class="rounded-full border border-cyan-400/35 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20">오늘 항차 조회</button>
+            <button type="button" id="ferry-op-api-route-picker-btn" class="rounded-full border border-emerald-400/35 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20">API 항로 선택</button>
+          </div>
+        </div>
+        <div class="mt-3">${buildFerryOperationRegisteredRoutesMarkup()}</div>
+      </div>
+
       <div class="rounded-2xl border border-slate-700 bg-slate-800/80 overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-700 bg-slate-900/60">
           <p class="text-xs font-bold text-violet-300 uppercase tracking-[0.2em]">항로별 시계제한 결정방법</p>
@@ -2101,6 +2689,26 @@ function bindFerryOperationManagerSection(section) {
   if (section.dataset.ferryOperationBound === 'true') return;
 
   section.addEventListener('click', async (event) => {
+    if (event.target.closest('#ferry-op-visibility-refresh-btn') || event.target.closest('#ferry-op-visibility-refresh-btn-top')) {
+      await fetchVisibilityNoticeApiItems(section, { force: true });
+      return;
+    }
+
+    if (event.target.closest('#ferry-op-api-route-picker-btn')) {
+      await openFerryOperationApiRoutePicker(section);
+      return;
+    }
+
+    const removeRegisteredRouteBtn = event.target.closest('[data-ferry-op-remove-registered-route]');
+    if (removeRegisteredRouteBtn) {
+      const routeKey = String(removeRegisteredRouteBtn.getAttribute('data-ferry-op-remove-registered-route') || '').trim();
+      writeFerryOperationRegisteredRoutes(ferryOperationRegisteredRoutes.filter((route) => route.routeKey !== routeKey));
+      const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
+      if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
+      await fetchVisibilityNoticeApiItems(section, { force: true });
+      return;
+    }
+
     const tabButton = event.target.closest('[data-ferry-op-tab-btn]');
     if (tabButton) {
       if (tabButton.dataset.ferryOpTabBtn === 'weather') {
@@ -2108,6 +2716,9 @@ function bindFerryOperationManagerSection(section) {
         return;
       }
       setFerryOperationActivePanel(section, tabButton.dataset.ferryOpTabBtn);
+      if (tabButton.dataset.ferryOpTabBtn === 'visibility') {
+        await fetchVisibilityNoticeApiItems(section);
+      }
       return;
     }
 
@@ -2126,11 +2737,12 @@ function bindFerryOperationManagerSection(section) {
 
     const noticeItemBtn = event.target.closest('[data-notice-item]');
     if (noticeItemBtn) {
-      const idx = parseInt(noticeItemBtn.dataset.noticeItem, 10);
-      if (visibilityNoticeSelectedItems.has(idx)) {
-        visibilityNoticeSelectedItems.delete(idx);
+      const itemId = String(noticeItemBtn.dataset.noticeItem || '').trim();
+      if (!itemId) return;
+      if (visibilityNoticeSelectedItems.has(itemId)) {
+        visibilityNoticeSelectedItems.delete(itemId);
       } else {
-        visibilityNoticeSelectedItems.add(idx);
+        visibilityNoticeSelectedItems.add(itemId);
       }
       const panel = section.querySelector('[data-ferry-op-tab-panel="visibility"]');
       if (panel) panel.innerHTML = buildFerryOperationVisibilityPanel();
@@ -2141,10 +2753,10 @@ function bindFerryOperationManagerSection(section) {
     if (noticeCopyBtn && visibilityNoticeSelectedItems.size > 0) {
       const text = buildVisibilityNoticeTextFromSelected();
       const activeKey = visibilityNoticeActiveType;
-      visibilityNoticeSelectedByType[activeKey].forEach(idx => {
-        visibilityNoticeCopiedByType[activeKey].add(idx);
-        if (activeKey === 'ctrl') visibilityNoticeCopiedByType['normal'].delete(idx);
-        if (activeKey === 'normal') visibilityNoticeCopiedByType['ctrl'].delete(idx);
+      visibilityNoticeSelectedByType[activeKey].forEach(itemId => {
+        visibilityNoticeCopiedByType[activeKey].add(itemId);
+        if (activeKey === 'ctrl') visibilityNoticeCopiedByType['normal'].delete(itemId);
+        if (activeKey === 'normal') visibilityNoticeCopiedByType['ctrl'].delete(itemId);
       });
       visibilityNoticeSelectedByType[activeKey].clear();
       visibilityNoticeCopiedBackup = null;
@@ -2638,6 +3250,7 @@ function replaceFerryOperationCaptureFields(sourceRoot, cloneRoot) {
     img.style.cssText = `display: block; width: ${btnW}px; height: ${btnH}px; flex-shrink: 0;`;
     cloneButton.replaceWith(img);
   });
+
 }
 
 function applyFerryOperationCaptureMetrics(sourceElement, replacement) {
@@ -5575,6 +6188,7 @@ const DATASETS = [
           headerSubtitle.textContent = '여객선 운항 관리';
           section.innerHTML = buildFerryOperationManagerSection();
           bindFerryOperationManagerSection(section);
+          fetchVisibilityNoticeApiItems(section);
           break;
 
         case 'tide-section':
