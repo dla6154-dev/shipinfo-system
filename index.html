@@ -1227,6 +1227,14 @@ const FERRY_OPERATION_API_SERVICE_KEY = '4063f2c2047eaf451ca47bba11369c953e228d1
 const FERRY_OPERATION_API_PAGE_SIZE = 1000;
 const FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY = 'ferryOperation.registeredApiRoutes.v1';
 const FERRY_OPERATION_REGISTERED_ROUTE_LIMIT = 6;
+const FERRY_OPERATION_FIXED_REGISTERED_ROUTES = [
+  { routeKey: '율목-진도', routeName: '율목-진도', routeCode: '', ships: ['새섬두레호', '새섬관매호'] },
+  { routeKey: '진도-서거차', routeName: '진도-서거차', routeCode: '', ships: ['한림페리11호'] },
+  { routeKey: '쉬미-가사', routeName: '쉬미-가사', routeCode: '', ships: ['가사페리호'] },
+  { routeKey: '진도-죽도', routeName: '진도-죽도', routeCode: '', ships: ['섬사랑9호'] },
+  { routeKey: '진도-제주', routeName: '진도-제주', routeCode: '', ships: ['산타모니카'] },
+  { routeKey: '우수영-상태동리', routeName: '우수영-상태동리', routeCode: '', ships: ['해진고속카페리'] }
+];
 const VISIBILITY_LIMIT_STATUS_SUMMARY = [
   { name: '출항 대기', reason: '상황값에 따라 자동', suffix: '운항대기합니다.' },
   { name: '통제', reason: '상황값에 따라 자동', suffix: '출항 통제합니다.' },
@@ -1545,12 +1553,11 @@ function normalizeFerryOperationRegisteredRoutes(value) {
 }
 
 function readFerryOperationRegisteredRoutes() {
-  return normalizeFerryOperationRegisteredRoutes(readLocalStorageJson(FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY, []));
+  return normalizeFerryOperationRegisteredRoutes(FERRY_OPERATION_FIXED_REGISTERED_ROUTES);
 }
 
 function writeFerryOperationRegisteredRoutes(nextRoutes) {
   ferryOperationRegisteredRoutes = normalizeFerryOperationRegisteredRoutes(nextRoutes);
-  writeLocalStorageJson(FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY, ferryOperationRegisteredRoutes);
   return ferryOperationRegisteredRoutes;
 }
 
