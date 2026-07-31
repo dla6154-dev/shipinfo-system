@@ -2551,8 +2551,11 @@ function buildVisibilityNoticeHelper() {
         <span class="shrink-0 w-5 h-5 rounded-full border-2 ${circleClass} flex items-center justify-center">${check}</span>
         <span class="shrink-0 text-base font-bold text-white w-12">${escapeHtml(formatFerryOperationApiTime(item.sailTime))}</span>
         <span class="flex-1 leading-snug">
-          <span class="text-sm font-bold text-slate-100">${escapeHtml(item.shipName)}</span>
-          <span class="block text-xs text-slate-400">${escapeHtml(item.routeName)} · ${escapeHtml(item.departureName)} 출항${item.arrivalName ? ` → ${escapeHtml(item.arrivalName)}` : ''}${otherBadges ? ' ' : ''}${otherBadges}</span>
+          <span class="flex flex-wrap items-center gap-1.5">
+            <span class="text-sm font-bold text-slate-100">${escapeHtml(item.shipName)}</span>
+            ${otherBadges}
+          </span>
+          <span class="block text-xs text-slate-400">${escapeHtml(item.routeName)} · ${escapeHtml(item.departureName)} 출항${item.arrivalName ? ` → ${escapeHtml(item.arrivalName)}` : ''}</span>
         </span>
       </button>`;
   }).join('');
