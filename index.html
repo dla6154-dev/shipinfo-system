@@ -2544,7 +2544,7 @@ function buildVisibilityNoticeHelper() {
         const badgeColor = t.key === 'ctrl' ? 'bg-red-500/20 text-red-300 border-red-500/40'
           : t.key === 'normal' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
           : 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-        return `<span class="text-[10px] font-bold border rounded px-1 py-0.5 ${badgeColor}">${t.label}</span>`;
+        return `<span class="text-[10px] font-bold border rounded px-1 py-0.5 whitespace-nowrap inline-block ${badgeColor}">${t.label}</span>`;
       }).join('');
     return `
       <button type="button" class="w-full rounded-xl border ${rowClass} px-4 py-2.5 text-left flex items-center gap-3 transition active:scale-[0.98]" data-notice-item="${escapeHtml(item.itemId)}">
