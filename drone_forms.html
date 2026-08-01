@@ -258,6 +258,15 @@
   .req-err{outline:2px solid #dc2626 !important;background:#fff1f1 !important;}
   .req-err::placeholder{color:#dc2626;}
   select.req-err{outline:2px solid #dc2626 !important;background:#fff1f1 !important;}
+  #ck_pilot{
+    color:#aaa;
+    -webkit-text-fill-color:#aaa;
+    opacity:1;
+  }
+  #ck_pilot.has-value{
+    color:#111;
+    -webkit-text-fill-color:#111;
+  }
 
   .log-header{
     display:grid;
@@ -975,6 +984,19 @@ function openPilotModal(){
   document.getElementById("pilotLicenseInput").value = getPilotLicense();
   document.getElementById("pilotModal").classList.add("open");
   setTimeout(()=>document.getElementById("pilotNameInput").focus(), 50);
+}
+
+function applyPilotNameToUI(){
+  const name = getPilotName();
+  const hasName = !!name.trim();
+  document.getElementById("whoamiName").textContent = name || "(미등록)";
+  document.querySelectorAll("#ck_pilot").forEach(el=>{
+    el.value = name;
+    el.classList.toggle("has-value", hasName);
+  });
+  const inspectorEl = document.getElementById("ck_inspectorName");
+  inspectorEl.textContent = hasName ? name : "\u00A0";
+  inspectorEl.style.color = hasName ? "#111" : "#aaa";
 }
 function closePilotModal(){
   document.getElementById("pilotModal").classList.remove("open");
