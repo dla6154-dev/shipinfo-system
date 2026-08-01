@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
+<html lang="ko"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>무인비행장치 전자 서식</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   :root{
     --line:#000;
@@ -93,7 +93,7 @@
   }
   table.checklist th, table.checklist td{
     border:1px solid var(--line);
-    padding:6px 5px;
+    padding:3px 4px;
     vertical-align:middle;
     text-align:center;
   }
@@ -102,35 +102,14 @@
   table.checklist col.cat{width:12%;}
   table.checklist col.content{width:52%;}
   table.checklist col.result{width:15%;}
-  td.content{text-align:left;white-space:pre-line;line-height:1.45;}
+  td.content{text-align:left;white-space:pre-line;line-height:1.3;}
   td.cat{font-weight:bold;white-space:pre-line;}
-  .result-cell{padding:4px 3px;}
-  .radio-pair{display:flex;justify-content:center;gap:10px;font-size:12px;}
-  .radio-pair label{display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;}
-  .radio-pair input[type="radio"]{
-    appearance:none;-webkit-appearance:none;-moz-appearance:none;
-    width:15px;height:15px;
-    border:1px solid #333;
-    border-radius:2px;
-    cursor:pointer;
-    position:relative;
-    background:#fff;
-    margin:0;
-    flex:none;
-  }
-  .radio-pair input[type="radio"]:checked{
-    background:var(--accent);
-    border-color:var(--accent);
-  }
-  .radio-pair input[type="radio"]:checked::after{
-    content:"✓";
-    position:absolute;
-    top:50%;left:50%;
-    transform:translate(-50%,-58%);
-    font-size:11px;
-    line-height:1;
-    color:#fff;
-  }
+  .result-cell{padding:2px 2px;}
+  .radio-pair{display:flex;justify-content:center;align-items:center;gap:8px;font-size:12px;}
+  .radio-pair input[type="radio"]{display:none;}
+  .radio-pair label{cursor:pointer;white-space:nowrap;user-select:none;}
+  .radio-pair label::before{content:"□\00a0";}
+  .radio-pair input[type="radio"]:checked + label::before{content:"☑\00a0";color:var(--accent);}
   .na{color:#aaa;font-size:13px;}
 
   .footnote{font-size:11px;color:#555;margin:10px 0;}
@@ -214,7 +193,6 @@
   }
   table.footer-table input:focus, table.footer-table select:focus{outline:1px solid var(--accent);}
 
-  /* ── 모바일: footer-table 2칸 레이아웃 (미디어쿼리 없이 항상 적용) ── */
   @media screen and (max-width: 900px) {
     table.footer-table,
     table.footer-table tbody { display: block; }
@@ -277,8 +255,10 @@
   #statusMsg1,#statusMsg2{font-size:12px;margin-left:6px;align-self:center;}
   .ok{color:var(--good);}
   .err{color:var(--bad);}
+  .req-err{outline:2px solid #dc2626 !important;background:#fff1f1 !important;}
+  .req-err::placeholder{color:#dc2626;}
+  select.req-err{outline:2px solid #dc2626 !important;background:#fff1f1 !important;}
 
-  /* flight log tab */
   .log-header{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -319,12 +299,45 @@
     padding:6px 5px;
     text-align:center;
   }
-  table.flightlog thead th{background:var(--gray);font-weight:bold;}
+  table.flightlog thead th{background:var(--gray);font-weight:bold;white-space:nowrap;}
+  #tab2 .sheet{max-width:1300px;}
+  #tab3 .sheet{max-width:1140px;}  /* A4 가로 기준 */
   table.flightlog td.left{text-align:left;}
+  /* 운용실적 토글·편집 셀 */
+  td.ops-toggle{cursor:pointer;user-select:none;font-weight:bold;}
+  td.ops-toggle:hover{background:var(--blue-light,#dbeafe);}
+  td[contenteditable="true"].ops-edit{cursor:text;}
+  td[contenteditable="true"].ops-edit:focus{outline:2px solid #f59e0b;outline-offset:-2px;background:#fffbeb;}
+  td[contenteditable="true"].ops-edit:empty::before{content:attr(data-placeholder);color:#bbb;font-size:9px;pointer-events:none;}
+  .ops-photo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
+  #opsTable{table-layout:fixed;width:100%;font-size:10px;}
+  #opsTable select{font-size:10px;width:100%;border:none;background:transparent;outline:none;}
+  #opsTable select:focus{outline:1px solid #3b82f6;}
+  /* 컬럼 너비 (합계 100%) */
+  #opsTable col:nth-child(1){width:3%;}    /* No */
+  #opsTable col:nth-child(2){width:3%;}    /* 지사 */
+  #opsTable col:nth-child(3){width:7%;}    /* 활용일자 */
+  #opsTable col:nth-child(4){width:4%;}    /* 드론종류 */
+  #opsTable col:nth-child(5){width:5%;}    /* 모니터링연계여부 */
+  #opsTable col:nth-child(6){width:6%;}    /* 분류 */
+  #opsTable col:nth-child(7){width:14%;}   /* 추진업무 */
+  #opsTable col:nth-child(8){width:10%;}   /* 지역 */
+  #opsTable col:nth-child(9){width:4%;}    /* 항로 */
+  #opsTable col:nth-child(10){width:4%;}   /* 선명 */
+  #opsTable col:nth-child(11){width:3%;}   /* 횟수 */
+  #opsTable col:nth-child(12){width:5%;}   /* 점검자 */
+  #opsTable col:nth-child(13){width:5%;}   /* 자격급수 */
+  #opsTable col:nth-child(14){width:12%;}  /* 사진파일명 */
+  #opsTable col:nth-child(15){width:7%;}   /* 기종 */
+  #opsTable col:nth-child(16){width:5%;}   /* 운용시간(분) */
+  #opsTable col:nth-child(17){width:3%;}   /* 비고 */
+  /* 줄바꿈 방지 셀 */
+  #opsTable td:nth-child(3),
+  #opsTable td:nth-child(8),
+  #opsTable td:nth-child(14){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .scroll-x{overflow-x:auto;}
   .empty{color:#999;text-align:center;padding:14px;font-size:12px;}
 
-  /* 비행 기록 입력 모달 */
   .modal-overlay{
     position:fixed;inset:0;background:rgba(0,0,0,.5);
     display:none;align-items:center;justify-content:center;
@@ -362,84 +375,69 @@
   .home-card-sub{font-size:12px;color:#777;margin-top:2px;}
   .home-card .arrow{margin-left:auto;font-size:22px;color:var(--accent);}
 
-  /* ── 모바일 반응형 ───────────────────────────────────────────────── */
   @media screen and (max-width: 600px) {
     body { padding: 10px 8px 60px; font-size: 14px; }
-
-    /* 탑바 */
     .topbar { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 12px; }
-
-    /* 홈 카드 */
     .home-card { padding: 14px; }
     .home-card-title { font-size: 15px; }
-
-    /* 탭 */
     .tabs button { font-size: 13px; padding: 10px 6px; }
-
-    /* 시트 */
     .sheet { padding: 14px 12px 20px; }
     h1.title { font-size: 17px; letter-spacing: 1px; }
-
-    /* footer-table 모바일 스타일은 위쪽 @media(max-width:900px) 블록에서 처리 */
-
-    /* 체크리스트 테이블 */
     table.checklist { font-size: 12px; }
     table.checklist col.no  { width: 8%; }
     table.checklist col.cat { width: 14%; }
     table.checklist col.content { width: 44%; }
     table.checklist col.result  { width: 17%; }
-    .radio-pair { flex-direction: column; gap: 4px; align-items: center; }
-    .radio-pair label { font-size: 12px; }
-    .radio-pair input[type="radio"] { width: 18px; height: 18px; }
-
-    /* 서명란 */
+    .radio-pair { gap: 6px; }
+    .radio-pair label { font-size: 13px; }
     .sign-line { flex-direction: column; align-items: flex-start; gap: 8px; }
     .sigbox-preview { width: 100%; height: 60px; }
-
-    /* 액션 바 버튼 */
     .action-bar { flex-direction: column; }
     .action-bar button { width: 100%; text-align: center; padding: 12px; font-size: 15px; }
-
-    /* 비행 기록부: 가로 스크롤 유지 */
     table.flightlog { min-width: 640px; }
-
-    /* 통합 입력 모달 entry-grid: 3열 → 2열 */
     .entry-grid { grid-template-columns: repeat(2, 1fr) !important; }
     .entry-grid .wide { grid-column: span 2 !important; }
     .entry-grid .field input,
     .entry-grid .field select { font-size: 15px; padding: 9px 10px; }
     .entry-grid .field label { font-size: 13px; }
-
-    /* 모달 박스 */
     .modal-box { padding: 14px 12px; max-height: 95vh; }
     .modal-actions button { padding: 10px 14px; font-size: 14px; }
-
-    /* 최근 기록 테이블 */
     table.flightlog th, table.flightlog td { font-size: 11px; padding: 5px 4px; }
   }
-  /* ── End 모바일 반응형 ──────────────────────────────────────────── */
 
   @media print{
+    @page { size: A4 portrait; margin: 10mm; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    body { background:#fff; padding:0; }
+    body { background:#fff; padding:0; margin:0; }
     .topbar, .tabs, .action-bar, .modal-overlay, .sig-actions, .btn-open-entry, .home-card, .no-print { display:none !important; }
-    .sheet { box-shadow:none; border:none; max-width:100%; margin:0 0 14px; padding:0; }
-    /* 공통정보 헤더: input/select 테두리 숨겨서 표 셀처럼 보이게 */
+    .edit-log-btn, .del-log-btn { display:none !important; }
+    .panel { display:none !important; }
+    .panel.active { display:block !important; }
+    .sheet {
+      box-shadow:none !important; border:none !important;
+      max-width:100% !important; margin:0 !important;
+      padding:4px 0 !important;
+    }
+    /* A4 가득 채우기: tbody 각 행 높이 고정 */
+    table.checklist tbody tr { height: 11.7mm; }
+    table.checklist { width:100%; }
+    /* 비행기록부: 줄바꿈 없이 한 줄로 */
+    table.flightlog { font-size: 8pt; width: 100%; table-layout: auto; }
+    table.flightlog td, table.flightlog th { white-space: nowrap; }
+    /* 페이지 넘김 시 헤더 반복 + 행 중간 잘림 방지 */
+    table.flightlog thead { display: table-header-group; }
+    table.flightlog tbody tr { page-break-inside: avoid; }
     table.footer-table input,
     table.footer-table select {
-      border: none !important;
-      border-radius: 0 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      -webkit-appearance: none;
-      appearance: none;
-      padding: 2px 4px !important;
+      border:none !important; border-radius:0 !important;
+      background:transparent !important; box-shadow:none !important;
+      -webkit-appearance:none; appearance:none; padding:2px 4px !important;
     }
-    /* 날짜 옆 캘린더 아이콘 숨김 */
-    input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+    input::placeholder { color: transparent !important; }
+    input[type="date"]::-webkit-calendar-picker-indicator { display:none; }
+    tfoot input[type="date"]::-webkit-calendar-picker-indicator { display:none; }
   }
-  /* "비행 기록하기" 모달 안에서는 정식 서식처럼 보일 필요가 없으므로
-     같은 입력 요소를 재사용하되 평범한 데이터 입력창처럼 보이도록 스타일만 재정의 */
+
   #masterCommonSlot table.footer-table,
   #masterCommonSlot table.footer-table tr,
   #masterCommonSlot table.footer-table td{
@@ -487,9 +485,8 @@
 <div class="topbar">
   <div class="whoami">현재 사용자: <b id="whoamiName">-</b>
     <button class="link" id="btnChangeName">(이름 변경)</button>
-    <button class="btn-sign-register" id="btnOpenSignature">서명등록</button>
   </div>
-  <div style="font-size:12px;color:#777;">등록번호: <b id="whoamiReg">-</b></div>
+  <div style="font-size:12px;color:#777;">등록번호: <b id="whoamiReg">운항-25-04(AIR3S/DJI)</b></div>
 </div>
 
 <div class="home-card" id="btnOpenMaster">
@@ -501,21 +498,41 @@
   <span class="arrow">›</span>
 </div>
 
+<!-- 운용 실적 월 선택 카드 -->
+<div class="home-card no-print" id="monthSelectorCard" style="padding:12px 18px;cursor:default;align-items:center;gap:14px;">
+  <span style="font-size:20px;">📅</span>
+  <div style="flex:1;">
+    <div class="home-card-title" style="font-size:13px;">운용 실적 월 선택</div>
+  </div>
+  <select id="ops-year" style="font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #ccc;color:#111;">
+    <option value="2025">2025년</option>
+    <option value="2026" selected>2026년</option>
+    <option value="2027">2027년</option>
+  </select>
+  <select id="ops-month" style="font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #ccc;color:#111;">
+    <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+    <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+    <option value="7" selected>7월</option><option value="8">8월</option><option value="9">9월</option>
+    <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+  </select>
+</div>
+
 <div class="tabs">
   <button class="active" data-tab="tab1">① 점검 체크리스트</button>
   <button data-tab="tab2">② 비행 기록부</button>
+  <button data-tab="tab3">③ 운용 실적</button>
 </div>
 
 <!-- ===================== TAB 1: 점검 체크리스트 ===================== -->
 <div class="panel active" id="tab1">
   <div class="sheet">
-    <h1 class="title">무인비행장치 점검 체크리스트</h1>
-    <div class="subtitle">[별지 제2호 서식] &lt;개정 2024.12.26.&gt; · 전자 서식</div>
+    <div style="font-size:11px;color:#555;margin-bottom:8px;">[별지 제2호 서식] &lt;개정 2024.12.26.&gt;</div>
+    <h1 class="title">&lt;무인비행장치 점검 체크리스트&gt;</h1>
 
     <table class="footer-table" id="footerTable1">
-      <tr>
+      <tbody><tr>
         <td class="label">등록번호</td>
-        <td><select id="f_reg" data-sync="reg_no"></select></td>
+        <td><select id="f_reg" data-sync="reg_no"><option value="운항-25-04(AIR3S/DJI)">운항-25-04(AIR3S/DJI)</option></select></td>
         <td class="label">조종자 / 보조</td>
         <td>
           <input type="text" id="ck_pilot" disabled style="width:45%;display:inline-block;">
@@ -525,9 +542,23 @@
       </tr>
       <tr>
         <td class="label">비행장소</td>
-        <td><input type="text" id="f_location" data-sync="flight_location"></td>
+        <td><input type="text" id="f_location" data-sync="flight_location" placeholder="예: 삼학도, 진도항 연안여객터미널"></td>
         <td class="label">비행목적</td>
-        <td><input type="text" id="f_purpose" data-sync="flight_purpose"></td>
+        <td>
+          <select id="f_task" data-sync="flight_task" style="width:100%;font-size:12px;text-align:left;">
+            <option value="">-- 선택하세요 --</option>
+            <option value="1. 3D 맵핑 활용">1. 3D 맵핑 활용</option>
+            <option value="2. 드론 친숙화 및 교육">2. 드론 친숙화 및 교육</option>
+            <option value="3. 출항 전 점검, 특별, 월례 점검">3. 출항 전 점검, 특별, 월례 점검</option>
+            <option value="4. 미배치지역, 기항지, 항로 점검">4. 미배치지역, 기항지, 항로 점검</option>
+            <option value="5. 시설물(터미널, 센터, 파견지, 통신설비 등) 점검">5. 시설물(터미널, 센터, 파견지, 통신설비 등) 점검</option>
+            <option value="6. 해양사고 등 특이사항 점검 및 모니터링">6. 해양사고 등 특이사항 점검 및 모니터링</option>
+            <option value="7. 수중 점검">7. 수중 점검</option>
+            <option value="8. 영상(여객선, 매체 홍보물 등) 제공">8. 영상(여객선, 매체 홍보물 등) 제공</option>
+            <option value="9. 대국민 서비스(기념 촬영, 정보제공)">9. 대국민 서비스(기념 촬영, 정보제공)</option>
+            <option value="10. 기타">10. 기타</option>
+          </select>
+        </td>
       </tr>
       <tr>
         <td class="label">풍속 / 온도</td>
@@ -543,7 +574,7 @@
           <input type="text" id="f_end" data-sync="flight_end" inputmode="numeric" maxlength="4" style="width:45%;display:inline-block;" placeholder="1300">
         </td>
       </tr>
-    </table>
+    </tbody></table>
     <div id="footerTable1Anchor" style="display:none;"></div>
 
     <div id="checklistTableSlot">
@@ -561,19 +592,20 @@
         <tr><th>비행 전</th><th>비행 후</th></tr>
       </thead>
       <tbody id="checklistBody"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" style="text-align:center;padding:10px 8px;font-size:13px;background:#fff;">
+            <input type="date" id="f_date" data-sync="flight_date" style="border:none;border-bottom:1px solid #000;background:transparent;font-family:inherit;font-size:13px;color:#111;">
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            점검자 성명
+            &nbsp;&nbsp;
+            <span id="ck_inspectorName" style="font-weight:bold;display:inline-block;min-width:70px;border-bottom:1px solid #000;text-align:center;">&nbsp;</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            (서명 또는 인)
+          </td>
+        </tr>
+      </tfoot>
     </table>
-
-    <div class="sign-line" id="signLine1">
-      <span class="date-field">
-        <input type="date" id="f_date" data-sync="flight_date">
-      </span>
-      <span>점검자 성명 (서명 또는 인)</span>
-      <span id="ck_inspectorName" style="font-weight:bold;"></span>
-      <div class="sigbox-preview" id="sigPreviewWrap">
-        <img id="sigImg" alt="서명 없음">
-        <span id="sigEmptyLabel" class="na">서명 없음</span>
-      </div>
-    </div>
     </div>
     <div id="checklistSlotAnchor" style="display:none;"></div>
 
@@ -587,10 +619,6 @@
     </div>
   </div>
 
-  <div class="sheet no-print">
-    <h2 style="font-size:15px;margin:0 0 10px;">최근 점검 기록</h2>
-    <div id="historyWrap1" class="empty">불러오는 중...</div>
-  </div>
 </div>
 
 
@@ -600,8 +628,11 @@
     <h1 class="title">무인비행장치 비행 기록부</h1>
     <div class="subtitle">[별지 제4호 서식] &lt;개정 2024.12.26.&gt; · 전자 서식</div>
 
+    <div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+      <button onclick="openAircraftMgr()" style="font-size:12px;padding:5px 12px;border:1px solid #ccc;border-radius:6px;background:#f8f8f8;cursor:pointer;white-space:nowrap;">⚙ 기체 관리</button>
+    </div>
     <table class="footer-table reg-box" id="flightInfoTable2">
-      <tr>
+      <tbody><tr>
         <td class="label">등록번호</td>
         <td><select id="lg_reg" data-sync="reg_no"></select></td>
       </tr>
@@ -609,30 +640,49 @@
         <td class="label">신고번호</td>
         <td><input type="text" id="lg_report" value="-"></td>
       </tr>
-    </table>
+    </tbody></table>
 
     <div class="scroll-x">
       <table class="flightlog">
+        <colgroup>
+          <col style="width:3%">   <!-- No. -->
+          <col style="width:8%">   <!-- 일시 -->
+          <col style="width:20%">  <!-- 비행목적 -->
+          <col style="width:13%">  <!-- 비행장소 -->
+          <col style="width:5%">   <!-- 범위 -->
+          <col style="width:5%">   <!-- 시간 -->
+          <col style="width:4%">   <!-- 고도 -->
+          <col style="width:4%">   <!-- 풍속 -->
+          <col style="width:4%">   <!-- 시정 -->
+          <col style="width:3%">   <!-- 기타 -->
+          <col style="width:5%">   <!-- 촬영형태 -->
+          <col style="width:4%">   <!-- 승인>비행 -->
+          <col style="width:4%">   <!-- 승인>촬영 -->
+          <col style="width:6%">   <!-- 조종자 -->
+          <col style="width:10%">  <!-- 특이 비행 사항 -->
+          <col style="width:2%" class="no-print"> <!-- 버튼열 -->
+        </colgroup>
         <thead>
           <tr>
             <th rowspan="3">No.</th>
             <th rowspan="3">일시</th>
             <th colspan="8">무인비행장치 비행 내용</th>
             <th rowspan="3">촬영형태</th>
-            <th rowspan="3">비행승인</th>
-            <th rowspan="3">촬영승인</th>
+            <th colspan="2">승 인</th>
             <th rowspan="3">조종자</th>
             <th rowspan="3">특이 비행 사항</th>
+            <th rowspan="3" class="no-print"></th>
           </tr>
           <tr>
             <th rowspan="2">비행목적</th>
             <th rowspan="2">비행장소</th>
-            <th rowspan="2">비행범위</th>
-            <th rowspan="2">비행시간</th>
-            <th rowspan="2">비행고도</th>
+            <th colspan="3">비 행</th>
             <th colspan="3">기 상</th>
+            <th rowspan="2">비행</th>
+            <th rowspan="2">촬영</th>
           </tr>
           <tr>
+            <th>범위</th><th>시간</th><th>고도</th>
             <th>풍속(m/s)</th><th>시정(km)</th><th>기타</th>
           </tr>
         </thead>
@@ -648,7 +698,137 @@
   </div>
 </div>
 
+<!-- ===================== TAB 3: 운용 실적 ===================== -->
+<div class="panel" id="tab3">
+  <div class="sheet">
+    <h1 class="title">드론 운용 실적 보고서</h1>
+    <div class="scroll-x">
+      <table class="flightlog" id="opsTable">
+        <colgroup>
+          <col><col><col><col><col><col><col><col><col>
+          <col><col><col><col><col><col><col><col>
+        </colgroup>
+        <thead>
+          <tr>
+            <th>No</th><th>지사</th><th>활용일자</th>
+            <th>드론<br>종류</th><th>모니터링<br>연계여부</th>
+            <th>분류</th><th>추진업무</th><th>지역</th>
+            <th>항로</th><th>선명</th><th>횟수</th>
+            <th>점검자</th><th>자격급수</th><th>사진파일명</th>
+            <th>기종</th><th>운용<br>시간(분)</th><th>비고</th>
+          </tr>
+        </thead>
+        <tbody id="opsBody">
+          <tr><td colspan="17" class="empty">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="action-bar">
+      <button class="secondary" id="btnExcelOps" style="background:#16a34a;color:#fff;border-color:#16a34a;">📥 엑셀 다운로드</button>
+    </div>
+  </div>
+</div>
+
+<!-- 비행 기록 수정 모달 -->
+<div class="modal-overlay" id="editLogModal">
+  <div class="modal-box" style="max-width:700px;">
+    <h3>✏️ 비행 기록 수정</h3>
+    <input type="hidden" id="edit_id">
+    <div class="entry-grid" style="margin-bottom:10px;">
+      <div class="field"><label>날짜</label><input type="date" id="edit_date"></div>
+      <div class="field"><label>비행시작</label><input type="text" id="edit_start" maxlength="4" inputmode="numeric" placeholder="0750"></div>
+      <div class="field"><label>비행종료</label><input type="text" id="edit_end" maxlength="4" inputmode="numeric" placeholder="1300"></div>
+      <div class="field"><label>비행시간(자동계산)</label><input type="text" id="edit_duration" disabled></div>
+      <div class="field"><label>비행장소</label><input type="text" id="edit_location" placeholder="장소"></div>
+      <div class="field"><label>비행목적</label>
+        <select id="edit_task" style="width:100%;font-size:12px;">
+          <option value="">-- 선택 --</option>
+          <option value="1. 3D 맵핑 활용">1. 3D 맵핑 활용</option>
+          <option value="2. 드론 친숙화 및 교육">2. 드론 친숙화 및 교육</option>
+          <option value="3. 출항 전 점검, 특별, 월례 점검">3. 출항 전 점검, 특별, 월례 점검</option>
+          <option value="4. 미배치지역, 기항지, 항로 점검">4. 미배치지역, 기항지, 항로 점검</option>
+          <option value="5. 시설물(터미널, 센터, 파견지, 통신설비 등) 점검">5. 시설물 점검</option>
+          <option value="6. 해양사고 등 특이사항 점검 및 모니터링">6. 해양사고 점검 및 모니터링</option>
+          <option value="7. 수중 점검">7. 수중 점검</option>
+          <option value="8. 영상(여객선, 매체 홍보물 등) 제공">8. 영상 제공</option>
+          <option value="9. 대국민 서비스(기념 촬영, 정보제공)">9. 대국민 서비스</option>
+          <option value="10. 기타">10. 기타</option>
+        </select>
+      </div>
+      <div class="field"><label>드론 종류</label>
+        <select id="edit_drone_type"><option value="항공">항공</option><option value="수중">수중</option></select>
+      </div>
+      <div class="field"><label>모니터링 연계여부</label>
+        <select id="edit_monitoring"><option value="O">O</option><option value="X">X</option></select>
+      </div>
+      <div class="field"><label>항로</label><input type="text" id="edit_route" placeholder="항로명"></div>
+      <div class="field"><label>선명</label><input type="text" id="edit_vessel" placeholder="선박명"></div>
+      <div class="field"><label>횟수</label><input type="text" id="edit_count" placeholder="예: 1"></div>
+      <div class="field"><label>비행범위</label><input type="text" id="edit_range"></div>
+      <div class="field"><label>비행고도</label><input type="text" id="edit_altitude" placeholder="예: 80m"></div>
+      <div class="field"><label>촬영형태</label>
+        <select id="edit_shoottype"><option value="">선택</option><option value="사진">사진</option><option value="동영상">동영상</option></select>
+      </div>
+      <div class="field"><label>풍속(m/s)</label><input type="text" id="edit_wind"></div>
+      <div class="field"><label>온도(℃)</label><input type="text" id="edit_temp"></div>
+      <div class="field"><label>시정(km)</label><input type="text" id="edit_visibility"></div>
+      <div class="field"><label>기상 기타</label><input type="text" id="edit_weather_etc"></div>
+      <div class="field wide"><label>특이 비행 사항</label><input type="text" id="edit_notes"></div>
+      <div class="field"><label>자격급수</label><input type="text" id="edit_license"></div>
+    </div>
+    <div class="modal-actions">
+      <span id="editLogMsg" style="font-size:12px;"></span>
+      <button class="secondary" id="btnCancelEditLog">취소</button>
+      <button id="btnSaveEditLog" style="background:#1a5fb4;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;">수정 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 조종자 정보 모달 -->
+<div class="modal-overlay" id="pilotModal">
+  <div class="modal-box" style="max-width:320px;">
+    <h3>조종자 정보</h3>
+    <div class="field" style="margin-bottom:12px;">
+      <label style="display:block;font-size:12px;margin-bottom:4px;font-weight:bold;">이름 <span style="color:#dc2626;">*</span></label>
+      <input type="text" id="pilotNameInput" placeholder="조종자 이름" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:5px;font-size:14px;font-family:inherit;">
+    </div>
+    <div class="field" style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;margin-bottom:4px;font-weight:bold;">자격급수 <span style="color:#dc2626;">*</span></label>
+      <select id="pilotLicenseInput" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:5px;font-size:14px;font-family:inherit;">
+        <option value="">-- 선택 --</option>
+        <option value="1급">1급</option>
+        <option value="2급">2급</option>
+        <option value="3급">3급</option>
+        <option value="4급">4급</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="btnCancelPilot">취소</button>
+      <button id="btnSavePilot">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 서명 등록 모달 -->
+<!-- 기체 관리 모달 -->
+<div class="modal-overlay" id="aircraftMgrModal">
+  <div class="modal-box" style="max-width:480px;">
+    <h3>기체 관리</h3>
+    <div id="aircraftList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:300px;overflow-y:auto;"></div>
+    <div style="border-top:1px solid #eee;padding-top:12px;">
+      <div style="font-size:13px;font-weight:bold;margin-bottom:8px;">새 기체 추가</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <input type="text" id="newRegNo" placeholder="등록번호 (예: 운항-26-03)" style="flex:2;min-width:150px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;">
+        <input type="text" id="newModel" placeholder="기종 (예: AIR3S)" style="flex:1;min-width:80px;padding:7px 9px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;">
+        <button onclick="addAircraft()" style="padding:7px 14px;background:#1a5fb4;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;">추가</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="secondary" onclick="closeAircraftMgr()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="signatureModal">
   <div class="modal-box" style="max-width:360px;">
     <h3>서명 등록</h3>
@@ -664,15 +844,34 @@
   </div>
 </div>
 
-<!-- 통합 비행 기록 입력 모달: 점검 체크리스트 + 비행 기록부 항목을 한 화면에서 입력 -->
+<!-- 통합 비행 기록 입력 모달 -->
 <div class="modal-overlay" id="masterModal">
   <div class="modal-box" style="max-width:820px;">
     <h3>✈ 비행 기록하기</h3>
 
     <h4 style="font-size:13px;margin:16px 0 6px;color:#444;">공통 정보</h4>
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <label style="font-size:13px;font-weight:bold;">날짜</label>
+      <input type="date" id="master_date" style="font-size:14px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-family:inherit;">
+    </div>
     <div id="masterCommonSlot"></div>
 
     <div class="entry-grid" style="margin-bottom:10px;">
+      <div class="field"><label>드론 종류</label>
+        <select id="f_drone_type">
+          <option value="항공">항공</option>
+          <option value="수중">수중</option>
+        </select>
+      </div>
+      <div class="field"><label>모니터링 연계여부</label>
+        <select id="f_monitoring">
+          <option value="O">O</option>
+          <option value="X">X</option>
+        </select>
+      </div>
+      <div class="field"><label>항로</label><input type="text" id="f_route" placeholder="항로명"></div>
+      <div class="field"><label>선명</label><input type="text" id="f_vessel" placeholder="선박명"></div>
+      <div class="field"><label>횟수</label><input type="text" id="f_count" placeholder="예: 1"></div>
       <div class="field"><label>비행범위</label><input type="text" id="f_range" data-sync="flight_range"></div>
       <div class="field"><label>비행고도</label><input type="text" id="f_altitude" data-sync="flight_altitude" placeholder="예: 80m"></div>
       <div class="field"><label>촬영형태</label>
@@ -683,7 +882,14 @@
         </select>
       </div>
       <div class="field"><label>시정(km)</label><input type="text" id="f_visibility" data-sync="visibility" value="10"></div>
-      <div class="field wide" style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+      <div class="field wide" style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;">
+        <select id="f_station" style="font-size:13px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;">
+          <option value="" data-short="">-- 날씨 관측소 --</option>
+          <option value="165" data-short="목포">목포 #165</option>
+          <option value="268" data-short="진도항">진도 #268</option>
+          <option value="169" data-short="흑산도">흑산도 #169</option>
+          <option value="252" data-short="영광">영광 #252</option>
+        </select>
         <button type="button" id="btnAutoWeather" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;white-space:nowrap;">🌤 현재 기상 불러오기</button>
         <span id="autoWeatherMsg" style="font-size:12px;color:#666;"></span>
       </div>
@@ -691,9 +897,6 @@
       <div class="field"><label>비행시간(자동계산)</label><input type="text" id="f_duration" disabled placeholder="비행시작/종료 입력 시 자동 계산"></div>
       <div class="field wide"><label>특이 비행 사항</label><input type="text" id="f_notes" data-sync="special_notes"></div>
     </div>
-
-    <h4 style="font-size:13px;margin:16px 0 6px;color:#444;">① 점검 체크리스트</h4>
-    <div id="masterChecklistSlot"></div>
 
     <div class="modal-actions">
       <span id="statusMsgMaster"></span>
@@ -710,14 +913,49 @@ const T_CHECKLIST = "drone_inspection_records";
 const T_SIGNATURE = "pilot_signatures";
 const T_FLIGHTLOG = "drone_flight_log";
 
-const AIRCRAFT_LIST = [
-  "운항-25-04(AIR3S/DJI)"
-  // 기체가 늘어나면 여기에 문자열만 추가하면 모든 드롭다운에 자동 반영됩니다.
-];
+let AIRCRAFT_LIST = [];  // DB에서 동적으로 로드
 
-/* ---------------- 공통: 사용자 식별 & 공통항목 동기화 ---------------- */
+async function loadAircraftList(){
+  try{
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/drone_aircraft?active=eq.true&order=id.asc&select=reg_no,model,id`,
+      { headers:{ "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } }
+    );
+    if(!res.ok) throw new Error(await res.text());
+    const rows = await res.json();
+    AIRCRAFT_LIST = rows.map(r => r.reg_no);
+    _aircraftRows = rows; // 관리 UI용
+    populateAircraftSelects();
+    // localStorage 마지막 선택 복원
+    const last = localStorage.getItem("drn_last_reg");
+    const validLast = last && AIRCRAFT_LIST.includes(last) ? last : AIRCRAFT_LIST[0];
+    document.querySelectorAll('[data-sync="reg_no"]').forEach(el => el.value = validLast);
+    if(document.getElementById("whoamiReg")) document.getElementById("whoamiReg").textContent = validLast;
+    loadFlightLog();
+  } catch(e){
+    console.error("기체 목록 로드 실패:", e);
+  }
+}
+
+let _aircraftRows = [];
+
+const TASK_CATEGORY = {
+  "1. 3D 맵핑 활용": "드론촬영 및 교육",
+  "2. 드론 친숙화 및 교육": "드론촬영 및 교육",
+  "3. 출항 전 점검, 특별, 월례 점검": "각종 점검",
+  "4. 미배치지역, 기항지, 항로 점검": "각종 점검",
+  "5. 시설물(터미널, 센터, 파견지, 통신설비 등) 점검": "각종 점검",
+  "6. 해양사고 등 특이사항 점검 및 모니터링": "각종 점검",
+  "7. 수중 점검": "각종 점검",
+  "8. 영상(여객선, 매체 홍보물 등) 제공": "국민 체감형 실적",
+  "9. 대국민 서비스(기념 촬영, 정보제공)": "국민 체감형 실적",
+  "10. 기타": "기타",
+};
+
 function getPilotName(){ return localStorage.getItem("drn_pilot_name") || ""; }
 function setPilotName(name){ localStorage.setItem("drn_pilot_name", name); }
+function getPilotLicense(){ return localStorage.getItem("drn_pilot_license") || ""; }
+function setPilotLicense(v){ localStorage.setItem("drn_pilot_license", v); }
 
 function getCommonInfo(){
   try{ return JSON.parse(localStorage.getItem("drn_common_info") || "{}"); }
@@ -732,24 +970,42 @@ function applyPilotNameToUI(){
   document.getElementById("ck_inspectorName").textContent = name;
 }
 
-function ensurePilotName(){
-  let name = getPilotName();
-  if(!name){
-    name = prompt("이 기기에서 사용할 이름을 입력해 주세요. (조종자 이름으로 자동 사용됩니다)");
-    if(name){ setPilotName(name.trim()); }
-  }
+function openPilotModal(){
+  document.getElementById("pilotNameInput").value = getPilotName();
+  document.getElementById("pilotLicenseInput").value = getPilotLicense();
+  document.getElementById("pilotModal").classList.add("open");
+  setTimeout(()=>document.getElementById("pilotNameInput").focus(), 50);
+}
+function closePilotModal(){
+  document.getElementById("pilotModal").classList.remove("open");
+}
+document.getElementById("btnCancelPilot").addEventListener("click", closePilotModal);
+document.getElementById("pilotModal").addEventListener("click", (e)=>{
+  if(e.target.id === "pilotModal") closePilotModal();
+});
+document.getElementById("btnSavePilot").addEventListener("click", ()=>{
+  const name = document.getElementById("pilotNameInput").value.trim();
+  const lic  = document.getElementById("pilotLicenseInput").value;
+  const nameEl = document.getElementById("pilotNameInput");
+  const licEl  = document.getElementById("pilotLicenseInput");
+  nameEl.classList.toggle("req-err", !name);
+  licEl.classList.toggle("req-err", !lic);
+  if(!name || !lic) return;
+  setPilotName(name);
+  setPilotLicense(lic);
   applyPilotNameToUI();
-  loadSignature();
+  closePilotModal();
+});
+
+function ensurePilotName(){
+  if(!getPilotName() || !getPilotLicense()){
+    openPilotModal();
+  } else {
+    applyPilotNameToUI();
+  }
 }
 
-document.getElementById("btnChangeName").addEventListener("click", ()=>{
-  const name = prompt("이름을 다시 입력해 주세요.", getPilotName());
-  if(name){
-    setPilotName(name.trim());
-    applyPilotNameToUI();
-    loadSignature();
-  }
-});
+document.getElementById("btnChangeName").addEventListener("click", openPilotModal);
 
 function populateAircraftSelects(){
   const sels = document.querySelectorAll('select[data-sync="reg_no"]');
@@ -786,19 +1042,141 @@ function initSyncedFields(){
   document.getElementById("whoamiReg").textContent = reg;
 }
 
-/* ---------------- 탭 전환 ---------------- */
+function getTab3Src(){
+  const y = document.getElementById("ops-year").value;
+  const m = document.getElementById("ops-month").value;
+  return `drone_operations.html?year=${y}&month=${m}&t=${Date.now()}`;
+}
+const OPS_TASK_MAP = {
+  '드론촬영및교육': ['1. 3D 맵핑 활용','2. 드론 친숙화 및 교육'],
+  '각종점검': ['3. 출항 전 점검, 특별, 월례 점검','4. 미배치지역, 기항지, 항로 점검','5. 시설물(터미널, 센터, 파견지, 통신설비 등) 점검','6. 해양사고 등 특이사항 점검 및 모니터링','7. 수중 점검'],
+  '국민체감형실적': ['8. 영상(여객선, 매체 홍보물 등) 제공','9. 대국민 서비스(기념 촬영, 정보제공)'],
+  '기타': []
+};
+const OPS_AIRCRAFT = ['Splash Drone 3','Knx-S01','KnX2','Air2S','M30','M3E','M2 PRO (수중)','M4E','Air3S'];
+
+function opsCatFromPurpose(purpose){
+  if(!purpose) return '';
+  const n = parseInt(purpose);
+  if(n>=1&&n<=2) return '드론촬영및교육';
+  if(n>=3&&n<=7) return '각종점검';
+  if(n>=8&&n<=9) return '국민체감형실적';
+  return '';
+}
+function opsAircraftFromReg(reg){
+  if(!reg) return '';
+  const r = reg.toLowerCase().replace(/[\s\-_()/]/g,'');
+  return OPS_AIRCRAFT.find(a=>r.includes(a.toLowerCase().replace(/[\s\-_()/]/g,''))) || '';
+}
+function opsCatSelect(cat, task){
+  const cats = [['','선택'],['드론촬영및교육','드론촬영 및 교육'],['각종점검','각종 점검'],['국민체감형실적','국민 체감형 실적'],['기타','기타']];
+  return `<select class="ops-cat">${cats.map(([v,l])=>`<option value="${v}"${cat===v?' selected':''}>${l}</option>`).join('')}</select>`;
+}
+function opsTaskSelect(cat, task){
+  const tasks = OPS_TASK_MAP[cat]||[];
+  return `<select class="ops-task"><option value="">선택</option>${tasks.map(t=>`<option${t===task?' selected':''}>${t}</option>`).join('')}</select>`;
+}
+function opsAircraftSelect(aircraft){
+  return `<select class="ops-aircraft"><option value="">선택</option>${OPS_AIRCRAFT.map(a=>`<option${a===aircraft?' selected':''}>${a}</option>`).join('')}</select>`;
+}
+
+async function loadOpsTable(){
+  const tbody = document.getElementById("opsBody");
+  if(!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="17" class="empty">불러오는 중...</td></tr>`;
+  try{
+    const y = document.getElementById("ops-year").value;
+    const m = document.getElementById("ops-month").value;
+    const mm = String(m).padStart(2,"0");
+    const mInt = parseInt(m);
+    const nextYear = mInt===12 ? String(parseInt(y)+1) : y;
+    const nextMm = mInt===12 ? "01" : String(mInt+1).padStart(2,"0");
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${T_FLIGHTLOG}?log_datetime=gte.${y}-${mm}-01&log_datetime=lt.${nextYear}-${nextMm}-01&select=*&order=log_datetime.asc`,
+      {headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}}
+    );
+    if(!res.ok) throw new Error(await res.text());
+    const records = await res.json();
+    if(!records.length){
+      tbody.innerHTML = `<tr><td colspan="17" class="empty">이 달의 비행 기록이 없습니다.</td></tr>`;
+      return;
+    }
+    // 날짜별 순번 계산
+    const dateCounter = {};
+    records.forEach(r=>{
+      const d = r.log_datetime ? r.log_datetime.slice(0,10) : "";
+      dateCounter[d] = (dateCounter[d]||0) + 1;
+    });
+    const dateSeq = {};
+    tbody.innerHTML = records.map((r,i)=>{
+      const dateStr = r.log_datetime ? r.log_datetime.slice(0,10) : "";
+      const mmdd = dateStr.slice(5).replace("-","");
+      const loc = r.flight_location || "";
+      dateSeq[dateStr] = (dateSeq[dateStr]||0) + 1;
+      const photoName = mmdd ? `${mmdd}.목포.${dateSeq[dateStr]}.${loc}` : "";
+      const cat = opsCatFromPurpose(r.purpose);
+      const aircraft = opsAircraftFromReg(r.registration_no);
+      return `<tr>
+        <td>${i+1}</td>
+        <td>목포</td>
+        <td>${dateStr}</td>
+        <td class="ops-toggle ops-drone" style="cursor:pointer;" title="클릭: 항공↔수중">${r.drone_type||"항공"}</td>
+        <td class="ops-toggle ops-monitor" style="cursor:pointer;" title="클릭: O↔X">${r.monitoring||"O"}</td>
+        <td>${opsCatSelect(cat, r.purpose)}</td>
+        <td>${opsTaskSelect(cat, r.purpose)}</td>
+        <td class="left">${loc}</td>
+        <td contenteditable="true" class="ops-edit" data-placeholder="항로">${r.route||""}</td>
+        <td contenteditable="true" class="ops-edit" data-placeholder="선명">${r.vessel_name||""}</td>
+        <td contenteditable="true" class="ops-edit" data-placeholder="횟수">${r.flight_count||""}</td>
+        <td>${r.pilot_name||""}</td>
+        <td contenteditable="true" class="ops-edit">${r.pilot_license||getPilotLicense()}</td>
+        <td class="left ops-photo">${photoName}</td>
+        <td>${opsAircraftSelect(aircraft)}</td>
+        <td>${r.flight_duration||""}</td>
+        <td contenteditable="true" class="ops-edit left"></td>
+      </tr>`;
+    }).join('');
+
+    // 분류 변경 시 추진업무 옵션 동적 업데이트
+    tbody.querySelectorAll('.ops-cat').forEach(sel=>{
+      sel.addEventListener('change', function(){
+        const row = this.closest('tr');
+        const taskSel = row.querySelector('.ops-task');
+        const tasks = OPS_TASK_MAP[this.value]||[];
+        taskSel.innerHTML = `<option value="">선택</option>${tasks.map(t=>`<option>${t}</option>`).join('')}`;
+      });
+    });
+    // 드론 종류 / 모니터링 토글
+    tbody.querySelectorAll('.ops-drone').forEach(td=>{
+      td.addEventListener('click', function(){ this.textContent = this.textContent.trim()==='항공'?'수중':'항공'; });
+    });
+    tbody.querySelectorAll('.ops-monitor').forEach(td=>{
+      td.addEventListener('click', function(){ this.textContent = this.textContent.trim()==='O'?'X':'O'; });
+    });
+  }catch(err){
+    tbody.innerHTML = `<tr><td colspan="17" class="empty">불러오기 실패: ${err.message}</td></tr>`;
+  }
+}
+
+document.getElementById("ops-year").addEventListener("change", loadOpsTable);
+document.getElementById("ops-month").addEventListener("change", loadOpsTable);
+
 document.querySelectorAll(".tabs button").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p=>{
+      p.classList.remove("active");
+      p.style.display = "";
+    });
     btn.classList.add("active");
-    document.getElementById(btn.dataset.tab).classList.add("active");
+    const activePanel = document.getElementById(btn.dataset.tab);
+    activePanel.classList.add("active");
+    if(btn.dataset.tab === "tab3"){
+      loadOpsTable();
+    }
   });
 });
 
-/* ==================================================================
-   TAB 1: 점검 체크리스트
-   ================================================================== */
 const items = [
   {no:1, cat:"안전\n관리", rows:[
     {content:"장애물, 위험요소 및 기상 등 주변 안전점검을 하였는가?", pre:true, post:false},
@@ -841,10 +1219,13 @@ const items = [
 function resultCell(rowId, phase, enabled){
   if(!enabled) return '<td class="result-cell"><span class="na">-</span></td>';
   const name = `${rowId}_${phase}`;
+  const idG = `${name}_g`, idB = `${name}_b`;
   return `<td class="result-cell">
     <div class="radio-pair">
-      <label><input type="radio" name="${name}" value="양호" checked>양호</label>
-      <label><input type="radio" name="${name}" value="불량">불량</label>
+      <input type="radio" id="${idG}" name="${name}" value="양호" checked>
+      <label for="${idG}">양호</label>
+      <input type="radio" id="${idB}" name="${name}" value="불량">
+      <label for="${idB}">불량</label>
     </div>
   </td>`;
 }
@@ -948,7 +1329,7 @@ function openSignatureModal(){
 function closeSignatureModal(){
   document.getElementById("signatureModal").classList.remove("open");
 }
-document.getElementById("btnOpenSignature").addEventListener("click", openSignatureModal);
+document.getElementById("btnOpenSignature")?.addEventListener("click", openSignatureModal);
 document.getElementById("btnCancelSignature").addEventListener("click", closeSignatureModal);
 document.getElementById("signatureModal").addEventListener("click", (e)=>{
   if(e.target.id === "signatureModal") closeSignatureModal();
@@ -982,9 +1363,11 @@ document.getElementById("btnSigSave").addEventListener("click", saveSignature);
 
 function showSavedSignature(dataUrl){
   const img = document.getElementById("sigImg");
+  if(!img) return;
   img.src = dataUrl;
   img.style.display = "block";
-  document.getElementById("sigEmptyLabel").style.display = "none";
+  const lbl = document.getElementById("sigEmptyLabel");
+  if(lbl) lbl.style.display = "none";
 }
 
 async function loadSignature(){
@@ -1002,10 +1385,9 @@ async function loadSignature(){
       localStorage.setItem("drn_sig_" + name, rows[0].signature_data);
       showSavedSignature(rows[0].signature_data);
     }
-  }catch(e){ /* offline 등 - 캐시로 대체 */ }
+  }catch(e){ /* offline */ }
 }
 
-/* ---- 저장 / 불러오기 / 인쇄 ---- */
 function buildChecklistPayload(){
   return {
     inspection_date: document.getElementById("f_date").value || new Date().toISOString().slice(0,10),
@@ -1013,7 +1395,7 @@ function buildChecklistPayload(){
     pilot_name: getPilotName(),
     assistant_name: document.getElementById("f_assist").value,
     flight_location: document.getElementById("f_location").value,
-    flight_purpose: document.getElementById("f_purpose").value,
+    flight_purpose: document.getElementById("f_task").value,
     wind_temp: `${document.getElementById("f_wind").value} / ${document.getElementById("f_temp").value}`,
     flight_start: document.getElementById("f_start").value,
     inspector_name: getPilotName(),
@@ -1034,6 +1416,16 @@ async function postChecklist(payload){
 }
 async function saveChecklist(){
   const statusEl = document.getElementById("statusMsg1");
+  const required = [
+    {el: document.getElementById("f_location"), label: "비행장소"},
+    {el: document.getElementById("f_task"),     label: "추진업무"},
+    {el: document.getElementById("f_start"),    label: "비행시작"},
+    {el: document.getElementById("f_end"),      label: "비행종료"},
+  ];
+  if(!validateRequired(required)){
+    setStatus(statusEl, "빨간 테두리 항목을 모두 입력해 주세요", "err");
+    return;
+  }
   setStatus(statusEl, "저장 중...", "");
   try{
     await postChecklist(buildChecklistPayload());
@@ -1046,6 +1438,7 @@ async function saveChecklist(){
 
 async function loadHistory(){
   const wrap = document.getElementById("historyWrap1");
+  if(!wrap) return;
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${T_CHECKLIST}?select=id,inspection_date,registration_no,pilot_name,flight_location,inspector_name,items,updated_at&order=updated_at.desc&limit=20`, {
       headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
@@ -1084,11 +1477,10 @@ async function loadChecklistRecord(id){
     const rows = await res.json();
     if(!rows.length) return;
     const r = rows[0];
-    // 날짜는 항상 오늘로 유지 (과거 기록 날짜로 덮어쓰지 않음)
     document.getElementById("f_reg").value = r.registration_no || AIRCRAFT_LIST[0];
     document.getElementById("f_assist").value = r.assistant_name || "";
     document.getElementById("f_location").value = r.flight_location || "";
-    document.getElementById("f_purpose").value = r.flight_purpose || "";
+    document.getElementById("f_task").value = r.flight_purpose || "";
     const wt = (r.wind_temp||" / ").split(" / ");
     document.getElementById("f_wind").value = wt[0] || "";
     document.getElementById("f_temp").value = wt[1] || "";
@@ -1104,11 +1496,14 @@ async function loadChecklistRecord(id){
 }
 
 function resetChecklistForm(){
-  ["f_assist","f_location","f_purpose","f_wind","f_temp","f_start","f_end","f_duration"].forEach(id=>{
+  ["f_assist","f_location","f_wind","f_temp","f_start","f_end","f_duration"].forEach(id=>{
     document.getElementById(id).value = "";
   });
+  document.getElementById("f_task").value = "";
+
   document.getElementById("f_date").value = new Date().toLocaleDateString("sv-SE");
   document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
+  document.querySelectorAll(".req-err").forEach(el=>el.classList.remove("req-err"));
   setStatus(document.getElementById("statusMsg1"), "", "");
 }
 
@@ -1116,12 +1511,27 @@ document.getElementById("f_date").value = new Date().toLocaleDateString("sv-SE")
 
 document.getElementById("btnAutoWeather").addEventListener("click", async () => {
   const msg = document.getElementById("autoWeatherMsg");
+  const stationSel = document.getElementById("f_station");
+  const stationOpt = stationSel.options[stationSel.selectedIndex];
+  const station = stationSel.value || "268";
+  const locName = stationOpt && stationOpt.dataset.short ? stationOpt.dataset.short : "진도";
+  if(!stationSel.value){ msg.textContent = "날씨 관측소를 먼저 선택해 주세요."; msg.style.color = "#dc2626"; return; }
   msg.textContent = "불러오는 중...";
   msg.style.color = "#666";
-  try {
-    const res = await fetch("https://mokpo-weather-dashboard.onrender.com/api/sfc/obs?stn=268");
+  const tryFetch = async () => {
+    const res = await fetch(`https://mokpo-weather-dashboard.onrender.com/api/sfc/obs?stn=${station}`);
     const d = await res.json();
     if (!d.ok) throw new Error(d.error || "오류");
+    return d;
+  };
+  try {
+    let d;
+    try { d = await tryFetch(); }
+    catch(e1) {
+      msg.textContent = "재시도 중... (서버 워밍업)";
+      await new Promise(r => setTimeout(r, 3000));
+      d = await tryFetch();
+    }
     document.getElementById("f_wind").value = d.wind_range;
     document.getElementById("f_temp").value = d.temperature;
     document.getElementById("f_visibility").value = d.visibility_km;
@@ -1129,7 +1539,7 @@ document.getElementById("btnAutoWeather").addEventListener("click", async () => 
       document.getElementById(id).dispatchEvent(new Event("input"))
     );
     const t = d.tm;
-    msg.textContent = `✓ ${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)} ${t.slice(8,10)}:00 진도군`;
+    msg.textContent = `✓ ${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)} ${t.slice(8,10)}:00 ${locName}`;
     msg.style.color = "#16a34a";
   } catch(e) {
     msg.textContent = "실패: " + e.message;
@@ -1139,11 +1549,21 @@ document.getElementById("btnAutoWeather").addEventListener("click", async () => 
 
 document.getElementById("btnSave1").addEventListener("click", saveChecklist);
 document.getElementById("btnNew1").addEventListener("click", resetChecklistForm);
+// 인쇄 시 활성 탭에 따라 @page 방향 전환
+const dynPageStyle = document.createElement("style");
+document.head.appendChild(dynPageStyle);
+window.addEventListener("beforeprint", ()=>{
+  const activeId = document.querySelector(".panel.active")?.id;
+  if(activeId === "tab2"){
+    dynPageStyle.textContent = "@page { size: A4 landscape; margin: 8mm; }";
+  } else {
+    dynPageStyle.textContent = "@page { size: A4 portrait; margin: 10mm; }";
+  }
+});
+window.addEventListener("afterprint", ()=>{ dynPageStyle.textContent = ""; });
+
 document.getElementById("btnPrint1").addEventListener("click", ()=>window.print());
 
-/* ==================================================================
-   통합 입력 모달: 점검 체크리스트 + 비행 기록부 항목을 한 화면에서 입력
-   ================================================================== */
 function hhmmToMinutes(v){
   if(!v || v.length !== 4 || !/^\d{4}$/.test(v)) return null;
   const h = parseInt(v.slice(0,2), 10);
@@ -1177,7 +1597,46 @@ function restrictToDigits(el, maxLen){
 restrictToDigits(document.getElementById("f_start"), 4);
 restrictToDigits(document.getElementById("f_end"), 4);
 
-/* 촬영형태/시정/특이사항은 이제 공통정보(data-sync)로 처리되어 별도 캐시가 필요 없음 */
+document.getElementById("f_task").addEventListener("change", function(){
+  this.classList.remove("req-err");
+});
+
+function validateRequired(fields){
+  let ok = true;
+  fields.forEach(({el})=>{
+    const empty = !el.value || el.value.trim() === "";
+    el.classList.toggle("req-err", empty);
+    if(empty) ok = false;
+  });
+  return ok;
+}
+
+function saveDroneSession(){
+  const startV  = document.getElementById("f_start").value;
+  const endV    = document.getElementById("f_end").value;
+  const durEl   = document.getElementById("f_duration");
+  const durMin  = durEl.value ? parseInt(durEl.value) : null;
+  const locInput   = document.getElementById("f_location");
+  const stationSel = document.getElementById("f_station");
+  const stationOpt = stationSel.options[stationSel.selectedIndex];
+  const locShort   = stationOpt && stationOpt.dataset.short ? stationOpt.dataset.short : stationSel.value;
+  const session = {
+    date:           document.getElementById("f_date").value,
+    pilot:          getPilotName(),
+    pilot_license:  getPilotLicense(),
+    location:       locInput.value,
+    location_short: locShort,
+    task:           document.getElementById("f_task").value,
+    wind:           document.getElementById("f_wind").value,
+    visibility:     document.getElementById("f_visibility") ? document.getElementById("f_visibility").value : "",
+    temp:           document.getElementById("f_temp").value,
+    start:          startV,
+    end:            endV,
+    duration_min:   durMin,
+    aircraft:       document.getElementById("f_reg").value,
+  };
+  localStorage.setItem("drone_session", JSON.stringify(session));
+}
 
 function buildFlightLogPayload(){
   const dateVal = document.getElementById("f_date").value;
@@ -1189,7 +1648,7 @@ function buildFlightLogPayload(){
     shooting_type: document.getElementById("f_shoottype").value,
     pilot_name: getPilotName(),
     special_notes: document.getElementById("f_notes").value,
-    purpose: document.getElementById("f_purpose").value,
+    purpose: document.getElementById("f_task").value,
     flight_location: document.getElementById("f_location").value,
     flight_range: document.getElementById("f_range").value,
     flight_altitude: document.getElementById("f_altitude").value,
@@ -1199,7 +1658,13 @@ function buildFlightLogPayload(){
     visibility: document.getElementById("f_visibility").value,
     weather_etc: document.getElementById("f_weather_etc").value,
     flight_approval: "O",
-    shooting_approval: "O"
+    shooting_approval: "O",
+    drone_type:   document.getElementById("f_drone_type").value,
+    monitoring:   document.getElementById("f_monitoring").value,
+    route:        document.getElementById("f_route").value,
+    vessel_name:  document.getElementById("f_vessel").value,
+    flight_count: document.getElementById("f_count").value,
+    pilot_license: getPilotLicense(),
   };
 }
 async function postFlightLog(payload){
@@ -1213,19 +1678,21 @@ async function postFlightLog(payload){
   });
   if(!res.ok) throw new Error(await res.text());
 }
-/* clearFlightLogOnlyFields는 더 이상 사용하지 않음 — 대신 마지막 입력값을 캐시해 다음에 재사용 */
 
 function openMasterModal(){
   document.getElementById("masterCommonSlot").appendChild(document.getElementById("footerTable1"));
-  document.getElementById("masterChecklistSlot").appendChild(document.getElementById("checklistTableSlot"));
   calcFlightDuration();
+  // 날짜 동기화
+  const masterDate = document.getElementById("master_date");
+  masterDate.value = document.getElementById("f_date").value || new Date().toLocaleDateString("sv-SE");
   document.getElementById("masterModal").classList.add("open");
 }
+document.getElementById("master_date").addEventListener("change", function(){
+  document.getElementById("f_date").value = this.value;
+});
 function closeMasterModal(){
   document.getElementById("footerTable1Anchor").parentNode.insertBefore(
     document.getElementById("footerTable1"), document.getElementById("footerTable1Anchor"));
-  document.getElementById("checklistSlotAnchor").parentNode.insertBefore(
-    document.getElementById("checklistTableSlot"), document.getElementById("checklistSlotAnchor"));
   document.getElementById("masterModal").classList.remove("open");
 }
 document.getElementById("btnOpenMaster").addEventListener("click", openMasterModal);
@@ -1236,12 +1703,34 @@ document.getElementById("masterModal").addEventListener("click", (e)=>{
 
 async function saveMaster(){
   const statusEl = document.getElementById("statusMsgMaster");
+
+  const required = [
+    {el: document.getElementById("f_location"),  label: "비행장소"},
+    {el: document.getElementById("f_task"),       label: "추진업무"},
+    {el: document.getElementById("f_start"),      label: "비행시작"},
+    {el: document.getElementById("f_end"),        label: "비행종료"},
+    {el: document.getElementById("f_wind"),       label: "풍속"},
+    {el: document.getElementById("f_temp"),       label: "온도"},
+    {el: document.getElementById("f_range"),      label: "비행범위"},
+    {el: document.getElementById("f_altitude"),   label: "비행고도"},
+    {el: document.getElementById("f_shoottype"),  label: "촬영형태"},
+  ];
+  if(!validateRequired(required)){
+    setStatus(statusEl, "빨간 테두리 항목을 모두 입력해 주세요", "err");
+    return;
+  }
+
   setStatus(statusEl, "저장 중...", "");
   try{
     await postChecklist(buildChecklistPayload());
     await postFlightLog(buildFlightLogPayload());
+    saveDroneSession();
     await loadHistory();
     await loadFlightLog();
+    // Tab3이 현재 활성화 상태면 즉시 갱신
+    if(document.getElementById("tab3").classList.contains("active")){
+      loadOpsTable();
+    }
     setStatus(statusEl, "저장 완료 — 점검 체크리스트와 비행 기록부에 모두 반영되었습니다", "ok");
     setTimeout(()=>{
       closeMasterModal();
@@ -1267,39 +1756,383 @@ async function loadFlightLog(){
       tbody.innerHTML = `<tr><td colspan="15" class="empty">등록된 비행 기록이 없습니다.</td></tr>`;
       return;
     }
+    const APPROVAL_CYCLE = ["O","X","-"];
+    function nextApproval(cur){ const i=APPROVAL_CYCLE.indexOf(cur); return APPROVAL_CYCLE[(i+1)%3]; }
+    async function patchApproval(id, field, val){
+      await fetch(`${SUPABASE_URL}/rest/v1/${T_FLIGHTLOG}?id=eq.${id}`,{
+        method:"PATCH",
+        headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+        body:JSON.stringify({[field]:val})
+      });
+    }
+    function fmtDatetime(dt, durMin){
+      if(!dt) return "";
+      const [datePart, timePart] = dt.split("T");
+      const startHM = timePart ? timePart.slice(0,5) : "";
+      let endHM = "";
+      if(startHM && durMin){
+        const [h,m] = startHM.split(":").map(Number);
+        const total = h*60+m+parseInt(durMin);
+        endHM = String(Math.floor(total/60)%24).padStart(2,"0")+":"+String(total%60).padStart(2,"0");
+      }
+      return datePart + (startHM ? `\n${startHM}${endHM?"-"+endHM:""}` : "");
+    }
+    function addM(v){ if(!v) return ""; v=String(v).trim(); return v.endsWith("m")||v.endsWith("M")?v:v+"m"; }
     tbody.innerHTML = rows.map((r,i)=>`<tr>
       <td>${i+1}</td>
-      <td>${(r.log_datetime||"").replace("T"," ")}</td>
+      <td style="white-space:pre-line;">${fmtDatetime(r.log_datetime, r.flight_duration)}</td>
       <td>${r.purpose||""}</td>
       <td class="left">${r.flight_location||""}</td>
-      <td>${r.flight_range||""}</td>
+      <td>${addM(r.flight_range)}</td>
       <td>${r.flight_duration||""}</td>
-      <td>${r.flight_altitude||""}</td>
+      <td>${addM(r.flight_altitude)}</td>
       <td>${r.wind_speed||""}</td>
       <td>${r.visibility||""}</td>
       <td>${r.weather_etc||""}</td>
       <td>${r.shooting_type||""}</td>
-      <td>${r.flight_approval||""}</td>
-      <td>${r.shooting_approval||""}</td>
+      <td class="approval-cell" data-id="${r.id}" data-field="flight_approval" style="cursor:pointer;font-weight:bold;">${r.flight_approval||"O"}</td>
+      <td class="approval-cell" data-id="${r.id}" data-field="shooting_approval" style="cursor:pointer;font-weight:bold;">${r.shooting_approval||"O"}</td>
       <td>${r.pilot_name||""}</td>
       <td class="left">${r.special_notes||""}</td>
+      <td class="no-print" style="white-space:nowrap;">
+        <button class="edit-log-btn" data-id="${r.id}" style="font-size:11px;padding:3px 7px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:4px;cursor:pointer;margin-right:3px;">수정</button>
+        <button class="del-log-btn" data-id="${r.id}" style="font-size:11px;padding:3px 7px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;cursor:pointer;">삭제</button>
+      </td>
     </tr>`).join("");
+    tbody.querySelectorAll(".approval-cell").forEach(td=>{
+      td.addEventListener("click", async ()=>{
+        const cur = td.textContent.trim();
+        const nxt = nextApproval(cur);
+        td.textContent = nxt;
+        await patchApproval(td.dataset.id, td.dataset.field, nxt);
+      });
+    });
+    tbody.querySelectorAll(".edit-log-btn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const r = rows.find(x=>x.id===btn.dataset.id);
+        if(r) openEditLogModal(r);
+      });
+    });
+    tbody.querySelectorAll(".del-log-btn").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        if(!confirm("이 비행 기록을 삭제하시겠습니까?")) return;
+        btn.textContent = "..."; btn.disabled = true;
+        try{
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${T_FLIGHTLOG}?id=eq.${btn.dataset.id}`,{
+            method:"DELETE",
+            headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Prefer":"return=minimal"}
+          });
+          if(!res.ok) throw new Error(await res.text());
+          await loadFlightLog();
+          if(document.getElementById("tab3").classList.contains("active")) loadOpsTable();
+        }catch(e){
+          alert("삭제 실패: "+e.message);
+          btn.textContent="삭제"; btn.disabled=false;
+        }
+      });
+    });
   }catch(err){
-    tbody.innerHTML = `<tr><td colspan="15" class="empty">불러오기 실패: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="empty">불러오기 실패: ${err.message}</td></tr>`;
   }
 }
-document.getElementById("lg_reg").addEventListener("change", loadFlightLog);
-document.getElementById("btnPrint2").addEventListener("click", ()=>window.print());
+// ── 비행 기록 수정 모달 ──────────────────────────────
+function calcEditDuration(){
+  const sv = document.getElementById("edit_start").value;
+  const ev = document.getElementById("edit_end").value;
+  const toMin = v=>{ if(!v||v.length!==4||!/^\d{4}$/.test(v)) return null; const h=parseInt(v.slice(0,2)),m=parseInt(v.slice(2,4)); return (h>23||m>59)?null:h*60+m; };
+  const s=toMin(sv), e=toMin(ev);
+  document.getElementById("edit_duration").value = (s!==null&&e!==null) ? ((e-s<0?e-s+1440:e-s)+"분") : "";
+}
+["edit_start","edit_end"].forEach(id=>document.getElementById(id).addEventListener("input",e=>{
+  e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); calcEditDuration();
+}));
 
-/* ---------------- 초기화 ---------------- */
-populateAircraftSelects();
+function openEditLogModal(r){
+  const dt = r.log_datetime||"";
+  const [datePart, timePart] = dt.includes("T") ? dt.split("T") : [dt,""];
+  const startHM = timePart ? timePart.slice(0,5).replace(":","") : "";
+  document.getElementById("edit_id").value        = r.id;
+  document.getElementById("edit_date").value      = datePart;
+  document.getElementById("edit_start").value     = startHM;
+  document.getElementById("edit_end").value       = "";
+  document.getElementById("edit_location").value  = r.flight_location||"";
+  document.getElementById("edit_task").value      = r.purpose||"";
+  document.getElementById("edit_drone_type").value= r.drone_type||"항공";
+  document.getElementById("edit_monitoring").value= r.monitoring||"O";
+  document.getElementById("edit_route").value     = r.route||"";
+  document.getElementById("edit_vessel").value    = r.vessel_name||"";
+  document.getElementById("edit_count").value     = r.flight_count||"";
+  document.getElementById("edit_range").value     = r.flight_range||"";
+  document.getElementById("edit_altitude").value  = r.flight_altitude||"";
+  document.getElementById("edit_shoottype").value = r.shooting_type||"";
+  document.getElementById("edit_wind").value      = r.wind_speed||"";
+  document.getElementById("edit_temp").value      = r.temperature||"";
+  document.getElementById("edit_visibility").value= r.visibility||"";
+  document.getElementById("edit_weather_etc").value=r.weather_etc||"";
+  document.getElementById("edit_notes").value     = r.special_notes||"";
+  document.getElementById("edit_license").value   = r.pilot_license||getPilotLicense();
+  // 기존 비행시간으로 종료시각 역산
+  if(startHM && r.flight_duration){
+    const mins = parseInt(r.flight_duration);
+    if(!isNaN(mins)){
+      const sh=parseInt(startHM.slice(0,2)), sm=parseInt(startHM.slice(2,4));
+      const total=(sh*60+sm+mins)%1440;
+      document.getElementById("edit_end").value = String(Math.floor(total/60)).padStart(2,"0")+String(total%60).padStart(2,"0");
+    }
+  }
+  calcEditDuration();
+  document.getElementById("editLogMsg").textContent="";
+  document.getElementById("editLogModal").classList.add("open");
+}
+function closeEditLogModal(){
+  document.getElementById("editLogModal").classList.remove("open");
+}
+document.getElementById("btnCancelEditLog").addEventListener("click", closeEditLogModal);
+document.getElementById("editLogModal").addEventListener("click", e=>{ if(e.target.id==="editLogModal") closeEditLogModal(); });
+
+document.getElementById("btnSaveEditLog").addEventListener("click", async ()=>{
+  const msg = document.getElementById("editLogMsg");
+  const id  = document.getElementById("edit_id").value;
+  const dateVal  = document.getElementById("edit_date").value;
+  const startRaw = document.getElementById("edit_start").value;
+  const startColon = startRaw.length===4 ? startRaw.slice(0,2)+":"+startRaw.slice(2,4) : "";
+  msg.textContent="저장 중..."; msg.style.color="#666";
+  try{
+    const payload = {
+      log_datetime:  dateVal&&startColon ? `${dateVal}T${startColon}` : dateVal,
+      flight_location: document.getElementById("edit_location").value,
+      purpose:       document.getElementById("edit_task").value,
+      drone_type:    document.getElementById("edit_drone_type").value,
+      monitoring:    document.getElementById("edit_monitoring").value,
+      route:         document.getElementById("edit_route").value,
+      vessel_name:   document.getElementById("edit_vessel").value,
+      flight_count:  document.getElementById("edit_count").value,
+      flight_range:  document.getElementById("edit_range").value,
+      flight_altitude:document.getElementById("edit_altitude").value,
+      shooting_type: document.getElementById("edit_shoottype").value,
+      wind_speed:    document.getElementById("edit_wind").value,
+      temperature:   document.getElementById("edit_temp").value,
+      visibility:    document.getElementById("edit_visibility").value,
+      weather_etc:   document.getElementById("edit_weather_etc").value,
+      special_notes: document.getElementById("edit_notes").value,
+      pilot_license: document.getElementById("edit_license").value,
+      flight_duration: document.getElementById("edit_duration").value.replace(/[^\d]/g,""),
+    };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${T_FLIGHTLOG}?id=eq.${id}`,{
+      method:"PATCH",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error(await res.text());
+    msg.textContent="저장 완료"; msg.style.color="#16a34a";
+    setTimeout(()=>{ closeEditLogModal(); loadFlightLog(); if(document.getElementById("tab3").classList.contains("active")) loadOpsTable(); }, 600);
+  }catch(e){
+    msg.textContent="저장 실패: "+e.message; msg.style.color="#dc2626";
+  }
+});
+// ─────────────────────────────────────────────────────
+
+document.getElementById("lg_reg").addEventListener("change", function(){
+  localStorage.setItem("drn_last_reg", this.value);
+  loadFlightLog();
+});
+
+/* ── 기체 관리 ── */
+function openAircraftMgr(){
+  renderAircraftList();
+  document.getElementById("aircraftMgrModal").classList.add("open");
+}
+function closeAircraftMgr(){
+  document.getElementById("aircraftMgrModal").classList.remove("open");
+}
+
+function renderAircraftList(){
+  const container = document.getElementById("aircraftList");
+  if(!_aircraftRows.length){ container.innerHTML = '<div style="color:#999;font-size:13px;">등록된 기체가 없습니다.</div>'; return; }
+  container.innerHTML = _aircraftRows.map(r => `
+    <div id="ac-row-${r.id}" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${r.active?'#f0f7ff':'#f5f5f5'};border:1px solid ${r.active?'#bcd5f5':'#ddd'};border-radius:7px;">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:bold;">${r.reg_no}</div>
+        <div style="font-size:11px;color:#666;">${r.model||''}</div>
+      </div>
+      <button onclick="openEditAircraft(${r.id})"
+        style="font-size:11px;padding:4px 10px;border:none;border-radius:5px;cursor:pointer;background:#e8f0fe;color:#1a5fb4;">수정</button>
+      <button onclick="deleteAircraft(${r.id},'${r.reg_no.replace(/'/g,"\\\'")}')"
+        style="font-size:11px;padding:4px 8px;border:none;border-radius:5px;cursor:pointer;background:#fce4e4;color:#c62828;">삭제</button>
+    </div>`).join("");
+}
+
+function openEditAircraft(id){
+  const r = _aircraftRows.find(x => x.id === id);
+  if(!r) return;
+  const row = document.getElementById(`ac-row-${id}`);
+  row.innerHTML = `
+    <input id="edit-reg-${id}" value="${r.reg_no}" style="flex:2;padding:5px 8px;border:1px solid #aac4f0;border-radius:5px;font-size:12px;font-family:inherit;">
+    <input id="edit-model-${id}" value="${r.model||''}" placeholder="기종" style="flex:1;padding:5px 8px;border:1px solid #aac4f0;border-radius:5px;font-size:12px;font-family:inherit;">
+    <button onclick="saveEditAircraft(${id})" style="font-size:11px;padding:4px 10px;border:none;border-radius:5px;cursor:pointer;background:#1a5fb4;color:#fff;">저장</button>
+    <button onclick="renderAircraftList()" style="font-size:11px;padding:4px 8px;border:none;border-radius:5px;cursor:pointer;background:#eee;color:#333;">취소</button>`;
+  row.style.flexWrap = "wrap";
+}
+
+async function saveEditAircraft(id){
+  const regNo = document.getElementById(`edit-reg-${id}`).value.trim();
+  const model = document.getElementById(`edit-model-${id}`).value.trim();
+  if(!regNo){ alert("등록번호를 입력하세요."); return; }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/drone_aircraft?id=eq.${id}`, {
+    method:"PATCH",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+    body: JSON.stringify({ reg_no: regNo, model: model||null })
+  });
+  if(!res.ok){ alert("수정 실패: " + await res.text()); return; }
+  await loadAircraftList();
+  renderAircraftList();
+}
+
+async function deleteAircraft(id, regNo){
+  if(!confirm(`"${regNo}" 기체를 삭제하시겠습니까?\n관련 비행기록은 유지됩니다.`)) return;
+  await fetch(`${SUPABASE_URL}/rest/v1/drone_aircraft?id=eq.${id}`, {
+    method:"DELETE",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
+  });
+  await loadAircraftList();
+  renderAircraftList();
+}
+
+async function addAircraft(){
+  const regNo = document.getElementById("newRegNo").value.trim();
+  const model = document.getElementById("newModel").value.trim();
+  if(!regNo){ alert("등록번호를 입력하세요."); return; }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/drone_aircraft`, {
+    method:"POST",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},
+    body: JSON.stringify({ reg_no: regNo, model: model||null, active: true })
+  });
+  if(!res.ok){ alert("추가 실패: " + await res.text()); return; }
+  document.getElementById("newRegNo").value = "";
+  document.getElementById("newModel").value = "";
+  await loadAircraftList();
+  renderAircraftList();
+}
+document.getElementById("btnPrint2").addEventListener("click", ()=>window.print());
+document.getElementById("btnExcelOps").addEventListener("click", ()=>{
+  const y = document.getElementById("ops-year").value;
+  const m = document.getElementById("ops-month").value;
+  const mm = String(m).padStart(2,"0");
+
+  // 데이터 수집
+  const dataRows = [];
+  document.querySelectorAll("#opsBody tr").forEach(tr=>{
+    const tds = tr.querySelectorAll("td");
+    if(tds.length < 17) return;
+    const cell = (i)=>{ const td=tds[i]; const s=td.querySelector("select"); return s?s.value:td.textContent.trim(); };
+    const dur = cell(15).replace(/[^\d]/g,"");
+    dataRows.push([
+      parseInt(cell(0))||"",  // No
+      cell(1),                 // 지사
+      cell(2),                 // 활용일자
+      cell(3),                 // 드론종류
+      cell(4).toLowerCase(),   // 모니터링 (o/x)
+      cell(5),                 // 분류
+      cell(6),                 // 추진업무
+      cell(7),                 // 지역
+      cell(8)||"-",            // 항로
+      cell(9),                 // 선명
+      cell(10),                // 횟수
+      cell(11),                // 점검자
+      cell(12),                // 자격급수
+      cell(13),                // 사진파일명
+      cell(14),                // 기종
+      dur ? parseInt(dur) : "", // 운용시간(분)
+      cell(16),                // 비고
+    ]);
+  });
+  if(!dataRows.length){ alert("내보낼 데이터가 없습니다."); return; }
+
+  // 스타일 정의
+  const thin = { style:"thin", color:{ rgb:"000000" } };
+  const border = { top:thin, bottom:thin, left:thin, right:thin };
+  const titleSt = {
+    font:{ name:"맑은 고딕", sz:12, bold:true },
+    alignment:{ horizontal:"center", vertical:"center" }
+  };
+  const hdrSt = {
+    font:{ name:"맑은 고딕", sz:8, bold:true },
+    alignment:{ horizontal:"center", vertical:"center", wrapText:true },
+    fill:{ fgColor:{ rgb:"D9E1F2" }, patternType:"solid" },
+    border
+  };
+  const ctrSt = {
+    font:{ name:"맑은 고딕", sz:8 },
+    alignment:{ horizontal:"center", vertical:"center" },
+    border
+  };
+  const leftSt = {
+    font:{ name:"맑은 고딕", sz:8 },
+    alignment:{ horizontal:"left", vertical:"center" },
+    border
+  };
+  // 왼쪽 정렬 컬럼: 추진업무(6), 지역(7), 항로(8), 선명(9), 비고(16)
+  const leftCols = new Set([6,7,8,9,16]);
+
+  // 워크시트 수동 구성
+  const ws = {};
+  const nDataRows = dataRows.length;
+  const lastRow = 3 + nDataRows; // 1-based
+  ws["!ref"] = `A1:Q${lastRow}`;
+
+  // 행1: 제목
+  ws["A1"] = { v:`${y}년 ${m}월 드론 운용 실적 보고서 (종합)`, t:"s", s:titleSt };
+
+  // 행2: 빈 행 (spacer)
+
+  // 행3: 헤더
+  const HEADERS = ["No","지 사","활용일자","드론 종류","모니터링 \n연계 여부","분 류","추진 업무","지 역","항 로","선 명","횟 수","점 검 자 ","자격급수","사진 파일명","기 종","운용시간(분)","비 고"];
+  HEADERS.forEach((h,ci)=>{
+    const addr = XLSX.utils.encode_cell({r:2, c:ci});
+    ws[addr] = { v:h, t:"s", s:hdrSt };
+  });
+
+  // 행4~: 데이터
+  dataRows.forEach((row, ri)=>{
+    row.forEach((v, ci)=>{
+      const addr = XLSX.utils.encode_cell({r:3+ri, c:ci});
+      const t = typeof v==="number" ? "n" : "s";
+      ws[addr] = { v:v==null?"":v, t, s: leftCols.has(ci)?leftSt:ctrSt };
+    });
+  });
+
+  // 병합: A1:Q1 제목
+  ws["!merges"] = [{ s:{r:0,c:0}, e:{r:0,c:16} }];
+
+  // 열 너비 — SheetJS는 wch를 실제 Excel 너비보다 +0.832로 저장하므로 보정값 적용
+  // 원본: A=3.625 B=6.25 C=8.75 D=7.625 E=없음 F=15 G=35.375 H=12.75 I=14.25 J=17.375 K=4.75 L=9.125 M=7 N=28.5 O=10.875 P=9.5 Q=38
+  const adj = (w) => ({ wch: w - 0.832 });
+  ws["!cols"] = [
+    adj(3.625), adj(6.25), adj(8.75), adj(7.625),
+    {},                   // E: 원본에 너비 설정 없음 (default)
+    adj(15), adj(35.375), adj(12.75), adj(14.25), adj(17.375),
+    adj(4.75), adj(9.125), adj(7), adj(28.5), adj(10.875), adj(9.5), adj(38)
+  ];
+
+  // 행 높이
+  ws["!rows"] = [
+    {hpt:40},  // 제목
+    {hpt:20},  // 빈 행
+    {hpt:22},  // 헤더
+    ...dataRows.map(()=>({hpt:16.5}))
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `${y}년${m}월 운용실적`);
+  XLSX.writeFile(wb, `드론운용실적_${y}${mm}.xlsx`);
+});
+
+/* 초기화 */
 buildChecklistTable();
 initSyncedFields();
 ensurePilotName();
-loadHistory();
-loadFlightLog();
+loadAircraftList(); // 기체 목록 DB 로드 → 드롭다운 채우기 → loadFlightLog 호출
 setTimeout(resizeCanvas, 50);
 </script>
 
-</body>
-</html>
+</body></html>
