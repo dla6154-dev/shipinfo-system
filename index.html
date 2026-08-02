@@ -1222,8 +1222,8 @@ const VISIBILITY_LIMIT_ROUTE_SUMMARY = [
   { route: '진도 / 제주', ships: '산타모니카' },
   { route: '우수영 / 상태동리', ships: '해진고속카페리' }
 ];
-const FERRY_OPERATION_API_URL = 'https://apis.data.go.kr/B554035/oprt-schd-info-v2/get-oprt-schd-info-v2';
-const FERRY_OPERATION_API_SERVICE_KEY = '4063f2c2047eaf451ca47bba11369c953e228d145a62d2be87ad7af1d0f3960f';
+const FERRY_OPERATION_API_URL = 'https://mokpo-weather-dashboard.onrender.com/api/ferry/schedule';
+const FERRY_OPERATION_API_SERVICE_KEY = '';
 const FERRY_OPERATION_API_PAGE_SIZE = 1000;
 const FERRY_OPERATION_REGISTERED_ROUTE_STORAGE_KEY = 'ferryOperation.registeredApiRoutes.v1';
 const FERRY_OPERATION_REGISTERED_ROUTE_LIMIT = 6;
@@ -2551,9 +2551,9 @@ function buildVisibilityNoticeHelper() {
         <span class="shrink-0 w-5 h-5 rounded-full border-2 ${circleClass} flex items-center justify-center">${check}</span>
         <span class="shrink-0 text-base font-bold text-white w-12">${escapeHtml(formatFerryOperationApiTime(item.sailTime))}</span>
         <span class="flex-1 leading-snug">
-          <span class="flex flex-wrap items-center gap-1.5">
-            <span class="text-sm font-bold text-slate-100">${escapeHtml(item.shipName)}</span>
-            ${otherBadges}
+          <span class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-sm font-bold text-slate-100 shrink-0">${escapeHtml(item.shipName)}</span>
+            <span class="flex items-center gap-1 flex-nowrap">${otherBadges}</span>
           </span>
           <span class="block text-xs text-slate-400">${escapeHtml(item.routeName)} · ${escapeHtml(item.departureName)} 출항${item.arrivalName ? ` → ${escapeHtml(item.arrivalName)}` : ''}</span>
         </span>
