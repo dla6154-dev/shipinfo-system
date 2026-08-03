@@ -2530,12 +2530,33 @@ function buildVisibilityNoticeHelper() {
       const vMin = ferryOperationTimeToMinutes(item.sailTime);
       return vMin >= minMin && vMin <= maxMin;
     }
-    return visibilityNoticeSelectedByType.wait.has(item.itemId) || visibilityNoticeCopiedByType.wait.has(item.itemId);
+    const inWait = visibilityNoticeSelectedByType.wait.has(item.itemId) || visibilityNoticeCopiedByType.wait.has(item.itemId);
+    if (!inWait) return false;
+    if (visibilityNoticeActiveType === 'ctrl') return !visibilityNoticeCopiedByType.normal.has(item.itemId);
+    if (visibilityNoticeActiveType === 'normal') return !visibilityNoticeCopiedByType.ctrl.has(item.itemId);
+    return true;
   });
 
-  const itemRows = filteredItems.map((item) => {
+  // 통제/정상운항 탭: 이미 처리된 항목 위, 출항대기 항목 아래
+  let displayItems = filteredItems;
+  if (visibilityNoticeActiveType !== 'wait') {
+    const activeKey = visibilityNoticeActiveType;
+    const processed = filteredItems.filter(item => visibilityNoticeCopiedByType[activeKey].has(item.itemId));
+    const waiting  = filteredItems.filter(item => !visibilityNoticeCopiedByType[activeKey].has(item.itemId));
+    displayItems = [...processed, ...waiting];
+  }
+
+  const processedCount = visibilityNoticeActiveType !== 'wait'
+    ? displayItems.filter(item => visibilityNoticeCopiedByType[visibilityNoticeActiveType].has(item.itemId)).length
+    : 0;
+
+  const itemRows = displayItems.map((item, i) => {
+    const isProcessed = visibilityNoticeActiveType !== 'wait' && visibilityNoticeCopiedByType[visibilityNoticeActiveType].has(item.itemId);
+    const divider = (visibilityNoticeActiveType !== 'wait' && i === processedCount && processedCount > 0 && displayItems.length > processedCount)
+      ? `<p class="text-[10px] text-slate-500 text-center pt-1">── 출항대기 ──</p>`
+      : '';
     const sel = visibilityNoticeSelectedItems.has(item.itemId);
-    const rowClass = sel ? 'border-violet-400/80 bg-violet-500/15' : 'border-slate-600 bg-slate-800/70';
+    const rowClass = sel ? 'border-violet-400/80 bg-violet-500/15' : isProcessed ? 'border-slate-500 bg-slate-700/60' : 'border-slate-600 bg-slate-800/70';
     const circleClass = sel ? 'border-violet-400 bg-violet-500' : 'border-slate-500';
     const check = sel ? `<svg viewBox="0 0 12 12" fill="none" class="w-3 h-3"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
     const otherBadges = VISIBILITY_NOTICE_TYPES
@@ -2558,6 +2579,7 @@ function buildVisibilityNoticeHelper() {
           <span class="block text-xs text-slate-400">${escapeHtml(item.routeName)} · ${escapeHtml(item.departureName)} 출항${item.arrivalName ? ` → ${escapeHtml(item.arrivalName)}` : ''}</span>
         </span>
       </button>`;
+    return divider + row;
   }).join('');
 
   const hasSelection = visibilityNoticeSelectedItems.size > 0;
@@ -2763,11 +2785,22 @@ function bindFerryOperationManagerSection(section) {
     if (noticeCopyBtn && visibilityNoticeSelectedItems.size > 0) {
       const text = buildVisibilityNoticeTextFromSelected();
       const activeKey = visibilityNoticeActiveType;
-      visibilityNoticeSelectedByType[activeKey].forEach(itemId => {
-        visibilityNoticeCopiedByType[activeKey].add(itemId);
-        if (activeKey === 'ctrl') visibilityNoticeCopiedByType['normal'].delete(itemId);
-        if (activeKey === 'normal') visibilityNoticeCopiedByType['ctrl'].delete(itemId);
-      });
+      if (activeKey === 'wait') {
+        visibilityNoticeSelectedByType[activeKey].forEach(itemId => {
+          visibilityNoticeCopiedByType[activeKey].add(itemId);
+        });
+      } else {
+        visibilityNoticeSelectedByType[activeKey].forEach(itemId => {
+          if (visibilityNoticeCopiedByType[activeKey].has(itemId)) {
+            // 이미 처리된 항목 → 취소 (출항대기로 복귀)
+            visibilityNoticeCopiedByType[activeKey].delete(itemId);
+          } else {
+            visibilityNoticeCopiedByType[activeKey].add(itemId);
+            if (activeKey === 'ctrl') visibilityNoticeCopiedByType['normal'].delete(itemId);
+            if (activeKey === 'normal') visibilityNoticeCopiedByType['ctrl'].delete(itemId);
+          }
+        });
+      }
       visibilityNoticeSelectedByType[activeKey].clear();
       visibilityNoticeCopiedBackup = null;
       _saveNoticeCopied();
