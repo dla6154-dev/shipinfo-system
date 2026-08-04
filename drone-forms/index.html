@@ -576,7 +576,6 @@
           <input type="text" id="f_wind" data-sync="wind_speed" style="width:45%;display:inline-block;" placeholder="풍속(m/s)">
           /
           <input type="text" id="f_temp" data-sync="temperature" style="width:45%;display:inline-block;" placeholder="온도(℃)">
-          <div id="wt-display" style="display:none;margin-top:4px;font-size:12px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;width:fit-content;"></div>
         </td>
         <td class="label">비행시작/비행종료</td>
         <td>
@@ -1508,7 +1507,7 @@ async function loadChecklistRecord(id){
     const wt = (r.wind_temp||" / ").split(" / ");
     document.getElementById("f_wind").value = wt[0] || "";
     document.getElementById("f_temp").value = wt[1] || "";
-    updateWtDisplay();
+    applyWindTempUnits();
     document.getElementById("f_start").value = r.flight_start || "";
     calcFlightDuration();
     document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
@@ -1560,10 +1559,10 @@ document.getElementById("btnAutoWeather").addEventListener("click", async () => 
     document.getElementById("f_wind").value = d.wind_range;
     document.getElementById("f_temp").value = d.temperature;
     document.getElementById("f_visibility").value = d.visibility_km;
+    applyWindTempUnits();
     ["f_wind","f_temp","f_visibility"].forEach(id =>
       document.getElementById(id).dispatchEvent(new Event("input"))
     );
-    updateWtDisplay();
     const t = d.tm;
     msg.textContent = `✓ ${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)} ${t.slice(8,10)}:00 ${locName}`;
     msg.style.color = "#16a34a";
@@ -1578,25 +1577,18 @@ document.getElementById("btnNew1").addEventListener("click", resetChecklistForm)
 // 인쇄 시 활성 탭에 따라 @page 방향 전환
 const dynPageStyle = document.createElement("style");
 document.head.appendChild(dynPageStyle);
-function updateWtDisplay(){
-  const wind = document.getElementById("f_wind")?.value.trim();
-  const temp = document.getElementById("f_temp")?.value.trim();
-  const badge = document.getElementById("wt-display");
-  if(!badge) return;
-  if(wind || temp){
-    const parts = [];
-    if(wind) parts.push(wind.includes("m/s") ? wind : wind + " m/s");
-    if(temp) parts.push(temp.includes("℃") ? temp : temp + "℃");
-    badge.textContent = parts.join("  ");
-    badge.style.display = "block";
-  } else {
-    badge.style.display = "none";
+function applyWindTempUnits(){
+  const wEl = document.getElementById("f_wind");
+  const tEl = document.getElementById("f_temp");
+  if(wEl){
+    const v = wEl.value.trim();
+    if(v && !v.includes("m/s")) wEl.value = v + " m/s";
+  }
+  if(tEl){
+    const v = tEl.value.trim();
+    if(v && !v.includes("℃")) tEl.value = v + "℃";
   }
 }
-["f_wind","f_temp"].forEach(id => {
-  const el = document.getElementById(id);
-  if(el) el.addEventListener("input", updateWtDisplay);
-});
 
 window.addEventListener("beforeprint", ()=>{
   const activeId = document.querySelector(".panel.active")?.id;
@@ -2179,7 +2171,7 @@ initSyncedFields();
 ensurePilotName();
 loadAircraftList(); // 기체 목록 DB 로드 → 드롭다운 채우기 → loadFlightLog 호출
 setTimeout(resizeCanvas, 50);
-setTimeout(updateWtDisplay, 100); // localStorage 값 세팅 후 배지 표시
+setTimeout(applyWindTempUnits, 100);
 </script>
 
 </body></html>
