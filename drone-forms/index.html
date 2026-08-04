@@ -1508,6 +1508,7 @@ async function loadChecklistRecord(id){
     const wt = (r.wind_temp||" / ").split(" / ");
     document.getElementById("f_wind").value = wt[0] || "";
     document.getElementById("f_temp").value = wt[1] || "";
+    updateWtDisplay();
     document.getElementById("f_start").value = r.flight_start || "";
     calcFlightDuration();
     document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
