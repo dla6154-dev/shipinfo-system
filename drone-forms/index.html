@@ -2179,6 +2179,7 @@ initSyncedFields();
 ensurePilotName();
 loadAircraftList(); // 기체 목록 DB 로드 → 드롭다운 채우기 → loadFlightLog 호출
 setTimeout(resizeCanvas, 50);
+setTimeout(updateWtDisplay, 100); // localStorage 값 세팅 후 배지 표시
 </script>
 
 </body></html>
