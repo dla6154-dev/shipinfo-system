@@ -516,13 +516,13 @@
   </div>
   <select id="ops-year" style="font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #ccc;color:#111;">
     <option value="2025">2025년</option>
-    <option value="2026" selected>2026년</option>
+    <option value="2026">2026년</option>
     <option value="2027">2027년</option>
   </select>
   <select id="ops-month" style="font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #ccc;color:#111;">
     <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
     <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
-    <option value="7" selected>7월</option><option value="8">8월</option><option value="9">9월</option>
+    <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
     <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
   </select>
 </div>
@@ -2166,6 +2166,11 @@ document.getElementById("btnExcelOps").addEventListener("click", ()=>{
 });
 
 /* 초기화 */
+(function(){
+  const now = new Date();
+  document.getElementById("ops-year").value = String(now.getFullYear());
+  document.getElementById("ops-month").value = String(now.getMonth() + 1);
+})();
 buildChecklistTable();
 initSyncedFields();
 ensurePilotName();
