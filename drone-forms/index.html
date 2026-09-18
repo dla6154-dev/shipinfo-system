@@ -624,7 +624,7 @@
     <div class="action-bar">
       <button id="btnSave1">저장 (Supabase)</button>
       <button class="secondary" id="btnNew1">새 점검표</button>
-      <button class="secondary" id="btnShowHistory">📋 이전 기록 불러오기</button>
+      <button class="secondary" id="btnShowHistory">📋 이전 기록 인쇄</button>
       <button class="secondary" id="btnPrint1">인쇄 / PDF</button>
       <span id="statusMsg1"></span>
     </div>
@@ -1482,7 +1482,7 @@ async function loadHistory(){
         <td>${r.inspection_date||""}</td><td>${r.registration_no||""}</td>
         <td class="left">${r.pilot_name||""}</td><td class="left">${r.flight_location||""}</td>
         <td>${r.inspector_name||""}</td><td>${filled}개 항목</td>
-        <td><button class="secondary" data-id="${r.id}" style="font-size:11px;padding:4px 8px;">불러오기</button></td>
+        <td><button class="secondary" data-id="${r.id}" style="font-size:11px;padding:4px 8px;">인쇄</button></td>
       </tr>`;
     });
     html += "</tbody></table>";
@@ -1515,10 +1515,29 @@ async function loadChecklistRecord(id){
     calcFlightDuration();
     document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
     fillItems(r.items);
+    // 원본 레코드의 날짜·조종자 이름으로 덮어쓰기
+    if(r.inspection_date){ document.getElementById("f_date").value = r.inspection_date; }
+    const pilotName = r.pilot_name || "";
+    const ckPilot = document.getElementById("ck_pilot");
+    if(ckPilot){ ckPilot.value = pilotName; ckPilot.classList.toggle("has-value", !!pilotName); }
+    const inspEl = document.getElementById("ck_inspectorName");
+    if(inspEl){ inspEl.textContent = pilotName || " "; inspEl.style.color = pilotName ? "#111" : "#aaa"; }
+    // 원본 조종자의 서명 불러오기
+    if(pilotName){
+      const cached = localStorage.getItem("drn_sig_" + pilotName);
+      if(cached){ showSavedSignature(cached); }
+      else{
+        fetch(`${SUPABASE_URL}/rest/v1/${T_SIGNATURE}?pilot_name=eq.${encodeURIComponent(pilotName)}&select=signature_data`,
+          { headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`} })
+          .then(res=>res.json()).then(rows=>{
+            if(rows.length && rows[0].signature_data) showSavedSignature(rows[0].signature_data);
+          }).catch(()=>{});
+      }
+    }
     const hw = document.getElementById("historyWrap1");
     if(hw){ hw.style.display = "none"; }
     const hBtn = document.getElementById("btnShowHistory");
-    if(hBtn) hBtn.textContent = "📋 이전 기록 불러오기";
+    if(hBtn) hBtn.textContent = "📋 이전 기록 인쇄";
     window.scrollTo({top:0, behavior:"smooth"});
     setTimeout(()=>{ window.print(); }, 300);
   }catch(err){
@@ -1588,7 +1607,7 @@ document.getElementById("btnShowHistory").addEventListener("click", function(){
     this.textContent = "📋 이전 기록 닫기";
   } else {
     wrap.style.display = "none";
-    this.textContent = "📋 이전 기록 불러오기";
+    this.textContent = "📋 이전 기록 인쇄";
   }
 });
 document.getElementById("btnNew1").addEventListener("click", resetChecklistForm);
