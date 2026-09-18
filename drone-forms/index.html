@@ -624,9 +624,12 @@
     <div class="action-bar">
       <button id="btnSave1">저장 (Supabase)</button>
       <button class="secondary" id="btnNew1">새 점검표</button>
+      <button class="secondary" id="btnShowHistory">📋 이전 기록 불러오기</button>
       <button class="secondary" id="btnPrint1">인쇄 / PDF</button>
       <span id="statusMsg1"></span>
     </div>
+
+    <div id="historyWrap1" class="no-print" style="display:none;margin-top:16px;overflow-x:auto;"></div>
   </div>
 
 </div>
@@ -1513,6 +1516,10 @@ async function loadChecklistRecord(id){
     document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
     fillItems(r.items);
     setStatus(document.getElementById("statusMsg1"), "불러오기 완료", "ok");
+    const hw = document.getElementById("historyWrap1");
+    if(hw){ hw.style.display = "none"; }
+    const hBtn = document.getElementById("btnShowHistory");
+    if(hBtn) hBtn.textContent = "📋 이전 기록 불러오기";
     window.scrollTo({top:0, behavior:"smooth"});
   }catch(err){
     setStatus(document.getElementById("statusMsg1"), "불러오기 실패: " + err.message, "err");
@@ -1573,6 +1580,17 @@ document.getElementById("btnAutoWeather").addEventListener("click", async () => 
 });
 
 document.getElementById("btnSave1").addEventListener("click", saveChecklist);
+document.getElementById("btnShowHistory").addEventListener("click", function(){
+  const wrap = document.getElementById("historyWrap1");
+  if(wrap.style.display === "none"){
+    wrap.style.display = "block";
+    loadHistory();
+    this.textContent = "📋 이전 기록 닫기";
+  } else {
+    wrap.style.display = "none";
+    this.textContent = "📋 이전 기록 불러오기";
+  }
+});
 document.getElementById("btnNew1").addEventListener("click", resetChecklistForm);
 // 인쇄 시 활성 탭에 따라 @page 방향 전환
 const dynPageStyle = document.createElement("style");
