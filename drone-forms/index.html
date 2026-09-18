@@ -1515,12 +1515,12 @@ async function loadChecklistRecord(id){
     calcFlightDuration();
     document.querySelectorAll('input[type="radio"]').forEach(el=>el.checked=false);
     fillItems(r.items);
-    setStatus(document.getElementById("statusMsg1"), "불러오기 완료", "ok");
     const hw = document.getElementById("historyWrap1");
     if(hw){ hw.style.display = "none"; }
     const hBtn = document.getElementById("btnShowHistory");
     if(hBtn) hBtn.textContent = "📋 이전 기록 불러오기";
     window.scrollTo({top:0, behavior:"smooth"});
+    setTimeout(()=>{ window.print(); }, 300);
   }catch(err){
     setStatus(document.getElementById("statusMsg1"), "불러오기 실패: " + err.message, "err");
   }
