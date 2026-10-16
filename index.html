@@ -4074,10 +4074,16 @@ const DATASETS = [
     function formatWeatherCompactTimestamp(value) {
       const text = String(value || '').trim();
       if (!text) return '-';
+      let datePart, timePart;
       if (text.length === 12 && /^\d+$/.test(text)) {
-        return `${text.slice(4, 6)}/${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}`;
+        datePart = `${text.slice(4, 6)}/${text.slice(6, 8)}`;
+        timePart = `${text.slice(8, 10)}:${text.slice(10, 12)}`;
+      } else {
+        return formatWeatherIsoTimestamp(text);
       }
-      return formatWeatherIsoTimestamp(text);
+      const hour = parseInt(text.slice(8, 10), 10);
+      const label = hour < 6 ? '새벽' : hour < 12 ? '오전' : hour < 18 ? '오후' : '밤';
+      return `${datePart} ${label} ${timePart}`;
     }
 
     function getWeatherWarningReleaseTime(warning) {
