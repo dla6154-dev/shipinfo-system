@@ -4082,7 +4082,7 @@ const DATASETS = [
         return formatWeatherIsoTimestamp(text);
       }
       const hour = parseInt(text.slice(8, 10), 10);
-      const label = hour < 6 ? '새벽' : hour < 12 ? '오전' : hour < 18 ? '오후' : '밤';
+      const label = hour < 6 ? '새벽(00-06시)' : hour < 12 ? '오전(06-12시)' : hour < 18 ? '오후(12-18시)' : '밤(18-24시)';
       return `${datePart} ${label} ${timePart}`;
     }
 
@@ -5606,10 +5606,12 @@ const DATASETS = [
               ? `<div class="mt-2 space-y-1.5">
                   ${warnings.map((warning) => {
                     const warningTone = getWarningTone(warning.level);
+                    const isPreliminary = String(warning.level || '').includes('예비');
                     const releaseTime = getWeatherWarningReleaseTime(warning);
-                    const releaseLabel = releaseTime
-                      ? formatWeatherCompactTimestamp(releaseTime)
-                      : '공란';
+                    const rightLabel = isPreliminary ? '발효시각' : '해제';
+                    const rightValue = isPreliminary
+                      ? formatWeatherCompactTimestamp(warning.effectiveAt)
+                      : releaseTime ? formatWeatherCompactTimestamp(releaseTime) : '공란';
                     return `
                       <div class="rounded-lg border px-3 py-2 ${buildWarningDetailClasses(warningTone)}">
                         <div class="flex items-center justify-between gap-2">
@@ -5618,8 +5620,8 @@ const DATASETS = [
                             <div class="mt-0.5 text-[11px] text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))} · 발표 ${escapeHtml(formatWeatherCompactTimestamp(warning.issuedAt))}</div>
                           </div>
                           <div class="shrink-0 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-right">
-                            <div class="text-[10px] text-cyan-300">해제</div>
-                            <div class="text-xs font-bold text-cyan-100">${escapeHtml(releaseLabel)}</div>
+                            <div class="text-[10px] text-cyan-300">${escapeHtml(rightLabel)}</div>
+                            <div class="text-xs font-bold text-cyan-100">${escapeHtml(rightValue)}</div>
                           </div>
                         </div>
                       </div>`;
