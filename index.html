@@ -4081,7 +4081,7 @@ const DATASETS = [
       const hour = parseInt(text.slice(8, 10), 10);
       const timePart = `${text.slice(8, 10)}:${text.slice(10, 12)}`;
       const label = hour < 6 ? '새벽(00-06)' : hour < 12 ? '오전(06-12)' : hour < 18 ? '오후(12-18)' : '밤(18-24)';
-      return `${day}일 ${label} ${timePart}`;
+      return `${day}일 ${label}`;
     }
 
     function formatWeatherCompactTimestamp(value) {
@@ -5632,13 +5632,10 @@ const DATASETS = [
           if (!primaryWarning) return '';
           const isPreliminary = String(primaryWarning.level || '').includes('예비');
           if (isPreliminary) {
-            const t = String(primaryWarning.effectiveAt || '').trim();
-            const h = parseInt(t.slice(8, 10), 10);
-            if (isNaN(h)) return '-';
-            return h < 6 ? '새벽(00-06)' : h < 12 ? '오전(06-12)' : h < 18 ? '오후(12-18)' : '밤(18-24)';
+            return formatWeatherDayTimestamp(primaryWarning.effectiveAt);
           }
           const rel = getWeatherWarningReleaseTime(primaryWarning);
-          return rel ? formatWeatherCompactTimestamp(rel) : '해제 공란';
+          return rel ? formatWeatherDayTimestamp(rel) : '해제 공란';
         })();
 
         return `
