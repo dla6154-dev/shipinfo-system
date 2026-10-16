@@ -5609,9 +5609,15 @@ const DATASETS = [
                     const isPreliminary = String(warning.level || '').includes('예비');
                     const releaseTime = getWeatherWarningReleaseTime(warning);
                     const rightLabel = isPreliminary ? '발효시각' : '해제';
-                    const rightValue = isPreliminary
-                      ? formatWeatherCompactTimestamp(warning.effectiveAt)
-                      : releaseTime ? formatWeatherCompactTimestamp(releaseTime) : '공란';
+                    const rightValue = (() => {
+                      if (isPreliminary) {
+                        const t = String(warning.effectiveAt || '').trim();
+                        const h = parseInt(t.slice(8, 10), 10);
+                        if (isNaN(h)) return '-';
+                        return h < 6 ? '새벽(00-06)' : h < 12 ? '오전(06-12)' : h < 18 ? '오후(12-18)' : '밤(18-24)';
+                      }
+                      return releaseTime ? formatWeatherCompactTimestamp(releaseTime) : '공란';
+                    })();
                     return `
                       <div class="rounded-lg border px-3 py-2 ${buildWarningDetailClasses(warningTone)}">
                         <div class="flex items-center justify-between gap-2">
