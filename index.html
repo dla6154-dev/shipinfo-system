@@ -4074,6 +4074,16 @@ const DATASETS = [
       }).format(parsed);
     }
 
+    function formatWeatherDayTimestamp(value) {
+      const text = String(value || '').trim();
+      if (text.length !== 12 || !/^\d+$/.test(text)) return formatWeatherIsoTimestamp(text) || '-';
+      const day = parseInt(text.slice(6, 8), 10);
+      const hour = parseInt(text.slice(8, 10), 10);
+      const timePart = `${text.slice(8, 10)}:${text.slice(10, 12)}`;
+      const label = hour < 6 ? '새벽(00-06)' : hour < 12 ? '오전(06-12)' : hour < 18 ? '오후(12-18)' : '밤(18-24)';
+      return `${day}일 ${label} ${timePart}`;
+    }
+
     function formatWeatherCompactTimestamp(value) {
       const text = String(value || '').trim();
       if (!text) return '-';
@@ -5611,8 +5621,8 @@ const DATASETS = [
               return `<div class="rounded-lg border px-3 py-2 space-y-1 ${buildWarningDetailClasses(warningTone)}">
                 <div class="text-xs font-bold text-white">${escapeHtml(areaLabel)}</div>
                 <div class="text-[11px] text-slate-300">발표 ${escapeHtml(issuedHH)}:${escapeHtml(issuedMM)}</div>
-                <div class="text-[11px] text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
-                <div class="text-[11px] text-slate-300">해제 ${escapeHtml(releaseTime ? formatWeatherCompactTimestamp(releaseTime) : '공란')}</div>
+                <div class="text-[11px] text-slate-300">발효 ${escapeHtml(formatWeatherDayTimestamp(warning.effectiveAt))}</div>
+                <div class="text-[11px] text-slate-300">해제 ${escapeHtml(releaseTime ? formatWeatherDayTimestamp(releaseTime) : '공란')}</div>
               </div>`;
             }).join('')}
           </div>`;
