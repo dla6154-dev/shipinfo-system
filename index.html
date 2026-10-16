@@ -3675,6 +3675,9 @@ const DATASETS = [
     }
 
     let weatherSectionRequestId = 0;
+    const warningExpandedKeys = new Set();
+    let lastWarningSnapshot = null;
+    let lastQuerySnapshot = null;
     let lastWeatherAutoRefreshAt = 0;
     const WEATHER_HISTORY_WINDOW_MS = 6 * 60 * 60 * 1000;
     const WEATHER_HISTORY_STORAGE_KEY = 'weatherHistoryBySelection.v1';
@@ -5596,44 +5599,47 @@ const DATASETS = [
         const tone = primaryWarning ? getWarningTone(primaryWarning.level) : 'normal';
         const statusText = primaryWarning ? `${primaryWarning.warningType}${primaryWarning.level}` : '특보 없음';
 
+        const isExpanded = warningExpandedKeys.has(selectionKey);
+        const expandedDetail = (() => {
+          if (!isExpanded || !warnings.length) return '';
+          return `<div class="mt-2 space-y-2 border-t border-slate-700 pt-2">
+            ${warnings.map((warning) => {
+              const warningTone = getWarningTone(warning.level);
+              const releaseTime = getWeatherWarningReleaseTime(warning);
+              const issuedHH = String(warning.issuedAt || '').slice(8, 10);
+              const issuedMM = String(warning.issuedAt || '').slice(10, 12);
+              return `<div class="rounded-lg border px-3 py-2 space-y-1 ${buildWarningDetailClasses(warningTone)}">
+                <div class="text-xs font-bold text-white">${escapeHtml(areaLabel)}</div>
+                <div class="text-[11px] text-slate-300">발표 ${escapeHtml(issuedHH)}:${escapeHtml(issuedMM)}</div>
+                <div class="text-[11px] text-slate-300">발효 ${escapeHtml(formatWeatherCompactTimestamp(warning.effectiveAt))}</div>
+                <div class="text-[11px] text-slate-300">해제 ${escapeHtml(releaseTime ? formatWeatherCompactTimestamp(releaseTime) : '공란')}</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+        })();
+
+        const rightValue = (() => {
+          if (!primaryWarning) return '';
+          const isPreliminary = String(primaryWarning.level || '').includes('예비');
+          if (isPreliminary) {
+            const t = String(primaryWarning.effectiveAt || '').trim();
+            const h = parseInt(t.slice(8, 10), 10);
+            if (isNaN(h)) return '-';
+            return h < 6 ? '새벽(00-06)' : h < 12 ? '오전(06-12)' : h < 18 ? '오후(12-18)' : '밤(18-24)';
+          }
+          const rel = getWeatherWarningReleaseTime(primaryWarning);
+          return rel ? formatWeatherCompactTimestamp(rel) : '해제 공란';
+        })();
+
         return `
-          <article class="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2.5">
-            <div class="flex items-center justify-between gap-2">
-              <h4 class="text-sm font-bold text-white leading-tight">${escapeHtml(areaLabel)}</h4>
+          <article class="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 cursor-pointer active:bg-slate-700/60" data-warning-expand="${escapeHtml(selectionKey)}">
+            <div class="flex items-center gap-2">
+              <h4 class="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">${escapeHtml(areaLabel)}</h4>
               <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${buildWarningStatusClasses(tone)}">${escapeHtml(statusText)}</span>
+              ${primaryWarning ? `<span class="shrink-0 text-[11px] text-cyan-200 font-semibold">${escapeHtml(rightValue)}</span>` : ''}
+              <span class="shrink-0 text-slate-500 text-xs">${isExpanded ? '▲' : '▼'}</span>
             </div>
-            ${warnings.length
-              ? `<div class="mt-2 space-y-1.5">
-                  ${warnings.map((warning) => {
-                    const warningTone = getWarningTone(warning.level);
-                    const isPreliminary = String(warning.level || '').includes('예비');
-                    const releaseTime = getWeatherWarningReleaseTime(warning);
-                    const rightLabel = isPreliminary ? '발효시각' : '해제';
-                    const rightValue = (() => {
-                      if (isPreliminary) {
-                        const t = String(warning.effectiveAt || '').trim();
-                        const h = parseInt(t.slice(8, 10), 10);
-                        if (isNaN(h)) return '-';
-                        return h < 6 ? '새벽(00-06)' : h < 12 ? '오전(06-12)' : h < 18 ? '오후(12-18)' : '밤(18-24)';
-                      }
-                      return releaseTime ? formatWeatherCompactTimestamp(releaseTime) : '공란';
-                    })();
-                    return `
-                      <div class="rounded-lg border px-3 py-2 ${buildWarningDetailClasses(warningTone)}">
-                        <div class="flex items-center justify-between gap-2">
-                          <div class="min-w-0 flex-1">
-                            <div class="text-xs font-semibold text-white">${escapeHtml(`${warning.warningType}${warning.level}`)} · ${escapeHtml(warning.command || '')}</div>
-                            <div class="mt-0.5 text-[11px] text-slate-300">발표 ${escapeHtml(String(warning.issuedAt || '').slice(8, 10))}:${escapeHtml(String(warning.issuedAt || '').slice(10, 12))}</div>
-                          </div>
-                          <div class="shrink-0 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-right">
-                            <div class="text-[10px] text-cyan-300">${escapeHtml(rightLabel)}</div>
-                            <div class="text-xs font-bold text-cyan-100">${escapeHtml(rightValue)}</div>
-                          </div>
-                        </div>
-                      </div>`;
-                  }).join('')}
-                </div>`
-              : ''}
+            ${expandedDetail}
           </article>`;
       }).join('');
 
@@ -5736,6 +5742,8 @@ const DATASETS = [
                Supabase 캐시 · 갱신 ${new Date(fetchedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
              </div>`
           : '';
+        lastWarningSnapshot = areaSnapshot;
+        lastQuerySnapshot = querySnapshot;
         panelsEl.innerHTML = buildWeatherSummaryPanels(areaSnapshot, querySnapshot);
       } catch (error) {
         if (requestId !== weatherSectionRequestId) return;
@@ -7076,6 +7084,17 @@ case 'ship-detail-section':
         const weatherSection = sections['weather-section'];
         if (weatherSection && !weatherSection.classList.contains('hidden')) {
           loadWeatherSectionSummary(weatherSection, { bustCache: true });
+        }
+        return;
+      }
+      const warningExpandBtn = target.closest('[data-warning-expand]');
+      if (warningExpandBtn) {
+        const key = warningExpandBtn.dataset.warningExpand;
+        if (warningExpandedKeys.has(key)) warningExpandedKeys.delete(key);
+        else warningExpandedKeys.add(key);
+        const panelsEl = document.getElementById('weather-summary-panels');
+        if (panelsEl && lastWarningSnapshot && lastQuerySnapshot) {
+          panelsEl.innerHTML = buildWeatherSummaryPanels(lastWarningSnapshot, lastQuerySnapshot);
         }
         return;
       }
