@@ -5661,29 +5661,26 @@ const DATASETS = [
             </article>`;
         }
 
-        const isObsExpanded = observationExpandedKeys.has(selectionKey);
         const { displayTypeLabel, metrics, timeText } = buildWeatherInlineSummary(row);
-        const primaryMetric = metrics[0];
-        const compactRight = primaryMetric
-          ? `${primaryMetric.label} ${escapeHtml(formatWeatherMetricValue(primaryMetric))}`
-          : '없음';
-        const expandedMetrics = isObsExpanded
-          ? `<div class="mt-2 border-t border-slate-700 pt-2 grid grid-cols-3 gap-2">
-              ${metrics.map(m => `
-                <div class="text-center">
-                  <div class="text-[10px] text-slate-400">${escapeHtml(m.label)}</div>
-                  <div class="text-xs font-bold text-emerald-200">${escapeHtml(formatWeatherMetricValue(m))}</div>
-                </div>`).join('')}
-            </div>` : '';
         return `
-          <article class="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 cursor-pointer active:bg-slate-700/60" data-obs-expand="${escapeHtml(selectionKey)}">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-white flex-1 min-w-0 truncate">${escapeHtml(row.stationName)}</span>
-              <span class="text-[11px] text-slate-400">${escapeHtml(displayTypeLabel)}</span>
-              <span class="text-[11px] text-cyan-200 font-semibold shrink-0">${compactRight}</span>
-              <span class="shrink-0 text-slate-500 text-xs">${isObsExpanded ? '▲' : '▼'}</span>
+          <article class="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 transition hover:border-cyan-400/50 hover:bg-slate-800 cursor-pointer" data-weather-history-card="true" data-selection-key="${escapeHtml(selectionKey)}">
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-semibold leading-tight text-slate-100">
+                  <span class="text-white">${escapeHtml(row.stationName)}<span class="text-slate-400">(${escapeHtml(timeText)})</span></span>
+                  <span class="text-cyan-200">${escapeHtml(displayTypeLabel)}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                ${metrics.length
+                  ? metrics.map((metric) => `
+                      <div class="text-center">
+                        <div class="text-[10px] font-semibold leading-none text-slate-400">${escapeHtml(metric.label)}</div>
+                        <div class="mt-0.5 text-xs font-bold leading-none text-emerald-200">${escapeHtml(formatWeatherMetricValue(metric))}</div>
+                      </div>`).join('')
+                  : `<div class="text-[10px] text-slate-300">없음</div>`}
+              </div>
             </div>
-            ${expandedMetrics}
           </article>`;
       }).join('');
 
