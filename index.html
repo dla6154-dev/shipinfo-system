@@ -3676,6 +3676,7 @@ const DATASETS = [
 
     let weatherSectionRequestId = 0;
     const warningExpandedKeys = new Set();
+    const observationExpandedKeys = new Set();
     let lastWarningSnapshot = null;
     let lastQuerySnapshot = null;
     let lastWeatherAutoRefreshAt = 0;
@@ -5660,30 +5661,50 @@ const DATASETS = [
             </article>`;
         }
 
-        return renderWeatherSummaryCard(row, { selectionKey, clickable: true });
+        const isObsExpanded = observationExpandedKeys.has(selectionKey);
+        const { displayTypeLabel, metrics, timeText } = buildWeatherInlineSummary(row);
+        const primaryMetric = metrics[0];
+        const compactRight = primaryMetric
+          ? `${primaryMetric.label} ${escapeHtml(formatWeatherMetricValue(primaryMetric))}`
+          : '없음';
+        const expandedMetrics = isObsExpanded
+          ? `<div class="mt-2 border-t border-slate-700 pt-2 grid grid-cols-3 gap-2">
+              ${metrics.map(m => `
+                <div class="text-center">
+                  <div class="text-[10px] text-slate-400">${escapeHtml(m.label)}</div>
+                  <div class="text-xs font-bold text-emerald-200">${escapeHtml(formatWeatherMetricValue(m))}</div>
+                </div>`).join('')}
+            </div>` : '';
+        return `
+          <article class="rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 cursor-pointer active:bg-slate-700/60" data-obs-expand="${escapeHtml(selectionKey)}">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-white flex-1 min-w-0 truncate">${escapeHtml(row.stationName)}</span>
+              <span class="text-[11px] text-slate-400">${escapeHtml(displayTypeLabel)}</span>
+              <span class="text-[11px] text-cyan-200 font-semibold shrink-0">${compactRight}</span>
+              <span class="shrink-0 text-slate-500 text-xs">${isObsExpanded ? '▲' : '▼'}</span>
+            </div>
+            ${expandedMetrics}
+          </article>`;
       }).join('');
 
       return `
         <section class="rounded-3xl border border-slate-700 bg-slate-800/70 overflow-hidden">
           <div class="border-b border-slate-700 px-4 py-2.5">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-base font-bold text-emerald-300">운항 특보 요약</h3>
+              <h3 class="text-base font-bold text-emerald-300">운항 특보</h3>
               <span class="rounded-full bg-slate-900/70 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">업데이트 ${escapeHtml(areaGeneratedAt)}</span>
             </div>
           </div>
           <div class="p-3 space-y-2">${warningCards}</div>
         </section>
         <section class="rounded-3xl border border-slate-700 bg-slate-800/70 overflow-hidden">
-          <div class="border-b border-slate-700 px-5 py-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 class="text-xl font-bold text-cyan-300">운항 관측 요약</h3>
-                <p class="mt-1 text-sm text-slate-400">관측소별 정보를 한 줄로 압축해 표시합니다.</p>
-              </div>
-              <span class="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-slate-300">업데이트 ${escapeHtml(queryGeneratedAt)}</span>
+          <div class="border-b border-slate-700 px-4 py-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-base font-bold text-cyan-300">운항 관측</h3>
+              <span class="rounded-full bg-slate-900/70 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">업데이트 ${escapeHtml(queryGeneratedAt)}</span>
             </div>
           </div>
-          <div class="p-5 space-y-4">${weatherCards}</div>
+          <div class="p-3 space-y-2">${weatherCards}</div>
         </section>`;
     }
 
@@ -7099,6 +7120,17 @@ case 'ship-detail-section':
         const key = warningExpandBtn.dataset.warningExpand;
         if (warningExpandedKeys.has(key)) warningExpandedKeys.delete(key);
         else warningExpandedKeys.add(key);
+        const panelsEl = document.getElementById('weather-summary-panels');
+        if (panelsEl && lastWarningSnapshot && lastQuerySnapshot) {
+          panelsEl.innerHTML = buildWeatherSummaryPanels(lastWarningSnapshot, lastQuerySnapshot);
+        }
+        return;
+      }
+      const obsExpandBtn = target.closest('[data-obs-expand]');
+      if (obsExpandBtn) {
+        const key = obsExpandBtn.dataset.obsExpand;
+        if (observationExpandedKeys.has(key)) observationExpandedKeys.delete(key);
+        else observationExpandedKeys.add(key);
         const panelsEl = document.getElementById('weather-summary-panels');
         if (panelsEl && lastWarningSnapshot && lastQuerySnapshot) {
           panelsEl.innerHTML = buildWeatherSummaryPanels(lastWarningSnapshot, lastQuerySnapshot);
