@@ -944,7 +944,22 @@
       <main id="ship-detail-section" class="hidden fade-in"></main>
       <main id="dangerous-goods-search-section" class="hidden fade-in"></main>
       <main id="data-management-section" class="hidden fade-in"></main>
-  
+      <main id="company-home-section" class="hidden fade-in"></main>
+      <main id="duty-schedule-section" class="hidden fade-in">
+        <div class="mt-6 rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center">
+          <i class="fa-solid fa-calendar-check text-4xl text-cyan-400 mb-4"></i>
+          <h2 class="text-xl font-bold text-white mb-2">운항관리자 근무표</h2>
+          <p class="text-slate-400">준비 중입니다.</p>
+        </div>
+      </main>
+      <main id="vessel-schedule-section" class="hidden fade-in">
+        <div class="mt-6 rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center">
+          <i class="fa-solid fa-users text-4xl text-emerald-400 mb-4"></i>
+          <h2 class="text-xl font-bold text-white mb-2">선사 근무표</h2>
+          <p class="text-slate-400">준비 중입니다.</p>
+        </div>
+      </main>
+
       <!-- Footer: 데이터 관리 버튼을 이곳으로 이동시키고 최소화 -->
       <footer id="app-footer-container" class="flex justify-between items-center text-xs text-slate-500 mt-12">
         <span id="app-footer-timestamp">데이터 로드 중...</span>
@@ -1030,6 +1045,20 @@ const shipSearchState = {
 };
 const APP_TITLE = '진도 운항관리';
 const MAIN_MENU_SUBTITLE = '원하는 메뉴를 선택하세요.';
+
+// 선사별 비밀번호 → 프로필 매핑 (관리자 비밀번호는 Firestore에서 별도 관리)
+const COMPANY_PROFILES = {
+  '1234': {
+    id: 'company-a',
+    name: '서진도농업협동조합',
+    appTitle: '선사용 진도통합관리시스템',
+    tabs: ['날씨', '조석표', '운항관리자 근무표', '선사 근무표'],
+    tabSections: ['weather-section', 'tide-section', 'duty-schedule-section', 'vessel-schedule-section'],
+  },
+  // 다른 선사 비밀번호는 여기에 추가
+  // '5678': { id: 'company-b', name: '선사명', appTitle: '선사용 진도통합관리시스템', tabs: [...], tabSections: [...] },
+};
+let currentCompanyProfile = null;
 const WEATHER_REMOTE_ORIGIN = 'https://mokpo-weather-dashboard.onrender.com';
 const WEATHER_OVERVIEW_URL = 'https://mokpo-weather-dashboard.onrender.com/overview';
 const WEATHER_PROXY_PREFIX = '/weather-api';
@@ -5999,7 +6028,10 @@ const DATASETS = [
       'vehicle-loading-section': document.getElementById('vehicle-loading-section'),
       'visibility-limit-section': document.getElementById('visibility-limit-section'),
       'dangerous-goods-search-section': document.getElementById('dangerous-goods-search-section'),
-      'data-management-section': document.getElementById('data-management-section')
+      'data-management-section': document.getElementById('data-management-section'),
+      'company-home-section': document.getElementById('company-home-section'),
+      'duty-schedule-section': document.getElementById('duty-schedule-section'),
+      'vessel-schedule-section': document.getElementById('vessel-schedule-section'),
     };
 
     function updateFooter(dateObj) {
@@ -7150,10 +7182,22 @@ case 'ship-detail-section':
       }
       
 
+      const companyTabCard = e.target.closest('[data-company-tab]');
+      if (companyTabCard) {
+        switchView(companyTabCard.dataset.companyTab);
+        return;
+      }
+
       const backBtn = e.target.closest('.back-btn');
       if (backBtn) {
-        // history.back()을 사용해 브라우저 히스토리와 동기화
-        // (하드웨어 뒤로가기와 동일한 경로로 처리됨)
+        // 선사 모드: 뒤로가기 → company-home으로
+        if (currentCompanyProfile) {
+          const target = backBtn.dataset.target;
+          if (target === 'main-menu') {
+            switchView('company-home-section');
+            return;
+          }
+        }
         if (_appHistoryReady && history.length > 1) {
           history.back();
         } else {
@@ -7433,21 +7477,59 @@ case 'ship-detail-section':
     
     // 앱 잠금 해제 및 메인 앱 초기화 함수
     async function unlockAndInitializeApp() {
+      // 선사 모드: sessionStorage에서 복원
+      if (!currentCompanyProfile) {
+        const savedCompanyId = sessionStorage.getItem('companyId');
+        if (savedCompanyId) {
+          currentCompanyProfile = Object.values(COMPANY_PROFILES).find(p => p.id === savedCompanyId) || null;
+        }
+      }
+
       // 1. 키패드 숨기기
       const lockscreen = document.getElementById('keypad-lockscreen');
-      lockscreen.classList.add('modal-leave'); // fadeOut
+      lockscreen.classList.add('modal-leave');
       setTimeout(() => lockscreen.classList.add('hidden'), 300);
 
       // 2. 메인 앱 보이기
       appContainer.classList.remove('hidden');
-      appContainer.classList.add('modal-enter'); // fadeIn
+      appContainer.classList.add('modal-enter');
 
-      sessionStorage.setItem('appUnlocked', '1');
-      switchView('main-menu');
-      openManualFromQuery();
-      // 3. (중요) 메인 앱 데이터 로드 및 시작
+      if (currentCompanyProfile) {
+        // 선사 모드: 헤더 변경 + 선사 홈 표시
+        const h1 = appContainer.querySelector('h1');
+        if (h1) h1.textContent = currentCompanyProfile.appTitle;
+        const headerSubtitleEl = document.getElementById('header-subtitle');
+        if (headerSubtitleEl) headerSubtitleEl.textContent = currentCompanyProfile.name;
+        const dataManageBtn = document.getElementById('data-manage-btn');
+        if (dataManageBtn) dataManageBtn.classList.add('hidden');
+        renderCompanyHome();
+        switchView('company-home-section');
+      } else {
+        switchView('main-menu');
+        openManualFromQuery();
+      }
+
+      // 3. 데이터 로드
       await loadInitialDatasets();
       subscribeRealtime();
+    }
+
+    function renderCompanyHome() {
+      const profile = currentCompanyProfile;
+      if (!profile) return;
+      const section = document.getElementById('company-home-section');
+      if (!section) return;
+      const tabIcons = ['fa-cloud-sun', 'fa-water', 'fa-calendar-check', 'fa-users'];
+      const tabColors = ['text-cyan-400 hover:border-cyan-500', 'text-sky-400 hover:border-sky-500', 'text-emerald-400 hover:border-emerald-500', 'text-amber-400 hover:border-amber-500'];
+      section.innerHTML = `
+        <div class="mt-4 grid grid-cols-2 gap-4">
+          ${profile.tabs.map((tab, i) => `
+            <div class="category-card bg-slate-800 p-5 rounded-2xl text-center border border-slate-700 cursor-pointer ${tabColors[i]} min-h-[130px] flex flex-col items-center justify-center"
+                 data-company-tab="${profile.tabSections[i]}">
+              <i class="fa-solid ${tabIcons[i]} text-2xl mb-3 ${tabColors[i].split(' ')[0]}"></i>
+              <h2 class="text-base font-semibold leading-tight">${tab}</h2>
+            </div>`).join('')}
+        </div>`;
     }
 
     function openManualFromQuery() {
@@ -7486,16 +7568,28 @@ case 'ship-detail-section':
     }
 
     async function checkPassword() { // 3. async 추가
-      // const storedPassword = localStorage.getItem('adminPassword') || '1234'; // --- (삭제) ---
-      
-      // --- 추가 ---
+      // 선사 비밀번호 먼저 체크 (동기, 빠름)
+      const companyProfile = COMPANY_PROFILES[enteredPassword];
+      if (companyProfile) {
+        currentCompanyProfile = companyProfile;
+        keypadMessage.textContent = `${companyProfile.name} 인증 성공.`;
+        keypadMessage.className = 'text-green-400 text-sm h-5 mb-4';
+        sessionStorage.setItem('companyId', companyProfile.id);
+        sessionStorage.setItem('appUnlocked', 'company');
+        setTimeout(unlockAndInitializeApp, 500);
+        return;
+      }
+
+      // 관리자 비밀번호 체크 (Firestore)
       const metaSnap = await getDoc(metaDoc());
       const storedPassword = (metaSnap.exists() && metaSnap.data().password) ? metaSnap.data().password : '1234';
-      // ---
 
       if (enteredPassword === storedPassword) {
+        currentCompanyProfile = null;
+        sessionStorage.removeItem('companyId');
         keypadMessage.textContent = '인증 성공. 앱을 시작합니다...';
         keypadMessage.className = 'text-green-400 text-sm h-5 mb-4';
+        sessionStorage.setItem('appUnlocked', '1');
         setTimeout(unlockAndInitializeApp, 500); // 0.5초 후 앱 시작
       } else {
         keypadMessage.textContent = '비밀번호가 일치하지 않습니다.';
@@ -7535,7 +7629,8 @@ case 'ship-detail-section':
     // switchView('main-menu');
     // --> 이 로직들은 unlockAndInitializeApp() 함수 내부로 이동됨.
     const isPreviewMode = new URLSearchParams(window.location.search).get('preview') === '1';
-    if (isPreviewMode || sessionStorage.getItem('appUnlocked') === '1') {
+    const unlockedState = sessionStorage.getItem('appUnlocked');
+    if (isPreviewMode || unlockedState === '1' || unlockedState === 'company') {
       unlockAndInitializeApp();
     }
   </script>
