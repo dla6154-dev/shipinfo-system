@@ -565,6 +565,43 @@
       transition: none;
     }
 
+    /* 운항관리자 근무 달력 */
+    .duty-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .duty-cal-header {
+      background: #1e3a5f;
+      text-align: center;
+      padding: 6px 2px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+    .duty-cal-cell {
+      background: #0f172a;
+      min-height: 72px;
+      padding: 5px 4px 4px;
+      font-size: 12px;
+    }
+    .duty-cal-empty { background: #0b1120; }
+    .duty-cal-sat { background: #0f1e35; }
+    .duty-cal-sun { background: #1c0f0f; }
+    .duty-cal-today { outline: 2px solid #22d3ee; outline-offset: -2px; }
+    .duty-cal-day { font-weight: 700; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+    .duty-cal-day-sun { color: #f87171; }
+    .duty-cal-day-sat { color: #60a5fa; }
+    .duty-cal-shift { display: flex; align-items: center; gap: 3px; margin-bottom: 2px; font-size: 11px; color: #e2e8f0; }
+    .duty-shift-label { font-size: 10px; font-weight: 700; border-radius: 3px; padding: 0 3px; line-height: 16px; flex-shrink: 0; }
+    .duty-shift-a { background: #155e75; color: #67e8f9; }
+    .duty-shift-b { background: #14532d; color: #86efac; }
+    .duty-cal-note { font-size: 10px; color: #94a3b8; margin-top: 3px; line-height: 1.3; }
+
     .captain-duty-table-wrap {
       border: 1px solid rgba(244, 114, 182, 0.18);
       border-radius: 1.5rem;
@@ -7563,16 +7600,19 @@ case 'ship-detail-section':
       });
     }
 
-    async function loadDutySchedule() {
+    let dutyScheduleYear = new Date().getFullYear();
+    let dutyScheduleMonth = new Date().getMonth() + 1;
+
+    async function loadDutySchedule(year, month) {
+      year = year || dutyScheduleYear;
+      month = month || dutyScheduleMonth;
       const el = document.getElementById('duty-schedule-content');
       if (!el) return;
       el.innerHTML = `<p class="text-slate-400 text-center py-8">불러오는 중...</p>`;
 
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
       const key = `vis_sch_${year}_${month}`;
       const daysInMonth = new Date(year, month, 0).getDate();
+      const today = new Date();
 
       try {
         const res = await fetch(
@@ -7582,48 +7622,66 @@ case 'ship-detail-section':
         const rows = await res.json();
         const payload = rows?.[0]?.payload || {};
 
-        // 월 탐색 버튼 + 테이블
-        let html = `
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-base font-bold text-cyan-300">${year}년 ${month}월 운항관리자 근무표</h2>
-            <span class="text-[11px] text-slate-400">A조 05:00이전 · B조 10:30이전</span>
-          </div>
-          <div class="captain-duty-table-wrap">
-          <table class="captain-duty-table w-full">
-            <thead><tr>
-              <th class="text-center">날짜</th>
-              <th class="text-center">A조<span class="text-slate-500 font-normal ml-1 text-[10px]">05:00↑</span></th>
-              <th class="text-center">B조<span class="text-slate-500 font-normal ml-1 text-[10px]">10:30↑</span></th>
-              <th class="text-center">휴무</th>
-              <th class="text-center">비고</th>
-            </tr></thead>
-            <tbody>`;
+        // 달력 그리드
+        const firstDow = new Date(year, month - 1, 1).getDay(); // 0=일
+        const DAY_NAMES = ['일','월','화','수','목','금','토'];
 
-        const today = new Date();
-        for (let d = 1; d <= daysInMonth; d++) {
-          const dayData = payload[String(d)] || {};
-          const aWorker = dayData.a?.worker || '';
-          const bWorker = dayData.b?.worker || '';
-          const h1Worker = dayData.h1?.worker || '';
-          const note = dayData.note || '';
-          const aLeave = dayData.a?.leave ? ' <span class="text-amber-400 text-[10px]">연가</span>' : dayData.a?.trip ? ' <span class="text-sky-400 text-[10px]">출장</span>' : '';
-          const bLeave = dayData.b?.leave ? ' <span class="text-amber-400 text-[10px]">연가</span>' : dayData.b?.trip ? ' <span class="text-sky-400 text-[10px]">출장</span>' : '';
-          const dateObj = new Date(year, month - 1, d);
-          const dayNames = ['일','월','화','수','목','금','토'];
-          const dayName = dayNames[dateObj.getDay()];
-          const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
-          const dayColor = dateObj.getDay() === 0 ? 'text-red-400' : dateObj.getDay() === 6 ? 'text-sky-400' : '';
-          const rowClass = isToday ? 'row-today' : '';
-          html += `<tr class="${rowClass}">
-            <th class="${dayColor} font-bold">${d}<span class="text-slate-500 font-normal ml-1 text-[10px]">(${dayName})</span></th>
-            <td>${escapeHtml(aWorker)}${aLeave}</td>
-            <td>${escapeHtml(bWorker)}${bLeave}</td>
-            <td>${escapeHtml(h1Worker)}</td>
-            <td class="text-slate-400 text-[11px]">${escapeHtml(note)}</td>
-          </tr>`;
+        function renderWorker(slot) {
+          if (!slot || !slot.worker) return '';
+          if (slot.leave) return ''; // 연가 = 없는 사람
+          const trip = slot.trip ? ' <span style="color:#60a5fa;font-size:10px">(출장)</span>' : '';
+          return `<span>${escapeHtml(slot.worker)}</span>${trip}`;
         }
-        html += `</tbody></table></div>`;
-        el.innerHTML = html;
+
+        let cells = '';
+        // 빈 칸 (첫 주 앞부분)
+        for (let i = 0; i < firstDow; i++) {
+          cells += `<div class="duty-cal-cell duty-cal-empty"></div>`;
+        }
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dow = (firstDow + d - 1) % 7;
+          const dayData = payload[String(d)] || {};
+          const isSun = dow === 0;
+          const isSat = dow === 6;
+          const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
+          const note = dayData.note ? `<div class="duty-cal-note">${escapeHtml(dayData.note)}</div>` : '';
+
+          const aHtml = renderWorker(dayData.a);
+          const bHtml = renderWorker(dayData.b);
+
+          cells += `<div class="duty-cal-cell${isSat ? ' duty-cal-sat' : isSun ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}">
+            <div class="duty-cal-day${isSun ? ' duty-cal-day-sun' : isSat ? ' duty-cal-day-sat' : ''}">${d}일</div>
+            ${aHtml ? `<div class="duty-cal-shift"><span class="duty-shift-label duty-shift-a">A</span>${aHtml}</div>` : ''}
+            ${bHtml ? `<div class="duty-cal-shift"><span class="duty-shift-label duty-shift-b">B</span>${bHtml}</div>` : ''}
+            ${note}
+          </div>`;
+        }
+
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <button id="duty-prev-btn" style="background:#334155;border:1px solid #475569;color:#cbd5e1;border-radius:8px;padding:4px 12px;cursor:pointer">◀</button>
+            <div style="text-align:center">
+              <div style="font-weight:700;font-size:15px;color:#67e8f9">${year}년 ${month}월 운항관리자 근무표 (진도)</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px">A 05:00~13:30 / B 10:30~19:30</div>
+            </div>
+            <button id="duty-next-btn" style="background:#334155;border:1px solid #475569;color:#cbd5e1;border-radius:8px;padding:4px 12px;cursor:pointer">▶</button>
+          </div>
+          <div class="duty-cal-grid">
+            ${DAY_NAMES.map((n,i) => `<div class="duty-cal-header${i===0?' duty-cal-day-sun':i===6?' duty-cal-day-sat':''}">${n}</div>`).join('')}
+            ${cells}
+          </div>`;
+
+        document.getElementById('duty-prev-btn')?.addEventListener('click', () => {
+          if (dutyScheduleMonth === 1) { dutyScheduleYear--; dutyScheduleMonth = 12; }
+          else { dutyScheduleMonth--; }
+          loadDutySchedule(dutyScheduleYear, dutyScheduleMonth);
+        });
+        document.getElementById('duty-next-btn')?.addEventListener('click', () => {
+          if (dutyScheduleMonth === 12) { dutyScheduleYear++; dutyScheduleMonth = 1; }
+          else { dutyScheduleMonth++; }
+          loadDutySchedule(dutyScheduleYear, dutyScheduleMonth);
+        });
       } catch (e) {
         el.innerHTML = `<p class="text-red-400 text-center py-8">불러오기 실패: ${escapeHtml(String(e))}</p>`;
       }
