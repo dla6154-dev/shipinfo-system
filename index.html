@@ -7,6 +7,9 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>진도 운항관리</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -1002,9 +1005,14 @@
       <!-- Footer: 데이터 관리 버튼을 이곳으로 이동시키고 최소화 -->
       <footer id="app-footer-container" class="flex justify-between items-center text-xs text-slate-500 mt-12">
         <span id="app-footer-timestamp">데이터 로드 중...</span>
-        <button id="data-manage-btn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition" title="데이터 관리">
-          <i class="fa-solid fa-database text-green-400 w-4 h-4"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="push-notify-btn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition hidden" title="특보 알림 설정">
+            <i class="fa-solid fa-bell text-yellow-400 w-4 h-4"></i>
+          </button>
+          <button id="data-manage-btn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition" title="데이터 관리">
+            <i class="fa-solid fa-database text-green-400 w-4 h-4"></i>
+          </button>
+        </div>
       </footer>
     </div>
   </div>
@@ -7791,6 +7799,82 @@ case 'ship-detail-section':
     const unlockedState = sessionStorage.getItem('appUnlocked');
     if (isPreviewMode || unlockedState === '1' || unlockedState === 'company') {
       unlockAndInitializeApp();
+    }
+
+    // ── 푸시 알림 ──
+    const VAPID_PUBLIC_KEY = 'BKPg6UoZjzuW_3PgH0FBLRSoU-KHseGaXT9o4QgAtpM1JlhmHEmcnPrfNAYb45rKOvjh-6g_X__komhiqu7YCbI';
+    const PUSH_SERVER = 'https://mokpo-weather-dashboard.onrender.com';
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
+    async function initPushNotifications() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+        const btn = document.getElementById('push-notify-btn');
+        if (btn) btn.classList.remove('hidden');
+
+        const current = await reg.pushManager.getSubscription();
+        updatePushBtn(btn, !!current);
+
+        btn?.addEventListener('click', () => togglePushSubscription(reg, btn));
+      } catch (e) {
+        console.warn('SW 등록 실패:', e);
+      }
+    }
+
+    function updatePushBtn(btn, subscribed) {
+      if (!btn) return;
+      if (subscribed) {
+        btn.title = '특보 알림 켜짐 (클릭하면 끔)';
+        btn.querySelector('i').className = 'fa-solid fa-bell text-yellow-400 w-4 h-4';
+      } else {
+        btn.title = '특보 알림 받기';
+        btn.querySelector('i').className = 'fa-regular fa-bell text-slate-400 w-4 h-4';
+      }
+    }
+
+    async function togglePushSubscription(reg, btn) {
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        await existing.unsubscribe();
+        await fetch(`${PUSH_SERVER}/api/push/unsubscribe`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: existing.endpoint })
+        }).catch(() => {});
+        updatePushBtn(btn, false);
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('알림 권한이 필요합니다. 브라우저 설정에서 허용해주세요.');
+        return;
+      }
+      try {
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+        await fetch(`${PUSH_SERVER}/api/push/subscribe`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub.toJSON())
+        });
+        updatePushBtn(btn, true);
+        alert('✅ 특보 알림이 설정됐습니다.');
+      } catch (e) {
+        console.error('구독 실패:', e);
+        alert('알림 설정에 실패했습니다: ' + e.message);
+      }
+    }
+
+    // SW는 앱과 무관하게 바로 등록
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => initPushNotifications());
     }
   </script>
   <div id="notice-copy-toast">

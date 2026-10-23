@@ -1,0 +1,16 @@
+{
+  "name": "진도 운항관리",
+  "short_name": "운항관리",
+  "description": "진도 여객선 운항 통합 정보 시스템",
+  "start_url": "/shipinfo-system/",
+  "scope": "/shipinfo-system/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
