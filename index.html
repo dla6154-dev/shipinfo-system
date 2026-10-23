@@ -1051,12 +1051,12 @@ const COMPANY_PROFILES = {
   '1234': {
     id: 'company-a',
     name: '서진도농업협동조합',
-    appTitle: '선사용 진도통합관리시스템',
+    appTitle: '진도통합관리시스템',
     tabs: ['날씨', '조석표', '운항관리자 근무표', '선사 근무표'],
     tabSections: ['weather-section', 'tide-section', 'duty-schedule-section', 'vessel-schedule-section'],
   },
   // 다른 선사 비밀번호는 여기에 추가
-  // '5678': { id: 'company-b', name: '선사명', appTitle: '선사용 진도통합관리시스템', tabs: [...], tabSections: [...] },
+  // '5678': { id: 'company-b', name: '선사명', appTitle: '진도통합관리시스템', tabs: [...], tabSections: [...] },
 };
 let currentCompanyProfile = null;
 const WEATHER_REMOTE_ORIGIN = 'https://mokpo-weather-dashboard.onrender.com';
@@ -7184,20 +7184,16 @@ case 'ship-detail-section':
 
       const companyTabCard = e.target.closest('[data-company-tab]');
       if (companyTabCard) {
-        switchView(companyTabCard.dataset.companyTab);
+        const sectionId = companyTabCard.dataset.companyTab;
+        switchView(sectionId);
+        updateCompanyTabBar(sectionId);
         return;
       }
 
       const backBtn = e.target.closest('.back-btn');
       if (backBtn) {
-        // 선사 모드: 뒤로가기 → company-home으로
-        if (currentCompanyProfile) {
-          const target = backBtn.dataset.target;
-          if (target === 'main-menu') {
-            switchView('company-home-section');
-            return;
-          }
-        }
+        // 선사 모드: back-btn 무시 (탭 바로 이동)
+        if (currentCompanyProfile) return;
         if (_appHistoryReady && history.length > 1) {
           history.back();
         } else {
@@ -7495,15 +7491,15 @@ case 'ship-detail-section':
       appContainer.classList.add('modal-enter');
 
       if (currentCompanyProfile) {
-        // 선사 모드: 헤더 변경 + 선사 홈 표시
+        // 선사 모드: 헤더 변경 + 날씨 기본 표시
         const h1 = appContainer.querySelector('h1');
         if (h1) h1.textContent = currentCompanyProfile.appTitle;
         const headerSubtitleEl = document.getElementById('header-subtitle');
         if (headerSubtitleEl) headerSubtitleEl.textContent = currentCompanyProfile.name;
         const dataManageBtn = document.getElementById('data-manage-btn');
         if (dataManageBtn) dataManageBtn.classList.add('hidden');
-        renderCompanyHome();
-        switchView('company-home-section');
+        renderCompanyTabBar();
+        switchView('weather-section');
       } else {
         switchView('main-menu');
         openManualFromQuery();
@@ -7514,22 +7510,34 @@ case 'ship-detail-section':
       subscribeRealtime();
     }
 
-    function renderCompanyHome() {
+    function renderCompanyTabBar() {
       const profile = currentCompanyProfile;
       if (!profile) return;
-      const section = document.getElementById('company-home-section');
-      if (!section) return;
+      // 이미 있으면 중복 삽입 방지
+      if (document.getElementById('company-tab-bar')) return;
       const tabIcons = ['fa-cloud-sun', 'fa-water', 'fa-calendar-check', 'fa-users'];
-      const tabColors = ['text-cyan-400 hover:border-cyan-500', 'text-sky-400 hover:border-sky-500', 'text-emerald-400 hover:border-emerald-500', 'text-amber-400 hover:border-amber-500'];
-      section.innerHTML = `
-        <div class="mt-4 grid grid-cols-2 gap-4">
-          ${profile.tabs.map((tab, i) => `
-            <div class="category-card bg-slate-800 p-5 rounded-2xl text-center border border-slate-700 cursor-pointer ${tabColors[i]} min-h-[130px] flex flex-col items-center justify-center"
-                 data-company-tab="${profile.tabSections[i]}">
-              <i class="fa-solid ${tabIcons[i]} text-2xl mb-3 ${tabColors[i].split(' ')[0]}"></i>
-              <h2 class="text-base font-semibold leading-tight">${tab}</h2>
-            </div>`).join('')}
-        </div>`;
+      const bar = document.createElement('div');
+      bar.id = 'company-tab-bar';
+      bar.className = 'flex border-b border-slate-700 mb-4 -mx-4 px-2 overflow-x-auto';
+      bar.innerHTML = profile.tabs.map((tab, i) => `
+        <button class="company-tab-btn flex-1 flex flex-col items-center gap-0.5 py-2 px-1 text-slate-400 border-b-2 border-transparent transition whitespace-nowrap text-[11px] font-semibold"
+                data-company-tab="${profile.tabSections[i]}">
+          <i class="fa-solid ${tabIcons[i]} text-base"></i>
+          <span>${tab}</span>
+        </button>`).join('');
+      // 헤더 다음에 삽입
+      const header = appContainer.querySelector('header');
+      if (header) header.after(bar);
+    }
+
+    function updateCompanyTabBar(activeSectionId) {
+      document.querySelectorAll('.company-tab-btn').forEach(btn => {
+        const isActive = btn.dataset.companyTab === activeSectionId;
+        btn.classList.toggle('border-cyan-400', isActive);
+        btn.classList.toggle('text-cyan-400', isActive);
+        btn.classList.toggle('border-transparent', !isActive);
+        btn.classList.toggle('text-slate-400', !isActive);
+      });
     }
 
     function openManualFromQuery() {
