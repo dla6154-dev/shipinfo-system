@@ -6097,6 +6097,29 @@ const DATASETS = [
         return;
       }
 
+      if (sectionId === 'duty-schedule-section') {
+        headerSubtitle.textContent = '운항관리자 근무표';
+        section.innerHTML = `<div id="duty-schedule-content" class="mt-2"></div>`;
+        loadDutySchedule();
+        return;
+      }
+
+      if (sectionId === 'vessel-schedule-section') {
+        headerSubtitle.textContent = '선사 근무표';
+        section.innerHTML = `
+          <div class="mt-6 rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center">
+            <i class="fa-solid fa-users text-4xl text-emerald-400 mb-4"></i>
+            <h2 class="text-xl font-bold text-white mb-2">선사 근무표</h2>
+            <p class="text-slate-400">준비 중입니다.</p>
+          </div>`;
+        return;
+      }
+
+      if (sectionId === 'company-home-section') {
+        headerSubtitle.textContent = currentCompanyProfile?.name || '';
+        return;
+      }
+
       switch (sectionId) {
         case 'data-management-section':
           headerSubtitle.textContent = '데이터 관리 (엑셀 업로드 / 보안 설정)';
@@ -7538,6 +7561,72 @@ case 'ship-detail-section':
         btn.classList.toggle('border-transparent', !isActive);
         btn.classList.toggle('text-slate-400', !isActive);
       });
+    }
+
+    async function loadDutySchedule() {
+      const el = document.getElementById('duty-schedule-content');
+      if (!el) return;
+      el.innerHTML = `<p class="text-slate-400 text-center py-8">불러오는 중...</p>`;
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const key = `vis_sch_${year}_${month}`;
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/vessel_inspection_sync?key=eq.${key}&select=payload`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        const rows = await res.json();
+        const payload = rows?.[0]?.payload || {};
+
+        // 월 탐색 버튼 + 테이블
+        let html = `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-cyan-300">${year}년 ${month}월 운항관리자 근무표</h2>
+            <span class="text-[11px] text-slate-400">A조 05:00이전 · B조 10:30이전</span>
+          </div>
+          <div class="captain-duty-table-wrap">
+          <table class="captain-duty-table w-full">
+            <thead><tr>
+              <th class="text-center">날짜</th>
+              <th class="text-center">A조<span class="text-slate-500 font-normal ml-1 text-[10px]">05:00↑</span></th>
+              <th class="text-center">B조<span class="text-slate-500 font-normal ml-1 text-[10px]">10:30↑</span></th>
+              <th class="text-center">휴무</th>
+              <th class="text-center">비고</th>
+            </tr></thead>
+            <tbody>`;
+
+        const today = new Date();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dayData = payload[String(d)] || {};
+          const aWorker = dayData.a?.worker || '';
+          const bWorker = dayData.b?.worker || '';
+          const h1Worker = dayData.h1?.worker || '';
+          const note = dayData.note || '';
+          const aLeave = dayData.a?.leave ? ' <span class="text-amber-400 text-[10px]">연가</span>' : dayData.a?.trip ? ' <span class="text-sky-400 text-[10px]">출장</span>' : '';
+          const bLeave = dayData.b?.leave ? ' <span class="text-amber-400 text-[10px]">연가</span>' : dayData.b?.trip ? ' <span class="text-sky-400 text-[10px]">출장</span>' : '';
+          const dateObj = new Date(year, month - 1, d);
+          const dayNames = ['일','월','화','수','목','금','토'];
+          const dayName = dayNames[dateObj.getDay()];
+          const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
+          const dayColor = dateObj.getDay() === 0 ? 'text-red-400' : dateObj.getDay() === 6 ? 'text-sky-400' : '';
+          const rowClass = isToday ? 'row-today' : '';
+          html += `<tr class="${rowClass}">
+            <th class="${dayColor} font-bold">${d}<span class="text-slate-500 font-normal ml-1 text-[10px]">(${dayName})</span></th>
+            <td>${escapeHtml(aWorker)}${aLeave}</td>
+            <td>${escapeHtml(bWorker)}${bLeave}</td>
+            <td>${escapeHtml(h1Worker)}</td>
+            <td class="text-slate-400 text-[11px]">${escapeHtml(note)}</td>
+          </tr>`;
+        }
+        html += `</tbody></table></div>`;
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = `<p class="text-red-400 text-center py-8">불러오기 실패: ${escapeHtml(String(e))}</p>`;
+      }
     }
 
     function openManualFromQuery() {
