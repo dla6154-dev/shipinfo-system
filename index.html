@@ -4649,8 +4649,8 @@ const DATASETS = [
     }
 
     function buildTideDarkSvg(card) {
-      const width = 720, height = 220;
-      const pad = { top: 28, right: 18, bottom: 48, left: 18 };
+      const width = 720, height = 205;
+      const pad = { top: 30, right: 22, bottom: 36, left: 22 };
       const plotW = width - pad.left - pad.right;
       const plotH = height - pad.top - pad.bottom;
       const baseY = height - pad.bottom;
@@ -4713,7 +4713,7 @@ const DATASETS = [
         </defs>
         ${ticks.map((t,i)=>`<g>
           <line x1="${minToX(t)}" y1="${pad.top}" x2="${minToX(t)}" y2="${baseY}" stroke="${t===0||t===1440?'#334155':'#1e293b'}" stroke-width="2"></line>
-          <text x="${minToX(t)}" y="${height-10}" text-anchor="${i===0?'start':i===ticks.length-1?'end':'middle'}" font-size="13" font-weight="800" fill="#94a3b8">${tlbls[i]}시</text>
+          <text x="${minToX(t)}" y="${height-8}" text-anchor="${i===0?'start':i===ticks.length-1?'end':'middle'}" font-size="13" font-weight="800" fill="#94a3b8">${tlbls[i]}시</text>
         </g>`).join('')}
         <line x1="${pad.left}" y1="${baseY}" x2="${width-pad.right}" y2="${baseY}" stroke="#334155" stroke-width="4" stroke-linecap="round"></line>
         <path d="${areaPath}" fill="url(#${gid})"></path>
@@ -4721,11 +4721,12 @@ const DATASETS = [
         ${showCurrentMarker ? `<line x1="${curX}" y1="${pad.top-6}" x2="${curX}" y2="${baseY+10}" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 6"></line>
         <text x="${curX}" y="${pad.top-10}" text-anchor="middle" font-size="13" font-weight="800" fill="#fbbf24">${escapeHtml(card.currentTime)}</text>` : ''}
         ${pts.map(p=>{
-          const isH=p.type==='고조', lY=isH?p.y-16:p.y+28, clr=isH?'#f87171':'#93c5fd';
+          const isH=p.type==='고조', labelY=Math.max(16,p.y-15), clr=isH?'#f87171':'#93c5fd';
+          const labelX=Math.max(pad.left+4,Math.min(width-pad.right-4,p.x));
+          const anchor=p.x<70?'start':p.x>650?'end':'middle';
           return `<g>
             <circle cx="${p.x}" cy="${p.y}" r="7" fill="${clr}" stroke="#1e293b" stroke-width="4"></circle>
-            <text x="${p.x}" y="${lY}" text-anchor="middle" font-size="15" font-weight="800" fill="${clr}">${escapeHtml(String(p.level))}cm</text>
-            <text x="${p.x}" y="${baseY+26}" text-anchor="middle" font-size="13" font-weight="700" fill="#94a3b8">${escapeHtml(p.time)}</text>
+            <text x="${labelX}" y="${labelY}" text-anchor="${anchor}" font-size="14" font-weight="800" fill="${clr}">${escapeHtml(String(p.level))}cm</text>
           </g>`;
         }).join('')}
         ${showCurrentMarker ? `<circle cx="${curX}" cy="${curDotY}" r="8" fill="#fbbf24" stroke="#1e293b" stroke-width="4"></circle>` : ''}
@@ -4787,26 +4788,45 @@ const DATASETS = [
       const isRising = card.phase==='밀물';
       const phaseClr = isRising?'text-blue-400':'text-cyan-300';
       const phaseIcon = isRising?'↑':'↓';
-      const summaryText = card.showCurrentMarker
-        ? `현재 <span class="text-white font-bold">${escapeHtml(String(card.currentLevel))}cm</span> · <span class="${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span>`
-        : `${escapeHtml(card.dayLabel || '예보')} 조석 예보`;
-      const badgeText = card.nextLabel || (card.dayLabel ? `${card.dayLabel} 조석 예보` : '조석 예보');
-      return `<article class="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/80 shadow-lg">
-        <div class="border-b border-slate-700/60 px-5 py-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h3 class="text-xl font-bold text-white">${escapeHtml(card.station)}</h3>
-              <p class="mt-0.5 text-sm font-medium text-slate-300">${summaryText}</p>
-            </div>
-            <span class="shrink-0 rounded-full bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200">${escapeHtml(badgeText)}</span>
+      const parseHm = value => {
+        const [hour, minute] = String(value || '00:00').split(':').map(Number);
+        return (hour || 0) * 60 + (minute || 0);
+      };
+      const currentMinutes = card.showCurrentMarker ? parseHm(card.currentTime) : -1;
+      const sortedPoints = [...card.points].sort((a, b) => parseHm(a.time) - parseHm(b.time));
+      const nextPoint = card.showCurrentMarker
+        ? sortedPoints.find(point => parseHm(point.time) > currentMinutes) || sortedPoints[0]
+        : sortedPoints[0];
+      const secondPoint = sortedPoints.find(point => point !== nextPoint) || nextPoint;
+      const primaryLabel = card.showCurrentMarker ? '현재 조위' : `${escapeHtml(card.dayLabel || '선택일')} 첫 조석`;
+      const primaryValue = card.showCurrentMarker
+        ? `<span class="text-4xl font-black tracking-tight text-cyan-300">${escapeHtml(String(card.currentLevel))}<span class="ml-1 text-2xl">cm</span></span>
+           <span class="mt-1 block text-sm font-black ${phaseClr}">${phaseIcon} ${escapeHtml(card.phase)}</span>`
+        : `<span class="text-2xl font-black text-white">${escapeHtml(nextPoint?.time || '-')}</span>
+           <span class="mt-1 block text-sm font-bold ${nextPoint?.type === '고조' ? 'text-red-300' : 'text-sky-300'}">${escapeHtml(nextPoint?.type || '자료 없음')} · ${nextPoint ? `${escapeHtml(String(nextPoint.level))}cm` : '-'}</span>`;
+      const secondaryPoint = card.showCurrentMarker ? nextPoint : secondPoint;
+      const secondaryTitle = card.showCurrentMarker ? `다음 ${escapeHtml(secondaryPoint?.type || '조석')}` : '다음 조석';
+      return `<article class="overflow-hidden rounded-3xl border border-slate-700 bg-slate-800/80 shadow-xl">
+        <div class="grid grid-cols-2 border-b border-slate-700/60 bg-slate-900/25">
+          <div class="px-4 py-4 sm:px-5">
+            <p class="text-xs font-bold text-slate-400">${primaryLabel}</p>
+            <div class="mt-2">${primaryValue}</div>
+          </div>
+          <div class="border-l border-slate-700/70 px-4 py-4 sm:px-5">
+            <p class="text-xs font-bold text-slate-400">${secondaryTitle}</p>
+            <p class="mt-2 text-xl font-black text-white sm:text-2xl">${escapeHtml(secondaryPoint?.time || '-')}<span class="ml-2 text-base text-slate-300">${secondaryPoint ? `${escapeHtml(String(secondaryPoint.level))}cm` : ''}</span></p>
+            <p class="mt-1 text-xs font-bold text-cyan-300">${escapeHtml(card.nextLabel || `${secondaryPoint?.type || '조석'} 예보`)}</p>
           </div>
         </div>
-        <div class="px-4 pt-3 pb-1">${buildTideDarkSvg(card)}</div>
-        <div class="grid grid-cols-${card.points.length} divide-x divide-slate-700/60 border-t border-slate-700/60">
-          ${card.points.map(p=>`<div class="py-3 text-center">
-            <p class="text-[10px] font-bold ${p.type==='고조'?'text-red-400':'text-blue-400'} tracking-wide">${escapeHtml(p.type)}</p>
-            <p class="text-sm font-bold text-white mt-0.5">${escapeHtml(p.time)}</p>
-            <p class="text-xs text-slate-400">${escapeHtml(String(p.level))}cm</p>
+        <div class="px-3 pb-1 pt-3 sm:px-4">${buildTideDarkSvg(card)}</div>
+        <div class="grid grid-cols-2 gap-2 border-t border-slate-700/60 p-3 sm:p-4">
+          ${sortedPoints.map(p=>`<div class="flex items-center gap-3 rounded-2xl border border-slate-700/70 bg-slate-900/45 px-3 py-3">
+            <span class="text-xl ${p.type==='고조'?'text-red-400':'text-sky-400'}">${p.type === '고조' ? '▲' : '▼'}</span>
+            <span>
+              <span class="block text-[11px] font-bold ${p.type==='고조'?'text-red-300':'text-sky-300'}">${escapeHtml(p.type)}</span>
+              <span class="block text-sm font-black text-white">${escapeHtml(p.time)}</span>
+            </span>
+            <span class="ml-auto text-base font-black text-slate-200">${escapeHtml(String(p.level))}<span class="ml-0.5 text-[10px] font-bold text-slate-500">cm</span></span>
           </div>`).join('')}
         </div>
       </article>`;
@@ -5227,6 +5247,7 @@ const DATASETS = [
         entries: day.entries || []
       }));
       let activeMode = 'today';
+      let activeTodayIndex = 0;
       let activeStation = TIDE_STATIONS_LIST[0];
       let weekStart = _tideStartOfWeek(now);
       let weekDays = [];
@@ -5253,19 +5274,21 @@ const DATASETS = [
         </div>`;
 
       const buildTodayPanel = () => {
-        const todayDay = normalizedSnapshotDays.find(day => day.date === todayKey) || normalizedSnapshotDays[0];
-        const cards = tideEntriesToCards(todayDay?.entries || [], now, {
-          showCurrentMarker: true,
-          dayLabel: '오늘'
+        const availableDays = normalizedSnapshotDays.slice(0, 3);
+        const activeDay = availableDays[Math.min(activeTodayIndex, Math.max(0, availableDays.length - 1))] || normalizedSnapshotDays[0];
+        const isCurrentDay = activeTodayIndex === 0 && activeDay?.date === todayKey;
+        const cards = tideEntriesToCards(activeDay?.entries || [], now, {
+          showCurrentMarker: isCurrentDay,
+          dayLabel: activeDay?.label || (activeTodayIndex === 0 ? '오늘' : activeTodayIndex === 1 ? '내일' : '모레')
         });
         const card = cards.find(item => item.station === activeStation);
         const staleBadge = stale ? '<span class="text-xs font-bold text-amber-300">갱신 대기 중</span>' : '';
         return `
-          <div class="space-y-4">
+          <div class="mx-auto max-w-3xl space-y-4">
             <div class="flex items-center justify-between gap-3">
               <div>
-                <p class="text-xs font-bold uppercase tracking-[0.24em] text-cyan-300">오늘 조석</p>
-                <p class="mt-1 text-sm text-slate-400">${escapeHtml(_tideFullDateLabel(todayDay?.date || fallbackKey))}</p>
+                <p class="text-xs font-bold uppercase tracking-[0.24em] text-cyan-300">${escapeHtml(activeDay?.label || '오늘')} 조석</p>
+                <p class="mt-1 text-sm text-slate-400">${escapeHtml(_tideFullDateLabel(activeDay?.date || fallbackKey))}</p>
               </div>
               <div class="flex items-center gap-2">
                 ${staleBadge}
@@ -5274,7 +5297,12 @@ const DATASETS = [
             </div>
             ${card
               ? buildTideCardDark(card)
-              : '<div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-8 text-center text-sm text-slate-400">선택한 관측소의 오늘 조석 데이터가 없습니다.</div>'}
+              : '<div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-8 text-center text-sm text-slate-400">선택한 관측소의 조석 데이터가 없습니다.</div>'}
+            <div class="grid grid-cols-3 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/70 p-1.5">
+              ${availableDays.map((day, index) => `
+                <button type="button" data-tide-today-index="${index}" class="rounded-xl px-3 py-2.5 text-xs font-black transition sm:text-sm ${activeTodayIndex === index ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/30' : 'text-slate-400 hover:bg-slate-700/70 hover:text-white'}">${escapeHtml(day.label || (index === 0 ? '오늘' : index === 1 ? '내일' : '모레'))}</button>
+              `).join('')}
+            </div>
           </div>`;
       };
 
@@ -5354,6 +5382,10 @@ const DATASETS = [
           activeStation = button.dataset.tideStation || TIDE_STATIONS_LIST[0];
           render();
         }));
+        container.querySelectorAll('[data-tide-today-index]').forEach(button => button.addEventListener('click', () => {
+          activeTodayIndex = Number(button.dataset.tideTodayIndex || 0);
+          render();
+        }));
         container.querySelector('[data-tide-refresh]')?.addEventListener('click', () => loadTideCards(container));
         container.querySelectorAll('[data-tide-week-nav]').forEach(button => button.addEventListener('click', async () => {
           weekStart = _tideAddDays(weekStart, Number(button.dataset.tideWeekNav || 0) * 7);
@@ -5375,9 +5407,9 @@ const DATASETS = [
       const render = () => {
         container.innerHTML = `
           <div class="space-y-4">
-            ${buildModeButtons()}
-            ${buildStationButtons()}
-            <div>${activeMode === 'today' ? buildTodayPanel() : buildWeekPanel()}</div>
+            <div class="mx-auto max-w-3xl">${buildModeButtons()}</div>
+            <div class="mx-auto max-w-3xl">${buildStationButtons()}</div>
+            <div class="${activeMode === 'today' ? '' : 'mx-auto max-w-5xl'}">${activeMode === 'today' ? buildTodayPanel() : buildWeekPanel()}</div>
           </div>`;
         bindEvents();
       };
