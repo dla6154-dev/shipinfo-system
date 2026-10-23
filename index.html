@@ -5206,16 +5206,19 @@ const DATASETS = [
       return `${date.getFullYear()}. ${String(date.getMonth() + 1).padStart(2, '0')}. ${String(date.getDate()).padStart(2, '0')}. (${_tideWeekdayLabel(date)})`;
     }
 
-    async function _fetchTideWeek(weekStart, onFirstLoad) {
+    async function _fetchTideWeek(weekStart, onFirstLoad, supplementalDays = []) {
       const dates = Array.from({ length: 7 }, (_, index) => _tideAddDays(weekStart, index));
-      const monthKeys = [...new Set(dates.map(date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`))];
-      let firstLoadNotified = false;
-      const payloads = await Promise.all(monthKeys.map(ym => _fetchTideMonthly(ym, () => {
-        if (!firstLoadNotified) {
-          firstLoadNotified = true;
-          onFirstLoad?.();
-        }
-      })));
+      const startKey = _tideDateKey(weekStart);
+      onFirstLoad?.();
+      let payloads = [];
+      try {
+        const response = await fetch(`${WEATHER_REMOTE_ORIGIN}/api/tides/weekly?start=${startKey}&days=7`);
+        if (!response.ok) throw new Error(`주간 API HTTP ${response.status}`);
+        payloads = [await response.json()];
+      } catch (weeklyError) {
+        const monthKeys = [...new Set(dates.map(date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`))];
+        payloads = await Promise.all(monthKeys.map(ym => _fetchTideMonthly(ym, () => {})));
+      }
       const dayMap = new Map();
       payloads.forEach(payload => {
         (payload?.days || payload?.Days || []).forEach(day => {
@@ -5226,6 +5229,18 @@ const DATASETS = [
             entries: day?.entries || day?.Entries || []
           });
         });
+      });
+      supplementalDays.forEach(day => {
+        const key = _tideDateKey(day?.date || day?.dateStr);
+        const freshEntries = day?.entries || [];
+        if (!key || !freshEntries.length) return;
+        const existing = dayMap.get(key) || { date: key, entries: [] };
+        const freshStations = new Set(freshEntries.map(entry => entry.stationName));
+        existing.entries = [
+          ...existing.entries.filter(entry => !freshStations.has(entry.stationName)),
+          ...freshEntries
+        ];
+        dayMap.set(key, existing);
       });
       return dates.map(date => {
         const key = _tideDateKey(date);
@@ -5420,7 +5435,7 @@ const DATASETS = [
         weekError = '';
         render();
         try {
-          const loadedDays = await _fetchTideWeek(weekStart, () => {});
+          const loadedDays = await _fetchTideWeek(weekStart, () => {}, normalizedSnapshotDays);
           if (requestId !== weekRequestId) return;
           weekDays = loadedDays;
         } catch (error) {
