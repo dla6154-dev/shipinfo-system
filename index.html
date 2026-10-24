@@ -5601,7 +5601,7 @@ const DATASETS = [
       return reliefPeriod?.captain || row.mainCaptain || '-';
     }
 
-    function buildCaptainDutySectionHtml() {
+    function buildCaptainDutySectionHtml({ showBackButton = true } = {}) {
       const yearMonth = normalizeCaptainDutyYearMonth(captainDutyViewYearMonth);
       const config = getCaptainDutyConfigForYearMonth(yearMonth);
       const hasSavedConfig = hasCaptainDutyConfigForYearMonth(yearMonth);
@@ -5630,7 +5630,7 @@ const DATASETS = [
 
       return `
         <div class="flex items-center gap-4 mb-8">
-          <button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>
+          ${showBackButton ? '<button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>' : ''}
           <div class="min-w-0">
             <h2 class="text-2xl font-bold text-rose-400">선장교대</h2>
             <p class="text-sm text-slate-400 mt-1">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))} 기준으로 교대기간에는 예비선장이 표시됩니다.</p>
@@ -5801,6 +5801,7 @@ const DATASETS = [
       try {
         await saveCaptainDutyConfig(config);
         if (!sections['captain-duty-section'].classList.contains('hidden')) renderSection('captain-duty-section');
+        if (!sections['vessel-schedule-section'].classList.contains('hidden')) renderSection('vessel-schedule-section');
         statusEl.textContent = `${row.shipName} 교대기간을 저장했습니다.`;
         statusEl.className = 'text-center text-sm text-green-400';
         setTimeout(() => hideModal(), 500);
@@ -6062,6 +6063,7 @@ const DATASETS = [
         if (ids.includes('timetable-section')) renderSection('timetable-section');
         if (ids.includes('field-duty-section')) renderSection('field-duty-section');
         if (ids.includes('captain-duty-section')) renderSection('captain-duty-section');
+        if (ids.includes('vessel-schedule-section')) renderSection('vessel-schedule-section');
         if (ids.includes('dangerous-goods-search-section')) renderSection('dangerous-goods-search-section');
         if (ids.includes('ship-detail-section')) renderSection('ship-detail-section', { shipId: sections['ship-detail-section'].dataset.currentShipId });
       }
@@ -6349,12 +6351,7 @@ const DATASETS = [
 
       if (sectionId === 'vessel-schedule-section') {
         headerSubtitle.textContent = '선사 근무표';
-        section.innerHTML = `
-          <div class="mt-6 rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center">
-            <i class="fa-solid fa-users text-4xl text-emerald-400 mb-4"></i>
-            <h2 class="text-xl font-bold text-white mb-2">선사 근무표</h2>
-            <p class="text-slate-400">준비 중입니다.</p>
-          </div>`;
+        section.innerHTML = buildCaptainDutySectionHtml({ showBackButton: false });
         return;
       }
 
@@ -7578,6 +7575,9 @@ case 'ship-detail-section':
           captainDutyViewYearMonth = nextYearMonth;
           if (!sections['captain-duty-section'].classList.contains('hidden')) {
             renderSection('captain-duty-section');
+          }
+          if (!sections['vessel-schedule-section'].classList.contains('hidden')) {
+            renderSection('vessel-schedule-section');
           }
         }
       }
