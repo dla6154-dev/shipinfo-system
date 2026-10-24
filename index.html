@@ -5126,6 +5126,22 @@ const DATASETS = [
     const TIDE_STATIONS_LIST = ['서망','진도옥도','쉬미','서거차도'];
     let _tideMonthlyCache = {}; // 주간 조회에 필요한 월 단위 API 캐시
 
+    // 조석은 천문 예측값이라 만료된 저장본도 그대로 사용
+    async function _readTideMonthlyCache(ym) {
+      if (_tideMonthlyCache[ym]) return _tideMonthlyCache[ym];
+      try {
+        const sbH = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/external_api_cache?id=eq.kma-tide-monthly-${ym}&select=payload`, { headers: sbH });
+        if (!res.ok) return null;
+        const rows = await res.json();
+        if (!rows.length || !rows[0].payload) return null;
+        _tideMonthlyCache[ym] = rows[0].payload;
+        return rows[0].payload;
+      } catch (e) {
+        return null;
+      }
+    }
+
     async function _fetchTideMonthly(ym, onFirstLoad) {
       if (_tideMonthlyCache[ym]) return _tideMonthlyCache[ym];
       const sbH = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
@@ -5214,15 +5230,17 @@ const DATASETS = [
     async function _fetchTideWeek(weekStart, onFirstLoad, supplementalDays = []) {
       const dates = Array.from({ length: 7 }, (_, index) => _tideAddDays(weekStart, index));
       const startKey = _tideDateKey(weekStart);
-      onFirstLoad?.();
-      let payloads = [];
-      try {
-        const response = await fetch(`${WEATHER_REMOTE_ORIGIN}/api/tides/weekly?start=${startKey}&days=7`);
-        if (!response.ok) throw new Error(`주간 API HTTP ${response.status}`);
-        payloads = [await response.json()];
-      } catch (weeklyError) {
-        const monthKeys = [...new Set(dates.map(date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`))];
-        payloads = await Promise.all(monthKeys.map(ym => _fetchTideMonthly(ym, () => {})));
+      const monthKeys = [...new Set(dates.map(date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`))];
+      let payloads = await Promise.all(monthKeys.map(ym => _readTideMonthlyCache(ym)));
+      if (payloads.some(p => !p)) {
+        onFirstLoad?.();
+        try {
+          const response = await fetch(`${WEATHER_REMOTE_ORIGIN}/api/tides/weekly?start=${startKey}&days=7`);
+          if (!response.ok) throw new Error(`주간 API HTTP ${response.status}`);
+          payloads = [await response.json()];
+        } catch (weeklyError) {
+          payloads = await Promise.all(monthKeys.map(ym => _fetchTideMonthly(ym, () => {})));
+        }
       }
       const dayMap = new Map();
       payloads.forEach(payload => {
