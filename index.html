@@ -3510,11 +3510,9 @@ function openFerryOperationExtractModal() {
 */
 
 const DEFAULT_CAPTAIN_DUTY_ROWS = [
-  { shipName: '새섬두레', mainCaptain: '박승호', reliefCaptain: '김석종', startDay: 1, endDay: 10 },
-  { shipName: '새섬관매', mainCaptain: '김태일', reliefCaptain: '김석종', startDay: 11, endDay: 20 },
-  { shipName: '가사페리', mainCaptain: '양기훈', reliefCaptain: '박지원', startDay: 1, endDay: 10 },
-  { shipName: '한림페리11호', mainCaptain: '이수행', reliefCaptain: '김종현', startDay: 21, endDay: 25 },
-  { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptain: '김기현', startDay: 12, endDay: 17 }
+  { shipName: '새섬두레', mainCaptain: '정종찬', reliefCaptains: ['박승호'], reliefPeriods: [] },
+  { shipName: '새섬관매', mainCaptain: '김석종', reliefCaptains: ['박승호'], reliefPeriods: [] },
+  { shipName: '가사페리', mainCaptain: '양기훈', reliefCaptains: ['박진원', '김어진'], reliefPeriods: [] }
 ];
 captainDutyConfigsByMonth = {
   [captainDutyViewYearMonth]: getDefaultCaptainDutyConfig(captainDutyViewYearMonth)
@@ -5488,23 +5486,43 @@ const DATASETS = [
       return Math.min(31, Math.max(1, Math.trunc(parsed)));
     }
 
+    function normalizeCaptainDutyPeriod(period, reliefCaptains) {
+      const startDay = clampCaptainDutyDay(period?.startDay);
+      const endDay = clampCaptainDutyDay(period?.endDay);
+      const requestedCaptain = String(period?.captain || period?.reliefCaptain || '').trim();
+      const captain = reliefCaptains.includes(requestedCaptain) ? requestedCaptain : reliefCaptains[0] || '';
+      if (!captain || startDay == null || endDay == null) return null;
+      return { captain, startDay, endDay };
+    }
+
     function normalizeCaptainDutyRow(row, index) {
+      const definition = DEFAULT_CAPTAIN_DUTY_ROWS[index] || DEFAULT_CAPTAIN_DUTY_ROWS[0];
+      const reliefCaptains = [...definition.reliefCaptains];
+      const rawPeriods = Array.isArray(row?.reliefPeriods)
+        ? row.reliefPeriods
+        : row?.startDay != null || row?.endDay != null
+          ? [{ captain: row?.reliefCaptain, startDay: row?.startDay, endDay: row?.endDay }]
+          : [];
       return {
         id: String(row?.id || `captain-duty-${index + 1}`),
-        shipName: String(row?.shipName || '').trim(),
-        mainCaptain: String(row?.mainCaptain || '').trim(),
-        reliefCaptain: String(row?.reliefCaptain || '').trim(),
-        startDay: clampCaptainDutyDay(row?.startDay),
-        endDay: clampCaptainDutyDay(row?.endDay)
+        shipName: definition.shipName,
+        mainCaptain: definition.mainCaptain,
+        reliefCaptains,
+        reliefPeriods: rawPeriods
+          .map(period => normalizeCaptainDutyPeriod(period, reliefCaptains))
+          .filter(Boolean)
       };
     }
 
     function normalizeCaptainDutyConfig(rawConfig, fallbackYearMonth = getCurrentCaptainDutyYearMonth()) {
       const yearMonth = normalizeCaptainDutyYearMonth(rawConfig?.yearMonth, fallbackYearMonth);
       const fallback = getDefaultCaptainDutyConfig(yearMonth);
-      const baseRows = Array.isArray(rawConfig?.rows) && rawConfig.rows.length
-        ? rawConfig.rows
-        : fallback.rows;
+      const savedRows = Array.isArray(rawConfig?.rows) ? rawConfig.rows : [];
+      const baseRows = DEFAULT_CAPTAIN_DUTY_ROWS.map((definition, index) => {
+        return savedRows.find(row => String(row?.shipName || '').trim() === definition.shipName)
+          || savedRows[index]
+          || fallback.rows[index];
+      });
       return {
         yearMonth,
         rows: baseRows.map((row, index) => normalizeCaptainDutyRow(row, index))
@@ -5563,17 +5581,17 @@ const DATASETS = [
       return new Date(year, month, 0).getDate();
     }
 
+    function getCaptainDutyReliefPeriod(row, day) {
+      return (row?.reliefPeriods || []).find(period => day >= period.startDay && day <= period.endDay) || null;
+    }
+
     function isCaptainDutyReliefActive(row, day) {
-      if (!row?.reliefCaptain) return false;
-      if (row.startDay == null || row.endDay == null) return false;
-      return day >= row.startDay && day <= row.endDay;
+      return Boolean(getCaptainDutyReliefPeriod(row, day));
     }
 
     function getCaptainDutyNameForDay(row, day) {
-      if (isCaptainDutyReliefActive(row, day)) {
-        return row.reliefCaptain || row.mainCaptain || '-';
-      }
-      return row.mainCaptain || row.reliefCaptain || '-';
+      const reliefPeriod = getCaptainDutyReliefPeriod(row, day);
+      return reliefPeriod?.captain || row.mainCaptain || '-';
     }
 
     function buildCaptainDutySectionHtml() {
@@ -5581,9 +5599,12 @@ const DATASETS = [
       const config = getCaptainDutyConfigForYearMonth(yearMonth);
       const hasSavedConfig = hasCaptainDutyConfigForYearMonth(yearMonth);
       const daysInMonth = getCaptainDutyDaysInMonth(config.yearMonth);
-      const headCells = config.rows.map((row) => {
+      const headCells = config.rows.map((row, index) => {
         return `<th scope="col">
-          <span class="captain-duty-ship-name">${escapeHtml(row.shipName || '미정')}</span>
+          <button type="button" data-captain-duty-ship="${index}" class="captain-duty-ship-name rounded-lg px-2 py-1 transition hover:bg-rose-500/15 hover:text-rose-200" title="${escapeHtml(row.shipName)} 교대기간 등록">
+            ${escapeHtml(row.shipName || '미정')}
+            <i class="fa-solid fa-pen-to-square ml-1 text-[10px] text-rose-300"></i>
+          </button>
         </th>`;
       }).join('');
       const now = new Date();
@@ -5608,8 +5629,8 @@ const DATASETS = [
             <p class="text-sm text-slate-400 mt-1">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))} 기준으로 교대기간에는 예비선장이 표시됩니다.</p>
           </div>
           <button id="captain-duty-settings-btn" type="button" class="ml-auto inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 hover:bg-rose-500/20">
-            <i class="fa-solid fa-gear"></i>
-            설정
+            <i class="fa-solid fa-calendar-plus"></i>
+            교대 등록
           </button>
         </div>
         <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -5635,115 +5656,152 @@ const DATASETS = [
         </div>`;
     }
 
+    function buildCaptainDutyPeriodEditor(row, period = {}) {
+      const options = row.reliefCaptains.map(captain => `
+        <option value="${escapeHtml(captain)}" ${captain === period.captain ? 'selected' : ''}>${escapeHtml(captain)}</option>
+      `).join('');
+      return `
+        <div class="captain-duty-settings-row space-y-3" data-captain-duty-period>
+          <div class="flex items-center justify-between gap-3">
+            <label class="text-sm font-bold text-rose-200">예비선장 근무기간</label>
+            <button type="button" data-captain-duty-remove-period class="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 hover:bg-red-500/10 hover:text-red-300">삭제</button>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label class="mb-1.5 block text-xs font-semibold text-slate-400">예비선장</label>
+              <select class="captain-duty-settings-input" data-field="captain">${options}</select>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-semibold text-slate-400">시작일</label>
+              <input type="number" min="1" max="31" inputmode="numeric" class="captain-duty-settings-input" data-field="startDay" value="${period.startDay ?? ''}" placeholder="예: 21" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-xs font-semibold text-slate-400">종료일</label>
+              <input type="number" min="1" max="31" inputmode="numeric" class="captain-duty-settings-input" data-field="endDay" value="${period.endDay ?? ''}" placeholder="예: 30" />
+            </div>
+          </div>
+        </div>`;
+    }
+
     function buildCaptainDutySettingsModal() {
       const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
-      const rowsHtml = config.rows.map((row, index) => `
-        <div class="captain-duty-settings-row" data-captain-duty-row="${index}">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-semibold text-slate-300 mb-2">선박명</label>
-              <input type="text" class="captain-duty-settings-input" data-field="shipName" value="${escapeHtml(row.shipName)}" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-slate-300 mb-2">본선 선장</label>
-              <input type="text" class="captain-duty-settings-input" data-field="mainCaptain" value="${escapeHtml(row.mainCaptain)}" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-slate-300 mb-2">예비 선장</label>
-              <input type="text" class="captain-duty-settings-input" data-field="reliefCaptain" value="${escapeHtml(row.reliefCaptain)}" />
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm font-semibold text-slate-300 mb-2">교대 시작일</label>
-                <input type="number" min="1" max="31" class="captain-duty-settings-input" data-field="startDay" value="${row.startDay ?? ''}" />
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-slate-300 mb-2">교대 종료일</label>
-                <input type="number" min="1" max="31" class="captain-duty-settings-input" data-field="endDay" value="${row.endDay ?? ''}" />
-              </div>
-            </div>
-          </div>
-        </div>`).join('');
-
       return `
-        <div class="space-y-5">
-          <div>
-            <label class="block text-sm font-semibold text-slate-300 mb-2">적용 월</label>
-            <input type="month" id="captain-duty-month-input" class="captain-duty-settings-input" value="${escapeHtml(config.yearMonth)}" />
+        <div class="space-y-4">
+          <p class="text-sm text-slate-300">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))}에 교대할 선박을 선택하세요.</p>
+          <div class="grid gap-3">
+            ${config.rows.map((row, index) => `
+              <button type="button" data-captain-duty-ship="${index}" class="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800 px-4 py-4 text-left transition hover:border-rose-400/50 hover:bg-slate-700/80">
+                <span>
+                  <span class="block text-base font-black text-white">${escapeHtml(row.shipName)}</span>
+                  <span class="mt-1 block text-xs text-slate-400">본선 ${escapeHtml(row.mainCaptain)} · 예비 ${escapeHtml(row.reliefCaptains.join(', '))}</span>
+                </span>
+                <i class="fa-solid fa-chevron-right text-rose-300"></i>
+              </button>
+            `).join('')}
           </div>
-          <div class="captain-duty-settings-grid">${rowsHtml}</div>
-          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
-            교대기간 안에는 예비 선장이 표시되고, 기간 밖에는 본선 선장이 표시됩니다.
+        </div>`;
+    }
+
+    function buildCaptainDutyShipModal(shipIndex) {
+      const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
+      const row = config.rows[shipIndex];
+      if (!row) return '';
+      const periods = row.reliefPeriods.length ? row.reliefPeriods : [{}];
+      return `
+        <div class="space-y-5" data-captain-duty-ship-editor="${shipIndex}">
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-4">
+            <p class="text-xs font-bold text-slate-400">${escapeHtml(formatCaptainDutyYearMonth(config.yearMonth))}</p>
+            <h3 class="mt-1 text-xl font-black text-white">${escapeHtml(row.shipName)}</h3>
+            <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div class="rounded-xl bg-slate-800 px-3 py-2"><span class="block text-xs text-slate-500">본선선장</span><strong class="text-slate-100">${escapeHtml(row.mainCaptain)}</strong></div>
+              <div class="rounded-xl bg-rose-500/10 px-3 py-2"><span class="block text-xs text-rose-300/70">예비선장</span><strong class="text-rose-100">${escapeHtml(row.reliefCaptains.join(', '))}</strong></div>
+            </div>
           </div>
-          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
-            다른 월을 수정하려면 먼저 화면의 표시 월을 바꾼 뒤 설정을 열어 주세요. 저장은 월별로 따로 보관됩니다.
-          </div>
-          <button id="captain-duty-settings-save-btn" type="button" class="w-full rounded-2xl bg-rose-600 px-5 py-3 font-bold text-white hover:bg-rose-700">
-            <i class="fa-solid fa-save mr-2"></i> 저장하고 바로 적용
+          <div id="captain-duty-period-list" class="space-y-3">${periods.map(period => buildCaptainDutyPeriodEditor(row, period)).join('')}</div>
+          <button type="button" data-captain-duty-add-period class="w-full rounded-xl border border-dashed border-rose-400/40 px-4 py-3 text-sm font-bold text-rose-200 hover:bg-rose-500/10">
+            <i class="fa-solid fa-plus mr-1"></i>예비선장 기간 추가
           </button>
-          <p id="captain-duty-settings-status" class="text-sm text-center"></p>
+          <div class="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-xs leading-5 text-slate-400">등록한 기간만 예비선장이 표시되며 나머지 날짜는 본선선장으로 자동 표시됩니다.</div>
+          <button type="button" data-captain-duty-ship-save class="w-full rounded-2xl bg-rose-600 px-5 py-3 font-bold text-white hover:bg-rose-700">
+            <i class="fa-solid fa-save mr-2"></i>저장하고 적용
+          </button>
+          <p id="captain-duty-settings-status" class="text-center text-sm"></p>
         </div>`;
     }
 
     function openCaptainDutySettingsModal() {
-      showModal('선장교대 설정', buildCaptainDutySettingsModal());
+      showModal('선박 선택', buildCaptainDutySettingsModal());
     }
 
-    async function handleCaptainDutySettingsSave() {
-      const monthInput = document.getElementById('captain-duty-month-input');
+    function openCaptainDutyShipModal(shipIndex) {
+      const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
+      const row = config.rows[shipIndex];
+      if (!row) return;
+      showModal(`${row.shipName} 교대 등록`, buildCaptainDutyShipModal(shipIndex));
+    }
+
+    function getCaptainDutyConflict(config) {
+      const occupied = new Map();
+      for (const row of config.rows) {
+        const sortedPeriods = [...row.reliefPeriods].sort((a, b) => a.startDay - b.startDay);
+        for (let index = 1; index < sortedPeriods.length; index += 1) {
+          if (sortedPeriods[index].startDay <= sortedPeriods[index - 1].endDay) {
+            return `${row.shipName}의 예비선장 기간이 서로 겹칩니다.`;
+          }
+        }
+        for (const period of sortedPeriods) {
+          for (let day = period.startDay; day <= period.endDay; day += 1) {
+            const key = `${period.captain}-${day}`;
+            if (occupied.has(key)) {
+              return `${period.captain} 선장이 ${day}일에 ${occupied.get(key)}와 ${row.shipName}에 중복 배정됩니다.`;
+            }
+            occupied.set(key, row.shipName);
+          }
+        }
+      }
+      return '';
+    }
+
+    async function handleCaptainDutyShipSave(button) {
+      const editor = button.closest('[data-captain-duty-ship-editor]');
+      const shipIndex = Number(editor?.dataset.captainDutyShipEditor);
       const statusEl = document.getElementById('captain-duty-settings-status');
-      const saveBtn = document.getElementById('captain-duty-settings-save-btn');
-      const rows = [...document.querySelectorAll('[data-captain-duty-row]')].map((rowEl, index) => ({
-        id: `captain-duty-${index + 1}`,
-        shipName: rowEl.querySelector('[data-field="shipName"]')?.value || '',
-        mainCaptain: rowEl.querySelector('[data-field="mainCaptain"]')?.value || '',
-        reliefCaptain: rowEl.querySelector('[data-field="reliefCaptain"]')?.value || '',
-        startDay: rowEl.querySelector('[data-field="startDay"]')?.value || '',
-        endDay: rowEl.querySelector('[data-field="endDay"]')?.value || ''
-      }));
-
-      const normalized = normalizeCaptainDutyConfig({
-        yearMonth: monthInput?.value || getCurrentCaptainDutyYearMonth(),
-        rows
-      });
-
-      const invalidRow = normalized.rows.find((row) => {
-        if (!row.shipName || !row.mainCaptain) return true;
-        const hasAnyReliefInput = row.reliefCaptain || row.startDay != null || row.endDay != null;
-        if (!hasAnyReliefInput) return false;
-        if (!row.reliefCaptain || row.startDay == null || row.endDay == null) return true;
-        return row.startDay > row.endDay;
-      });
-
-      if (statusEl && invalidRow) {
-        statusEl.textContent = '선박명과 본선 선장은 필수입니다. 교대기간을 입력할 때는 예비선장과 시작일·종료일을 모두 입력하세요.';
-        statusEl.className = 'text-sm text-center text-red-400';
+      const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
+      const row = config.rows[shipIndex];
+      if (!row) return;
+      const daysInMonth = getCaptainDutyDaysInMonth(config.yearMonth);
+      const periods = [...editor.querySelectorAll('[data-captain-duty-period]')].map(periodEl => ({
+        captain: periodEl.querySelector('[data-field="captain"]')?.value || '',
+        startDay: clampCaptainDutyDay(periodEl.querySelector('[data-field="startDay"]')?.value),
+        endDay: clampCaptainDutyDay(periodEl.querySelector('[data-field="endDay"]')?.value)
+      })).filter(period => period.startDay != null || period.endDay != null);
+      const invalidPeriod = periods.find(period => !period.captain || period.startDay == null || period.endDay == null || period.startDay > period.endDay || period.endDay > daysInMonth);
+      if (invalidPeriod) {
+        statusEl.textContent = `시작일과 종료일을 1일부터 ${daysInMonth}일 사이로 정확히 입력하세요.`;
+        statusEl.className = 'text-center text-sm text-red-400';
         return;
       }
-
-      if (saveBtn) saveBtn.setAttribute('disabled', 'disabled');
-      if (statusEl) {
-        statusEl.textContent = '저장 중입니다...';
-        statusEl.className = 'text-sm text-center text-amber-300';
+      config.rows[shipIndex] = normalizeCaptainDutyRow({ ...row, reliefPeriods: periods }, shipIndex);
+      const conflict = getCaptainDutyConflict(config);
+      if (conflict) {
+        statusEl.textContent = conflict;
+        statusEl.className = 'text-center text-sm text-red-400';
+        return;
       }
-
+      button.setAttribute('disabled', 'disabled');
+      statusEl.textContent = '저장 중입니다...';
+      statusEl.className = 'text-center text-sm text-amber-300';
       try {
-        await saveCaptainDutyConfig(normalized);
-        if (!sections['captain-duty-section'].classList.contains('hidden')) {
-          renderSection('captain-duty-section');
-        }
-        if (statusEl) {
-          statusEl.textContent = `${formatCaptainDutyYearMonth(normalized.yearMonth)} 근무표를 저장했습니다.`;
-          statusEl.className = 'text-sm text-center text-green-400';
-        }
+        await saveCaptainDutyConfig(config);
+        if (!sections['captain-duty-section'].classList.contains('hidden')) renderSection('captain-duty-section');
+        statusEl.textContent = `${row.shipName} 교대기간을 저장했습니다.`;
+        statusEl.className = 'text-center text-sm text-green-400';
         setTimeout(() => hideModal(), 500);
       } catch (error) {
-        if (statusEl) {
-          statusEl.textContent = `저장 실패: ${error.message}`;
-          statusEl.className = 'text-sm text-center text-red-400';
-        }
+        statusEl.textContent = `저장 실패: ${error.message}`;
+        statusEl.className = 'text-center text-sm text-red-400';
       } finally {
-        if (saveBtn) saveBtn.removeAttribute('disabled');
+        button.removeAttribute('disabled');
       }
     }
 
@@ -7212,6 +7270,33 @@ case 'ship-detail-section':
         return;
       }
 
+      const captainDutyShipBtn = e.target.closest('[data-captain-duty-ship]');
+      if (captainDutyShipBtn) {
+        openCaptainDutyShipModal(Number(captainDutyShipBtn.dataset.captainDutyShip));
+        return;
+      }
+
+      const captainDutyAddPeriodBtn = e.target.closest('[data-captain-duty-add-period]');
+      if (captainDutyAddPeriodBtn) {
+        const editor = captainDutyAddPeriodBtn.closest('[data-captain-duty-ship-editor]');
+        const shipIndex = Number(editor?.dataset.captainDutyShipEditor);
+        const row = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth).rows[shipIndex];
+        if (row) document.getElementById('captain-duty-period-list')?.insertAdjacentHTML('beforeend', buildCaptainDutyPeriodEditor(row));
+        return;
+      }
+
+      const captainDutyRemovePeriodBtn = e.target.closest('[data-captain-duty-remove-period]');
+      if (captainDutyRemovePeriodBtn) {
+        captainDutyRemovePeriodBtn.closest('[data-captain-duty-period]')?.remove();
+        return;
+      }
+
+      const captainDutyShipSaveBtn = e.target.closest('[data-captain-duty-ship-save]');
+      if (captainDutyShipSaveBtn) {
+        await handleCaptainDutyShipSave(captainDutyShipSaveBtn);
+        return;
+      }
+
       const captainDutyRow = e.target.closest('.captain-duty-table tbody tr');
       if (captainDutyRow) {
         const isSelected = captainDutyRow.classList.contains('row-selected');
@@ -7279,10 +7364,6 @@ case 'ship-detail-section':
       }
       if (target.id === 'captain-duty-settings-btn') {
         openCaptainDutySettingsModal();
-        return;
-      }
-      if (target.id === 'captain-duty-settings-save-btn') {
-        await handleCaptainDutySettingsSave();
         return;
       }
       // 기상악화 문구 — 원인 선택
