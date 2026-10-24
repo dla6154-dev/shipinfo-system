@@ -950,9 +950,6 @@
       <footer id="app-footer-container" class="flex justify-between items-center text-xs text-slate-500 mt-12">
         <span id="app-footer-timestamp">데이터 로드 중...</span>
         <div class="flex items-center gap-2">
-          <button id="push-notify-btn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition hidden" title="특보 알림 설정">
-            <i class="fa-solid fa-bell text-yellow-400 w-4 h-4"></i>
-          </button>
           <button id="data-manage-btn" class="p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition" title="데이터 관리">
             <i class="fa-solid fa-database text-green-400 w-4 h-4"></i>
           </button>
@@ -4071,6 +4068,16 @@ const DATASETS = [
     }
 
     async function loadWeatherSectionOnOpen(section) {
+      // 날씨 섹션이 재렌더링될 때마다 벨 버튼 재초기화
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.ready.then(reg => {
+          const btn = section.querySelector('#push-notify-btn');
+          if (!btn) return;
+          btn.classList.remove('hidden');
+          reg.pushManager.getSubscription().then(sub => updatePushBtn(btn, !!sub));
+          btn.onclick = () => togglePushSubscription(reg, btn);
+        });
+      }
       const now = Date.now();
       const shouldAutoRefresh = (now - lastWeatherAutoRefreshAt) >= WEATHER_AUTO_REFRESH_COOLDOWN_MS;
       if (shouldAutoRefresh) {
@@ -6414,7 +6421,12 @@ const DATASETS = [
                 <i class="fa-solid fa-rotate-right"></i>
               </button>
             </div>
-            <div id="weather-summary-status" class="mb-2"></div>
+            <div class="flex items-center gap-2 mb-2">
+              <div id="weather-summary-status" class="flex-1"></div>
+              <button id="push-notify-btn" class="shrink-0 p-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 transition hidden" title="특보 알림 설정">
+                <i class="fa-solid fa-bell text-yellow-400 w-4 h-4"></i>
+              </button>
+            </div>
             <div id="weather-summary-panels" class="space-y-5"></div>`;
           setTimeout(() => loadWeatherSectionOnOpen(section), 0);
           break;
