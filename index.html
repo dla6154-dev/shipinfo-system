@@ -5374,9 +5374,9 @@ const DATASETS = [
           : null;
         return `
           <article class="overflow-hidden rounded-2xl border ${isToday ? 'border-cyan-300 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.2)]' : isExpanded ? 'border-blue-400/60 bg-slate-800/90' : 'border-slate-700 bg-slate-800/75'}">
-            <button type="button" data-tide-week-day="${day.date}" class="grid w-full grid-cols-[82px_1fr] gap-2.5 p-3 text-left sm:grid-cols-[125px_1fr] sm:gap-3 sm:p-4">
-              <span class="flex flex-col justify-center border-r border-slate-700/70 pr-3">
-                <span class="text-base font-black ${dayColor}">${date.getMonth() + 1}월 ${date.getDate()}일</span>
+            <button type="button" data-tide-week-day="${day.date}" class="grid w-full grid-cols-[88px_1fr] gap-2.5 p-3 text-left sm:grid-cols-[125px_1fr] sm:gap-3 sm:p-4">
+              <span class="flex flex-col justify-center border-r border-slate-700/70 pr-2 sm:pr-3">
+                <span class="whitespace-nowrap text-sm font-black sm:text-base ${dayColor}">${date.getMonth() + 1}월 ${date.getDate()}일</span>
                 <span class="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-400">${_tideWeekdayLabel(date)}${isToday ? '<span class="rounded-full bg-cyan-400 px-2 py-0.5 text-[10px] text-slate-950">오늘</span>' : ''}</span>
               </span>
               <div class="grid grid-cols-2 gap-2">${events.map(buildWeeklyEvent).join('')}</div>
