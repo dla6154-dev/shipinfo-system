@@ -7006,88 +7006,47 @@ case 'ship-detail-section':
       modalContainer.classList.add('modal-enter');
       modalContent.classList.add('fade-in');
     }
-    // 기상청 시나리오(해양 위험기상 상세정보): 관리자가 폰에서 올린 문서를 그대로 보여줌
-    const KMA_SCENARIO_BUCKET = 'kma-scenario';
-    const sbAuthHeaders = () => ({ apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` });
-
-    function renderKmaScenarioBody(record, message = '') {
-      const files = Array.isArray(record?.files) ? record.files : [];
-      const canUpload = !currentCompanyProfile;
-      const uploadedText = record?.uploaded_at
-        ? new Date(record.uploaded_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : '';
-      const fileHtml = files.length
-        ? files.map((f, i) => f.type === 'application/pdf'
-            ? `<a href="${escapeHtml(f.url)}" target="_blank" rel="noopener" class="flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-sm text-sky-200"><i class="fa-solid fa-file-pdf text-red-400"></i>PDF 열기 ${files.length > 1 ? `(${i + 1}/${files.length})` : ''}</a>`
-            : `<a href="${escapeHtml(f.url)}" target="_blank" rel="noopener" class="block"><img src="${escapeHtml(f.url)}" alt="기상청 시나리오 ${i + 1}" class="w-full rounded-lg border border-slate-700 bg-white"></a>`
-          ).join('')
-        : '<div class="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-6 text-center text-sm text-slate-400">아직 올린 시나리오가 없습니다.</div>';
-      return `
-        <div class="space-y-3">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs text-slate-400">${uploadedText ? `업로드 ${escapeHtml(uploadedText)} · 이미지를 누르면 크게 볼 수 있습니다` : ''}</span>
-            ${canUpload ? `<label class="shrink-0 cursor-pointer rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-200">
-              <i class="fa-solid fa-upload mr-1"></i>올리기
-              <input id="kma-scenario-input" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple class="hidden">
-            </label>` : ''}
-          </div>
-          ${message ? `<div class="rounded-lg bg-slate-900/70 px-3 py-2 text-xs text-amber-300">${escapeHtml(message)}</div>` : ''}
-          ${fileHtml}
-        </div>`;
-    }
-
-    async function fetchKmaScenario() {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/kma_scenario?id=eq.1&select=files,uploaded_at`, { headers: sbAuthHeaders(), cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return (await res.json())[0] || null;
-    }
-
-    function bindKmaScenarioInput() {
-      const input = document.getElementById('kma-scenario-input');
-      if (input) input.addEventListener('change', () => uploadKmaScenario(input.files));
-    }
-
+    // 기상청 시나리오: 해양 위험기상 상세정보의 '풍랑특보 예상 시나리오' 표 (폰 Claude가 kma_wind_scenario에 등록)
     async function openKmaScenario() {
-      showModal('기상청 시나리오', '<div class="py-8 text-center text-sm text-slate-400">불러오는 중...</div>');
+      showModal('기상청 풍랑특보 예상 시나리오', '<div class="py-8 text-center text-sm text-slate-400">불러오는 중...</div>');
       try {
-        modalBody.innerHTML = renderKmaScenarioBody(await fetchKmaScenario());
-      } catch (e) {
-        modalBody.innerHTML = renderKmaScenarioBody(null, `불러오지 못했습니다: ${e.message}`);
-      }
-      bindKmaScenarioInput();
-    }
-
-    async function uploadKmaScenario(fileList) {
-      const files = [...(fileList || [])];
-      if (!files.length) return;
-      modalBody.innerHTML = `<div class="py-8 text-center text-sm text-slate-400">올리는 중... (${files.length}개)</div>`;
-      try {
-        const folder = Date.now();
-        const uploaded = [];
-        for (const [i, file] of files.entries()) {
-          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-          const path = `${folder}/${i + 1}.${ext}`;
-          const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${KMA_SCENARIO_BUCKET}/${path}`, {
-            method: 'POST',
-            headers: { ...sbAuthHeaders(), 'Content-Type': file.type || 'application/octet-stream' },
-            body: file,
-          });
-          if (!res.ok) throw new Error(`${file.name}: ${(await res.text()).slice(0, 120)}`);
-          uploaded.push({ url: `${SUPABASE_URL}/storage/v1/object/public/${KMA_SCENARIO_BUCKET}/${path}`, type: file.type, name: file.name });
-        }
-        const saveRes = await fetch(`${SUPABASE_URL}/rest/v1/kma_scenario?on_conflict=id`, {
-          method: 'POST',
-          headers: { ...sbAuthHeaders(), 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify({ id: 1, files: uploaded, uploaded_at: new Date().toISOString() }),
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/kma_wind_scenario?select=issued_at,office,rows,created_at&order=id.desc&limit=1`, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+          cache: 'no-store',
         });
-        if (!saveRes.ok) throw new Error((await saveRes.text()).slice(0, 160));
-        modalBody.innerHTML = renderKmaScenarioBody(await fetchKmaScenario(), '새 시나리오를 올렸습니다.');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const sc = (await res.json())[0];
+        if (!sc) {
+          modalBody.innerHTML = '<div class="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-6 text-center text-sm text-slate-400">아직 등록된 시나리오가 없습니다.</div>';
+          return;
+        }
+        const rows = Array.isArray(sc.rows) ? sc.rows : [];
+        const body = rows.map((r) => `
+          <tr class="border-t border-slate-700">
+            <td class="px-2 py-2 text-left ${r.sub ? 'pl-5 text-slate-300' : 'font-semibold text-white'}">${r.sub ? '└ ' : ''}${escapeHtml(r.area || '')}</td>
+            <td class="px-2 py-2 text-center whitespace-nowrap text-sky-200">${escapeHtml(r.period || '')}</td>
+            <td class="px-2 py-2 text-center whitespace-nowrap text-red-300">${escapeHtml(r.warn || '')}</td>
+          </tr>`).join('');
+        modalBody.innerHTML = `
+          <div class="space-y-3">
+            <div class="text-xs text-slate-400">${escapeHtml(sc.office || '기상청')} · ${escapeHtml(sc.issued_at || '')} 발표</div>
+            <div class="overflow-x-auto rounded-xl border border-slate-700">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-900/80 text-slate-300">
+                  <tr>
+                    <th class="px-2 py-2 text-left">해역</th>
+                    <th class="px-2 py-2 text-center">풍랑특보 예상기간<br><span class="font-normal text-slate-400">(발효~해제)</span></th>
+                    <th class="px-2 py-2 text-center whitespace-nowrap">풍랑경보<br>예상시점</th>
+                  </tr>
+                </thead>
+                <tbody>${body}</tbody>
+              </table>
+            </div>
+            <p class="text-[11px] leading-relaxed text-slate-500">새벽(00~06시), 오전(06~12시), 오후(12~18시), 밤(18~24시). 시나리오는 기상 상황에 따라 바뀔 수 있습니다.</p>
+          </div>`;
       } catch (e) {
-        let current = null;
-        try { current = await fetchKmaScenario(); } catch (_) {}
-        modalBody.innerHTML = renderKmaScenarioBody(current, `올리기 실패: ${e.message}`);
+        modalBody.innerHTML = `<div class="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-200">불러오지 못했습니다: ${escapeHtml(e.message)}</div>`;
       }
-      bindKmaScenarioInput();
     }
 
     function hideModal() {
