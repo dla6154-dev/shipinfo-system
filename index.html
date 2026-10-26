@@ -1054,14 +1054,48 @@ const WEATHER_AUTO_REFRESH_COOLDOWN_MS = 30 * 1000;
 const SUPABASE_URL = 'https://fnpsaypaxpxyyqmrqwai.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZucHNheXBheHB4eXlxbXJxd2FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTc1NzYsImV4cCI6MjA4OTU3MzU3Nn0.yZir2n-zxnbedVdIKwpqJAnWjuwEp96jIYjOY6cNPe4';
 const VISIBILITY_LIMIT_APP_URL = 'https://dla6154-dev.github.io/AUTO-BAND/';
-const SHIPINFO_FIXED_AREA_SELECTION_KEYS = ['22A30105', '12A30212', '12B10201', '12B10302', '12B10100'];
+// 기상청 특보 REG_ID (평수구역 구분). 푸시 알림 서버(check-warnings)의 PUSH_ZONES와 같은 목록
+const SHIPINFO_FIXED_AREA_SELECTION_KEYS = ['S1231500', 'S2210500', 'S2211400', 'S1232210', 'S2211200', 'S1322100'];
 const SHIPINFO_FIXED_AREA_LABELS = {
-  '22A30105': '전남남부서해앞바다',
-  '12A30212': '서해남부남쪽안쪽먼바다',
-  '12B10201': '남해서부서쪽먼바다',
-  '12B10302': '제주도북부앞바다',
-  '12B10100': '남해서부앞바다'
+  'S1231500': '전남남부서해앞바다',
+  'S2210500': '전남남부서해앞바다 평수',
+  'S2211400': '전남중부서해앞바다 앞평수',
+  'S1232210': '서해남부남쪽안쪽먼바다',
+  'S2211200': '조도부근 평수구역',
+  'S1322100': '남해서부서쪽먼바다'
 };
+
+// wb-warning 특보 목록 → 구역별 현재 특보 (구역·특보종류·예비여부별 최신 발표, 해제 제외)
+function buildZoneWarningSnapshot(rows, fetchedAt) {
+  const latest = new Map();
+  (rows || []).forEach((r) => {
+    if (!SHIPINFO_FIXED_AREA_LABELS[r.regId]) return;
+    const key = `${r.regId}|${r.wrn}|${r.lvl === '예비' ? '예비' : '특보'}`;
+    if (!latest.has(key) || String(latest.get(key).tmFc) < String(r.tmFc)) latest.set(key, r);
+  });
+  const levelText = { '주의': '주의보', '경보': '경보', '예비': '예비특보' };
+  const byZone = new Map();
+  latest.forEach((r) => {
+    if (['해제', '대치해제', '변경해제'].includes(r.cmd)) return;
+    if (!byZone.has(r.regId)) byZone.set(r.regId, []);
+    byZone.get(r.regId).push({
+      warningType: r.wrn || '',
+      level: levelText[r.lvl] || r.lvl || '',
+      issuedAt: r.tmFc || '',
+      effectiveAt: r.tmEf || '',
+      endTimeText: r.edTm || '',
+    });
+  });
+  const rank = (w) => (w.level === '경보' ? 0 : w.level === '주의보' ? 1 : 2);
+  return {
+    meta: { generatedAt: fetchedAt || '' },
+    entries: SHIPINFO_FIXED_AREA_SELECTION_KEYS.map((regId) => ({
+      selectionKey: regId,
+      areaLabel: SHIPINFO_FIXED_AREA_LABELS[regId],
+      warnings: (byZone.get(regId) || []).sort((a, b) => rank(a) - rank(b)),
+    })),
+  };
+}
 const SHIPINFO_FIXED_QUERY1_SELECTION_KEYS = [
   'C:파고BUOY|22500|조도',
   'C:파고BUOY|22449|진도',
@@ -6032,7 +6066,7 @@ const DATASETS = [
         };
 
         const [areaRes, buoyRes] = await Promise.all([
-          fetch(cacheUrl('kma-warning-snapshot'), fetchOptions),
+          fetch(cacheUrl('wb-warning'), fetchOptions),
           fetch(cacheUrl('kma-buoy-snapshot'), fetchOptions),
         ]);
 
@@ -6043,7 +6077,9 @@ const DATASETS = [
         const [areaData, buoyData] = await Promise.all([areaRes.json(), buoyRes.json()]);
         if (requestId !== weatherSectionRequestId) return;
 
-        const areaSnapshot  = areaData[0]?.payload;
+        const areaSnapshot  = Array.isArray(areaData[0]?.payload?.rows)
+          ? buildZoneWarningSnapshot(areaData[0].payload.rows, areaData[0].fetchedAt)
+          : null;
         const querySnapshot = buoyData[0]?.payload;
         const fetchedAt     = buoyData[0]?.fetchedAt;
 
