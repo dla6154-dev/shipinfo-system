@@ -7021,27 +7021,35 @@ case 'ship-detail-section':
           return;
         }
         const rows = Array.isArray(sc.rows) ? sc.rows : [];
-        const body = rows.map((r) => `
-          <tr class="border-t border-slate-700">
-            <td class="px-2 py-2 text-left ${r.sub ? 'pl-5 text-slate-300' : 'font-semibold text-white'}">${r.sub ? '└ ' : ''}${escapeHtml(r.area || '')}</td>
-            <td class="px-2 py-2 text-center whitespace-nowrap text-sky-200">${escapeHtml(r.period || '')}</td>
-            <td class="px-2 py-2 text-center whitespace-nowrap text-red-300">${escapeHtml(r.warn || '')}</td>
-          </tr>`).join('');
+        const body = rows.map((r) => {
+          const [start = '', end = ''] = String(r.period || '').split(/\s*(?:~|→)\s*/);
+          const warn = String(r.warn || '').trim();
+          const period = start
+            ? `<span style="color:#fbbf24;white-space:nowrap">${escapeHtml(start)}</span><br><span class="text-slate-500">→ </span><span style="color:#22d3ee;white-space:nowrap">${escapeHtml(end)}</span>`
+            : '<span class="text-slate-500">—</span>';
+          return `
+            <tr style="${warn ? 'background:rgba(239,68,68,0.09);box-shadow:inset 4px 0 #ef4444;' : ''}">
+              <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle;font-weight:${r.sub ? 600 : 700};line-height:1.4;word-break:keep-all;overflow-wrap:break-word;color:${r.sub ? '#cbd5e1' : '#f8fafc'}">${escapeHtml(r.area || '')}</td>
+              <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle;word-break:keep-all">${period}</td>
+              <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">${warn
+                ? `<span style="display:inline-block;padding:4px 7px;border:1px solid #ef4444;border-radius:8px;color:#f87171;font-weight:700;white-space:nowrap">${escapeHtml(warn)}</span>`
+                : '<span class="text-slate-500">—</span>'}</td>
+            </tr>`;
+        }).join('');
         modalBody.innerHTML = `
           <div class="space-y-3">
             <div class="text-xs text-slate-400">${escapeHtml(sc.office || '기상청')} · ${escapeHtml(sc.issued_at || '')} 발표</div>
-            <div class="overflow-x-auto rounded-xl border border-slate-700">
-              <table class="w-full text-xs">
-                <thead class="bg-slate-900/80 text-slate-300">
-                  <tr>
-                    <th class="px-2 py-2 text-left">해역</th>
-                    <th class="px-2 py-2 text-center">풍랑특보 예상기간<br><span class="font-normal text-slate-400">(발효~해제)</span></th>
-                    <th class="px-2 py-2 text-center whitespace-nowrap">풍랑경보<br>예상시점</th>
-                  </tr>
-                </thead>
-                <tbody>${body}</tbody>
-              </table>
-            </div>
+            <table style="width:100%;table-layout:fixed;border-collapse:collapse;color:#f8fafc;font-size:12px">
+              <colgroup><col style="width:42%"><col style="width:36%"><col style="width:22%"></colgroup>
+              <thead style="background:rgba(15,23,42,0.8);color:#cbd5e1">
+                <tr>
+                  <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">해역</th>
+                  <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">주의보 예상기간<br><small class="font-normal text-slate-400">발효 → 해제</small></th>
+                  <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">경보 예상</th>
+                </tr>
+              </thead>
+              <tbody>${body}</tbody>
+            </table>
             <p class="text-[11px] leading-relaxed text-slate-500">새벽(00~06시), 오전(06~12시), 오후(12~18시), 밤(18~24시). 시나리오는 기상 상황에 따라 바뀔 수 있습니다.</p>
           </div>`;
       } catch (e) {
