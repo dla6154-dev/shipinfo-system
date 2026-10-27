@@ -4146,6 +4146,16 @@ const DATASETS = [
       return `${day}일 ${label}`;
     }
 
+    function formatWarningExactTime(value) {
+      const t = String(value || '').trim();
+      return /^\d{12}$/.test(t) ? `${parseInt(t.slice(6, 8), 10)}일 ${t.slice(8, 10)}:${t.slice(10, 12)}` : (t || '-');
+    }
+
+    // '28일 오전(09시~12시)' → '28일 오전(09~12시)'
+    function shortenWarningRelease(value) {
+      return String(value || '').replace(/(\d{1,2})시\s*~\s*(\d{1,2})시/, '$1~$2시').trim();
+    }
+
     function formatWeatherCompactTimestamp(value) {
       const text = String(value || '').trim();
       if (!text) return '-';
@@ -5944,13 +5954,14 @@ const DATASETS = [
             ${warnings.map((warning) => {
               const warningTone = getWarningTone(warning.level);
               const releaseTime = getWeatherWarningReleaseTime(warning);
-              const issuedHH = String(warning.issuedAt || '').slice(8, 10);
-              const issuedMM = String(warning.issuedAt || '').slice(10, 12);
+              const isPre = String(warning.level || '').includes('예비');
+              // 예비특보: 발효 예상 시간대 / 주의보·경보: 실제 발효 시각 + 해제 예상 시간대
+              const effText = isPre ? formatWeatherDayTimestamp(warning.effectiveAt) : formatWarningExactTime(warning.effectiveAt);
               return `<div class="rounded-lg border px-3 py-2 space-y-1 ${buildWarningDetailClasses(warningTone)}">
-                <div class="text-xs font-bold text-white">${escapeHtml(areaLabel)}</div>
-                <div class="text-[11px] text-slate-300">발표 ${escapeHtml(issuedHH)}:${escapeHtml(issuedMM)}</div>
-                <div class="text-[11px] text-slate-300">발효 ${escapeHtml(formatWeatherDayTimestamp(warning.effectiveAt))}</div>
-                <div class="text-[11px] text-slate-300">해제 ${escapeHtml(releaseTime ? formatWeatherDayTimestamp(releaseTime) : '공란')}</div>
+                <div class="text-xs font-bold text-white">${escapeHtml(areaLabel)} · ${escapeHtml(`${warning.warningType}${warning.level}`)}</div>
+                <div class="text-[11px] text-slate-300">발표 ${escapeHtml(formatWarningExactTime(warning.issuedAt))}</div>
+                <div class="text-[11px] text-slate-300">${isPre ? '발효 예상' : '발효'} ${escapeHtml(effText)}</div>
+                ${isPre ? '' : `<div class="text-[11px] text-slate-300">해제 예상 ${escapeHtml(releaseTime ? shortenWarningRelease(releaseTime) : '공란')}</div>`}
               </div>`;
             }).join('')}
           </div>`;
@@ -5963,7 +5974,7 @@ const DATASETS = [
             return formatWeatherDayTimestamp(primaryWarning.effectiveAt);
           }
           const rel = getWeatherWarningReleaseTime(primaryWarning);
-          return rel ? formatWeatherDayTimestamp(rel) : '해제 공란';
+          return rel ? `~${shortenWarningRelease(rel)}` : '해제 공란';
         })();
 
         return `
