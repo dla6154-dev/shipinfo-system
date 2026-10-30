@@ -7011,6 +7011,8 @@ case 'ship-detail-section':
     // 7) Modal Functions
     // ===============================
     function showModal(title, content) {
+      clearInterval(kmaScenarioTimer);
+      kmaScenarioRequest++;
       modalTitle.textContent = title;
       modalBody.innerHTML = content;
       modalContainer.classList.remove('hidden');
@@ -7018,8 +7020,39 @@ case 'ship-detail-section':
       modalContent.classList.add('fade-in');
     }
     // 기상청 시나리오: 해양 위험기상 상세정보의 '풍랑특보 예상 시나리오' 표 (폰 Claude가 kma_wind_scenario에 등록)
+    // 시나리오의 일자/시간대는 발표일을 기준으로 해석하며 한국시간으로 비교한다.
+    function getKmaScenarioEnd(period, issuedAt) {
+      const issued = String(issuedAt || '').match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+      const parts = String(period || '').split(/\s*(?:~|→)\s*/);
+      if (!issued || parts.length !== 2) return null;
+      const parse = (text, base, isEnd) => {
+        const match = text.trim().match(/^(?:(\d{1,2})월\s*)?(\d{1,2})일\s*(새벽|오전|오후|밤|\d{1,2}시)$/);
+        if (!match) return null;
+        const day = Number(match[2]);
+        let year = base.year;
+        let month = match[1] ? Number(match[1]) : base.month;
+        if (match[1] ? month < base.month : day < base.day) {
+          if (match[1]) year++;
+          else if (++month > 12) { month = 1; year++; }
+        }
+        const bucket = { 새벽: [0, 6], 오전: [6, 12], 오후: [12, 18], 밤: [18, 24] }[match[3]];
+        const hour = bucket ? bucket[isEnd ? 1 : 0] : Number(match[3].replace('시', ''));
+        const date = new Date(Date.UTC(year, month - 1, day));
+        if (month < 1 || month > 12 || day < 1 || date.getUTCMonth() !== month - 1 || hour > 24) return null;
+        return { year, month, day, time: Date.UTC(year, month - 1, day, hour - 9) };
+      };
+      const base = { year: Number(issued[1]), month: Number(issued[2]), day: Number(issued[3]) };
+      const start = parse(parts[0], base, false);
+      const end = start && parse(parts[1], start, true);
+      return end && end.time >= start.time ? end.time : null;
+    }
+
+    let kmaScenarioTimer = null;
+    let kmaScenarioRequest = 0;
     async function openKmaScenario() {
+      clearInterval(kmaScenarioTimer);
       showModal('기상청 풍랑특보 예상 시나리오', '<div class="py-8 text-center text-sm text-slate-400">불러오는 중...</div>');
+      const request = kmaScenarioRequest;
       try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/kma_wind_scenario?select=issued_at,office,rows,created_at&order=id.desc&limit=1`, {
           headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
@@ -7027,48 +7060,66 @@ case 'ship-detail-section':
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const sc = (await res.json())[0];
+        if (request !== kmaScenarioRequest) return;
         if (!sc) {
           modalBody.innerHTML = '<div class="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-6 text-center text-sm text-slate-400">아직 등록된 시나리오가 없습니다.</div>';
           return;
         }
-        const rows = Array.isArray(sc.rows) ? sc.rows : [];
-        const body = rows.map((r) => {
-          const [start = '', end = ''] = String(r.period || '').split(/\s*(?:~|→)\s*/);
-          const warn = String(r.warn || '').trim();
-          const period = start
-            ? `<span style="color:#fbbf24;white-space:nowrap">${escapeHtml(start)}</span><br><span class="text-slate-500">→ </span><span style="color:#22d3ee;white-space:nowrap">${escapeHtml(end)}</span>`
-            : '<span class="text-slate-500">—</span>';
-          return `
-            <tr style="${warn ? 'background:rgba(239,68,68,0.09);box-shadow:inset 4px 0 #ef4444;' : ''}">
-              <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle;font-weight:${r.sub ? 600 : 700};line-height:1.4;word-break:keep-all;overflow-wrap:break-word;color:${r.sub ? '#cbd5e1' : '#f8fafc'}">${escapeHtml(r.area || '')}</td>
-              <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle;word-break:keep-all">${period}</td>
-              <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">${warn
-                ? `<span style="display:inline-block;padding:4px 7px;border:1px solid #ef4444;border-radius:8px;color:#f87171;font-weight:700;white-space:nowrap">${escapeHtml(warn)}</span>`
-                : '<span class="text-slate-500">—</span>'}</td>
-            </tr>`;
-        }).join('');
-        modalBody.innerHTML = `
-          <div class="space-y-3">
-            <div class="text-xs text-slate-400">${escapeHtml(sc.office || '기상청')} · ${escapeHtml(sc.issued_at || '')} 발표</div>
-            <table style="width:100%;table-layout:fixed;border-collapse:collapse;color:#f8fafc;font-size:12px">
-              <colgroup><col style="width:42%"><col style="width:36%"><col style="width:22%"></colgroup>
-              <thead style="background:rgba(15,23,42,0.8);color:#cbd5e1">
-                <tr>
-                  <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">해역</th>
-                  <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">주의보 예상기간<br><small class="font-normal text-slate-400">발효 → 해제</small></th>
-                  <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">경보 예상</th>
-                </tr>
-              </thead>
-              <tbody>${body}</tbody>
-            </table>
-            <p class="text-[11px] leading-relaxed text-slate-500">새벽(00~06시), 오전(06~12시), 오후(12~18시), 밤(18~24시). 시나리오는 기상 상황에 따라 바뀔 수 있습니다.</p>
-          </div>`;
+        const render = () => {
+          const now = Date.now();
+          const rows = (Array.isArray(sc.rows) ? sc.rows : []).map(r => {
+            const end = getKmaScenarioEnd(r.period, sc.issued_at);
+            return end !== null && now >= end ? { ...r, period: '', warn: '' } : r;
+          });
+          if (!rows.some(r => String(r.period || '').trim() || String(r.warn || '').trim())) {
+            modalBody.innerHTML = '<div class="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-6 text-center text-sm text-slate-300">현재 유효한 기상청 시나리오가 없습니다.</div>';
+            return;
+          }
+          const body = rows.map((r) => {
+            const [start = '', end = ''] = String(r.period || '').split(/\s*(?:~|→)\s*/);
+            const warn = String(r.warn || '').trim();
+            const period = start
+              ? `<span style="color:#fbbf24;white-space:nowrap">${escapeHtml(start)}</span><br><span class="text-slate-500">→ </span><span style="color:#22d3ee;white-space:nowrap">${escapeHtml(end)}</span>`
+              : '<span class="text-slate-400">없음</span>';
+            return `
+              <tr style="${warn ? 'background:rgba(239,68,68,0.09);box-shadow:inset 4px 0 #ef4444;' : ''}">
+                <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle;font-weight:${r.sub ? 600 : 700};line-height:1.4;word-break:keep-all;overflow-wrap:break-word;color:${r.sub ? '#cbd5e1' : '#f8fafc'}">${escapeHtml(r.area || '')}</td>
+                <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle;word-break:keep-all">${period}</td>
+                <td style="padding:12px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">${warn
+                  ? `<span style="display:inline-block;padding:4px 7px;border:1px solid #ef4444;border-radius:8px;color:#f87171;font-weight:700;white-space:nowrap">${escapeHtml(warn)}</span>`
+                  : '<span class="text-slate-500">—</span>'}</td>
+              </tr>`;
+          }).join('');
+          modalBody.innerHTML = `
+            <div class="space-y-3">
+              <div class="text-xs text-slate-400">${escapeHtml(sc.office || '기상청')} · ${escapeHtml(sc.issued_at || '')} 발표</div>
+              <table style="width:100%;table-layout:fixed;border-collapse:collapse;color:#f8fafc;font-size:12px">
+                <colgroup><col style="width:42%"><col style="width:36%"><col style="width:22%"></colgroup>
+                <thead style="background:rgba(15,23,42,0.8);color:#cbd5e1">
+                  <tr>
+                    <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">해역</th>
+                    <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">주의보 예상기간<br><small class="font-normal text-slate-400">발효 → 해제</small></th>
+                    <th style="padding:10px 6px;border:1px solid #334155;text-align:center;vertical-align:middle">경보 예상</th>
+                  </tr>
+                </thead>
+                <tbody>${body}</tbody>
+              </table>
+              <p class="text-[11px] leading-relaxed text-slate-500">새벽(00~06시), 오전(06~12시), 오후(12~18시), 밤(18~24시). 시나리오는 기상 상황에 따라 바뀔 수 있습니다.</p>
+            </div>`;
+        };
+        // 열린 화면도 시간이 지나면 종료 상태로 갱신한다.
+        if (modalContainer.classList.contains('hidden')) return;
+        render();
+        kmaScenarioTimer = setInterval(render, 30000);
       } catch (e) {
+        if (request !== kmaScenarioRequest) return;
         modalBody.innerHTML = `<div class="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm text-red-200">불러오지 못했습니다: ${escapeHtml(e.message)}</div>`;
       }
     }
 
     function hideModal() {
+      clearInterval(kmaScenarioTimer);
+      kmaScenarioRequest++;
       modalContainer.classList.add('modal-leave');
       modalContent.classList.remove('fade-in');
       setTimeout(() => {
