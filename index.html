@@ -7986,8 +7986,7 @@ case 'ship-detail-section':
         function renderWorker(slot) {
           if (!slot || !slot.worker) return '';
           if (slot.leave) return ''; // 연가 = 없는 사람
-          const trip = slot.trip ? ' <span style="color:#60a5fa;font-size:10px">(출장)</span>' : '';
-          return `<span class="duty-worker">${escapeHtml(slot.worker)}</span>${trip}`;
+          return `<span class="duty-worker"${slot.trip ? ' style="color:#60a5fa"' : ''}>${escapeHtml(slot.worker)}</span>`;
         }
 
         let cells = '';
@@ -8029,6 +8028,10 @@ case 'ship-detail-section':
             ${DAY_NAMES.map((n,i) => `<div class="duty-cal-header${i===0?' duty-cal-day-sun':i===6?' duty-cal-day-sat':''}">${n}</div>`).join('')}
             ${cells}
           </div>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:#94a3b8;display:flex;gap:12px;flex-wrap:wrap">
+            <span><span style="color:#60a5fa;font-weight:700">파란 이름</span> = 출장</span>
+            <span>연가자는 표시하지 않음</span>
           </div>`;
 
         document.getElementById('duty-prev-btn')?.addEventListener('click', () => {
