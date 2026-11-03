@@ -7990,6 +7990,7 @@ case 'ship-detail-section':
         }
 
         let cells = '';
+        const tripNotes = {}; // '이름|내용' → [일자]
         // 빈 칸 (첫 주 앞부분)
         for (let i = 0; i < firstDow; i++) {
           cells += `<div class="duty-cal-cell duty-cal-empty"></div>`;
@@ -8001,7 +8002,12 @@ case 'ship-detail-section':
           const isSun = dow === 0;
           const isSat = dow === 6;
           const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
-          const note = dayData.note ? `<div class="duty-cal-note">${escapeHtml(dayData.note)}</div>` : '';
+          const tripSlot = [dayData.a, dayData.b].find(x => x && x.trip && !x.leave && x.worker);
+          if (tripSlot) {
+            const k = `${tripSlot.worker}|${dayData.note || '출장'}`;
+            (tripNotes[k] = tripNotes[k] || []).push(d);
+          }
+          const note = dayData.note && !tripSlot ? `<div class="duty-cal-note">${escapeHtml(dayData.note)}</div>` : '';
 
           const aHtml = renderWorker(dayData.a);
           const bHtml = renderWorker(dayData.b);
@@ -8029,10 +8035,13 @@ case 'ship-detail-section':
             ${cells}
           </div>
           </div>
-          <div style="margin-top:8px;font-size:11px;color:#94a3b8;display:flex;gap:12px;flex-wrap:wrap">
-            <span><span style="color:#60a5fa;font-weight:700">파란 이름</span> = 출장</span>
-            <span>연가자는 표시하지 않음</span>
-          </div>`;
+          ${Object.keys(tripNotes).length ? `<div style="margin-top:8px;font-size:12px;color:#cbd5e1;display:flex;flex-direction:column;gap:3px">
+            ${Object.entries(tripNotes).map(([k, days]) => {
+              const [name, text] = k.split('|');
+              const range = days.length > 1 && days[days.length - 1] - days[0] === days.length - 1 ? `${days[0]}~${days[days.length - 1]}일` : days.map(x => `${x}일`).join(', ');
+              return `<div><span style="color:#60a5fa;font-weight:700">${escapeHtml(name)}</span>: ${escapeHtml(text)} <span style="color:#64748b">(${range})</span></div>`;
+            }).join('')}
+          </div>` : ''}`;
 
         document.getElementById('duty-prev-btn')?.addEventListener('click', () => {
           if (dutyScheduleMonth === 1) { dutyScheduleYear--; dutyScheduleMonth = 12; }
