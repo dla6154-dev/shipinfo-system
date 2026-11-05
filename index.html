@@ -6149,6 +6149,20 @@ const DATASETS = [
         const [areaData, buoyData] = await Promise.all([areaRes.json(), buoyRes.json()]);
         if (requestId !== weatherSectionRequestId) return;
 
+        // 평수구역·연안바다는 wrn_now_data에 없어 서버가 통보문으로 계산한 상태(wrn_zone_status)로 채움
+        try {
+          const subRes = await fetch(`${SUPABASE_URL}/rest/v1/wrn_zone_status?select=zone_id,warnings&parent_id=not.is.null`, fetchOptions);
+          const subs = subRes.ok ? await subRes.json() : [];
+          const rows = areaData[0]?.payload?.rows;
+          if (Array.isArray(subs) && subs.length && Array.isArray(rows)) {
+            const subIds = new Set(subs.map(z => z.zone_id));
+            areaData[0].payload.rows = rows.filter(w => !subIds.has(w.regId))
+              .concat(subs.flatMap(z => (z.warnings || []).map(w => ({ ...w, regId: z.zone_id }))));
+          }
+        } catch (e) {
+          console.warn('평수구역 특보 상태 불러오기 실패', e);
+        }
+
         const areaSnapshot  = Array.isArray(areaData[0]?.payload?.rows)
           ? buildZoneWarningSnapshot(areaData[0].payload.rows, areaData[0].fetchedAt)
           : null;
