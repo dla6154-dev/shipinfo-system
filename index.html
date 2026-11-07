@@ -1469,6 +1469,7 @@ const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
 const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
 const FERRY_OPERATION_FORECAST_STATE_KEY = 'ferryOperation.forecastState.v1';
 const FERRY_OPERATION_WEATHER_STATE_KEY = 'ferryOperation.weatherState.v1';
+const FERRY_OPERATION_WEATHER_SCHEDULE_VERSION = '2026-11-08-v2';
 const FERRY_OPERATION_WEATHER_SELECTED_VESSEL_KEY = 'ferryOperation.weatherSelectedVessel.v1';
 const FERRY_OPERATION_FORECAST_STATUS_ORDER = ['blank', 'normal', 'review', 'control', 'partial'];
 const FERRY_OPERATION_FORECAST_STATUS_LABELS = {
@@ -1571,7 +1572,7 @@ const FERRY_OPERATION_SEASONAL_VOYAGES = {
     ],
     '동절기': [
       ['07:30 / 08:20', '진도 ↔ 창유'],
-      ['09:50 / 16:00', '진도 ↔ 서거차'],
+      ['09:30 / 15:15', '진도 ↔ 서거차'],
       ['16:00 / 16:50', '진도 ↔ 창유']
     ]
   },
@@ -2282,7 +2283,7 @@ function buildDefaultFerryOperationWeatherState() {
       }))
     };
   });
-  return { seasonCycle: automaticSeason, vessels };
+  return { seasonCycle: automaticSeason, scheduleVersion: FERRY_OPERATION_WEATHER_SCHEDULE_VERSION, vessels };
 }
 
 function normalizeFerryOperationWeatherState(value) {
@@ -2328,13 +2329,14 @@ function normalizeFerryOperationWeatherState(value) {
   const seasonCycle = value?.seasonCycle === '동절기' || value?.seasonCycle === '하절기'
     ? value.seasonCycle
     : '';
-  return { seasonCycle, vessels };
+  const scheduleVersion = String(value?.scheduleVersion || '');
+  return { seasonCycle, scheduleVersion, vessels };
 }
 
 function readFerryOperationWeatherState() {
   const weatherState = normalizeFerryOperationWeatherState(readLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, {}));
   const automaticSeason = getAutomaticFerryOperationSeason();
-  if (weatherState.seasonCycle === automaticSeason) return weatherState;
+  if (weatherState.seasonCycle === automaticSeason && weatherState.scheduleVersion === FERRY_OPERATION_WEATHER_SCHEDULE_VERSION) return weatherState;
 
   FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
     const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
@@ -2353,6 +2355,7 @@ function readFerryOperationWeatherState() {
     });
   });
   weatherState.seasonCycle = automaticSeason;
+  weatherState.scheduleVersion = FERRY_OPERATION_WEATHER_SCHEDULE_VERSION;
   writeLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, weatherState);
   return weatherState;
 }
