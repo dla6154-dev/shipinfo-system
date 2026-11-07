@@ -1309,16 +1309,31 @@ function getTimetableViewerRoute(route, routeIndex) {
 
 const FIELD_DUTY_BOARDS = [
   {
-    name: '진도 / 우수영 사무소',
-    description: '현장업무 지정표 · 하절기 3.1 ~ 10.31',
-    image: './assets/manuals/field-duty-manual.jpg'
+    key: 'winter-november',
+    name: '현장업무 지정표 · 동절기 11월',
+    description: '진도/우수영사무소 · 11.1 ~ 11.30 적용',
+    image: './assets/manuals/field-duty-winter-nov.png?v=20261108'
+  },
+  {
+    key: 'winter-december-february',
+    name: '현장업무 지정표 · 동절기 12월~2월',
+    description: '진도/우수영사무소 · 12.1 ~ 2.28 적용',
+    image: './assets/manuals/field-duty-winter-dec-feb.png?v=20261108'
+  },
+  {
+    key: 'summer',
+    name: '현장업무 지정표 · 하절기',
+    description: '진도/우수영사무소 · 3.1 ~ 10.31 적용',
+    image: './assets/manuals/field-duty-summer.png?v=20261108'
   }
 ];
-const FIELD_DUTY_MANUAL = {
-  name: '현장업무 지정표',
-  description: '진도/우수영사무소 현장업무 지정표',
-  image: './assets/manuals/field-duty-manual.jpg'
-};
+
+function getCurrentFieldDutyBoard(referenceDate = new Date()) {
+  const month = referenceDate.getMonth() + 1;
+  if (month === 11) return FIELD_DUTY_BOARDS[0];
+  if (month === 12 || month === 1 || month === 2) return FIELD_DUTY_BOARDS[1];
+  return FIELD_DUTY_BOARDS[2];
+}
 const VISIBILITY_LIMIT_MANUAL = {
   name: '시계제한',
   description: '시계제한 시 항로별 결정방법',
@@ -7687,7 +7702,7 @@ case 'ship-detail-section':
       if (target.id === 'weather-btn') switchView('weather-section');
       if (target.id === 'timetable-btn') switchView('timetable-section');
       if (target.id === 'field-duty-btn') {
-        openTimetableViewer(FIELD_DUTY_MANUAL);
+        openTimetableViewer(getCurrentFieldDutyBoard());
         return;
       }
       if (target.id === 'tide-btn') switchView('tide-section');
@@ -8219,7 +8234,7 @@ case 'ship-detail-section':
         openTimetableViewer(VISIBILITY_LIMIT_MANUAL);
       }
       if (viewerTarget === 'field-duty') {
-        openTimetableViewer(FIELD_DUTY_MANUAL);
+        openTimetableViewer(getCurrentFieldDutyBoard());
       }
     }
 
