@@ -1547,9 +1547,20 @@ const FERRY_OPERATION_SEASONAL_VOYAGES = {
     '동절기': [
       ['07:20 / 08:20', '창유 ↔ 진도'],
       ['09:30 / 10:30', '창유 ↔ 진도'],
-      ['11:10 / 12:00', '창유 ↔ 관매'],
       ['13:00 / 14:00', '창유 ↔ 진도'],
-      ['16:00 / 17:35', '창유 ↔ 진도']
+      ['16:00 / 17:00', '창유 ↔ 진도']
+    ]
+  },
+  '새섬관매': {
+    '하절기': [
+      ['08:15 / 09:20', '진도 ↔ 창유 ↔ 관매'],
+      ['11:10 / 12:10', '진도 ↔ 관매'],
+      ['15:50 / 17:20', '진도 ↔ 창유 ↔ 관매']
+    ],
+    '동절기': [
+      ['07:20 / 08:30', '진도 ↔ 창유 ↔ 관매'],
+      ['11:10 / 12:10', '진도 ↔ 관매'],
+      ['14:50 / 16:20', '진도 ↔ 창유 ↔ 관매']
     ]
   },
   '한림페리11': {
@@ -1608,6 +1619,11 @@ function getFerryOperationTomorrowString() {
   const nextDate = new Date();
   nextDate.setDate(nextDate.getDate() + 1);
   return ferryOperationToLocalDateString(nextDate);
+}
+
+function getAutomaticFerryOperationSeason(date = new Date()) {
+  const month = date.getMonth() + 1;
+  return month >= 11 || month <= 2 ? '동절기' : '하절기';
 }
 
 function formatFerryOperationDisplayDate(value) {
@@ -2251,8 +2267,10 @@ function getFerryOperationVoyageBlueprint(vesselKey, season = '') {
 
 function buildDefaultFerryOperationWeatherState() {
   const vessels = {};
+  const automaticSeason = getAutomaticFerryOperationSeason();
   FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
-    const season = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey] ? '하절기' : '';
+    const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+    const season = seasonOptions?.[automaticSeason] ? automaticSeason : '';
     vessels[vesselKey] = {
       displayName: vesselKey,
       season,
@@ -2264,7 +2282,7 @@ function buildDefaultFerryOperationWeatherState() {
       }))
     };
   });
-  return { vessels };
+  return { seasonCycle: automaticSeason, vessels };
 }
 
 function normalizeFerryOperationWeatherState(value) {
@@ -2307,11 +2325,36 @@ function normalizeFerryOperationWeatherState(value) {
     }
   });
 
-  return { vessels };
+  const seasonCycle = value?.seasonCycle === '동절기' || value?.seasonCycle === '하절기'
+    ? value.seasonCycle
+    : '';
+  return { seasonCycle, vessels };
 }
 
 function readFerryOperationWeatherState() {
-  return normalizeFerryOperationWeatherState(readLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, {}));
+  const weatherState = normalizeFerryOperationWeatherState(readLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, {}));
+  const automaticSeason = getAutomaticFerryOperationSeason();
+  if (weatherState.seasonCycle === automaticSeason) return weatherState;
+
+  FERRY_OPERATION_VESSELS.forEach((vesselKey) => {
+    const seasonOptions = FERRY_OPERATION_SEASONAL_VOYAGES[vesselKey];
+    const vessel = weatherState.vessels[vesselKey];
+    if (!seasonOptions?.[automaticSeason] || !vessel) return;
+    const previousByTime = new Map((vessel.voyages || []).map((voyage) => [voyage.depTime, voyage]));
+    vessel.season = automaticSeason;
+    vessel.voyages = getFerryOperationVoyageBlueprint(vesselKey, automaticSeason).map(([depTime, route]) => {
+      const previous = previousByTime.get(depTime);
+      return {
+        depTime,
+        route,
+        state: normalizeFerryOperationWeatherStatus(previous?.state),
+        note: String(previous?.note || '')
+      };
+    });
+  });
+  weatherState.seasonCycle = automaticSeason;
+  writeLocalStorageJson(FERRY_OPERATION_WEATHER_STATE_KEY, weatherState);
+  return weatherState;
 }
 
 function writeFerryOperationWeatherState(nextState) {
@@ -2505,11 +2548,14 @@ function buildFerryOperationWeatherSelectedSeasonHtml() {
   if (!seasonOptions) return '';
   const weatherState = readFerryOperationWeatherState();
   const vessel = weatherState.vessels[selectedVesselKey];
+  const currentMonth = new Date().getMonth() + 1;
+  const automaticSeason = getAutomaticFerryOperationSeason();
   return `
     <div class="flex flex-wrap items-center gap-1.5">
       ${Object.keys(seasonOptions).map((seasonKey) => `
         <button type="button" class="ferry-op-season-btn${vessel?.season === seasonKey ? ' is-active' : ''}" data-ferry-op-season="${escapeHtml(seasonKey)}" data-ferry-op-season-vessel="${escapeHtml(selectedVesselKey)}">${escapeHtml(seasonKey)}</button>
       `).join('')}
+      <span class="ml-1 rounded-full border border-sky-400/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold text-sky-200">${currentMonth}월 기본 자동 · ${automaticSeason}</span>
     </div>`;
 }
 
