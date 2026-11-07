@@ -1469,7 +1469,7 @@ const FERRY_OPERATION_ACTIVE_TAB_KEY = 'ferryOperation.activeTab.v1';
 const FERRY_OPERATION_FORECAST_DATE_KEY = 'ferryOperation.forecastDate.v1';
 const FERRY_OPERATION_FORECAST_STATE_KEY = 'ferryOperation.forecastState.v1';
 const FERRY_OPERATION_WEATHER_STATE_KEY = 'ferryOperation.weatherState.v1';
-const FERRY_OPERATION_WEATHER_SCHEDULE_VERSION = '2026-11-08-v2';
+const FERRY_OPERATION_WEATHER_SCHEDULE_VERSION = '2026-11-08-v3';
 const FERRY_OPERATION_WEATHER_SELECTED_VESSEL_KEY = 'ferryOperation.weatherSelectedVessel.v1';
 const FERRY_OPERATION_FORECAST_STATUS_ORDER = ['blank', 'normal', 'review', 'control', 'partial'];
 const FERRY_OPERATION_FORECAST_STATUS_LABELS = {
@@ -1519,9 +1519,9 @@ const FERRY_OPERATION_DEFAULT_VOYAGES = {
     ['09:00 / 13:45', '진도 ↔ 슬도 ↔ 독거 ↔ 탄항 ↔ 혈도 ↔ 청등 ↔ 죽항 ↔ 창유 ↔ 상하죽도 ↔ 서거차도 ↔ 곽도 ↔ 맹골 ↔ 죽도']
   ],
   '한림페리11': [
-    ['07:30 / 08:20', '진도 ↔ 창유'],
-    ['09:50 / 16:00', '진도 ↔ 서거차'],
-    ['17:00 / 17:50', '진도 ↔ 창유']
+    ['07:30', '진도 → 창유'],
+    ['09:50', '진도 → 서거차'],
+    ['17:00', '진도 → 창유']
   ],
   '가사페리': [
     ['07:00 / 09:05', '쉬미 ↔ 가사'],
@@ -1566,14 +1566,14 @@ const FERRY_OPERATION_SEASONAL_VOYAGES = {
   },
   '한림페리11': {
     '하절기': [
-      ['07:30 / 08:20', '진도 ↔ 창유'],
-      ['09:50 / 16:00', '진도 ↔ 서거차'],
-      ['17:00 / 17:50', '진도 ↔ 창유']
+      ['07:30', '진도 → 창유'],
+      ['09:50', '진도 → 서거차'],
+      ['17:00', '진도 → 창유']
     ],
     '동절기': [
-      ['07:30 / 08:20', '진도 ↔ 창유'],
-      ['09:30 / 15:15', '진도 ↔ 서거차'],
-      ['16:00 / 16:50', '진도 ↔ 창유']
+      ['07:30', '진도 → 창유'],
+      ['09:30', '진도 → 서거차'],
+      ['16:00', '진도 → 창유']
     ]
   },
   '가사페리': {
