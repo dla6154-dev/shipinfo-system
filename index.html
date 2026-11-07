@@ -1042,6 +1042,24 @@ const COMPANY_PROFILES = {
     appTitle: '진도통합관리시스템',
     tabs: ['날씨', '조석표', '운항관리자 근무표', '선사 근무표'],
     tabSections: ['weather-section', 'tide-section', 'duty-schedule-section', 'vessel-schedule-section'],
+    // 선사 근무표: 선박·선장 목록과 저장 위치(Firestore datasets/{captainDocId})
+    captainDocId: 'captainDutyData',
+    captainRows: [
+      { shipName: '새섬두레', mainCaptain: '정종찬', reliefCaptains: ['박승호'], reliefPeriods: [] },
+      { shipName: '새섬관매', mainCaptain: '김석종', reliefCaptains: ['박승호'], reliefPeriods: [] },
+      { shipName: '가사페리', mainCaptain: '양기훈', reliefCaptains: ['박진원', '김어진'], reliefPeriods: [] }
+    ],
+  },
+  '7890': {
+    id: 'company-haegwang',
+    name: '해광운수',
+    appTitle: '진도통합관리시스템',
+    tabs: ['날씨', '조석표', '운항관리자 근무표', '선사 근무표'],
+    tabSections: ['weather-section', 'tide-section', 'duty-schedule-section', 'vessel-schedule-section'],
+    captainDocId: 'captainDutyData_haegwang',
+    captainRows: [
+      { shipName: '섬사랑9호', mainCaptain: '김용수', reliefCaptains: ['김기현'], reliefPeriods: [] }
+    ],
   },
   // 다른 선사 비밀번호는 여기에 추가
   // '5678': { id: 'company-b', name: '선사명', appTitle: '진도통합관리시스템', tabs: [...], tabSections: [...] },
@@ -1109,6 +1127,33 @@ const SHIPINFO_FIXED_QUERY1_SELECTION_KEYS = [
   'N:조위관측소|690704|제주',
   'L:등표|1139001|하조도등대'
 ];
+// 운항 관측에 표시할 수 있는 지점 [지점번호, 이름, 구분] (이름순) — 사용자가 고른 지점·순서는 이 기기에만 저장
+const SHIPINFO_WEATHER_CANDIDATES = [
+  ['1079003','가거도등대','등대'],['22297','가거도','부이'],['1079004','계마항방파제등대','등대'],
+  ['535951','대흑산도','조위관측소'],['22481','맹골수도','파고부이'],['530350','목포','조위관측소'],
+  ['58958','서거차도','조위관측소'],['22183','신안','부이'],['33017','신안','연안방재'],
+  ['1079001','안좌도여객터미널','등대'],['513800','영광','조위관측소'],['308','옥도','AWS'],
+  ['1079008','외달도등표','등대'],['690704','제주','조위관측소'],['22457','제주항','파고부이'],
+  ['22500','조도','파고부이'],['22449','진도','파고부이'],['539800','진도','조위관측소'],
+  ['22184','추자도','부이'],['680050','추자도','조위관측소'],['22102','칠발도','부이'],
+  ['1139001','하조도등대','등표'],['959','해수서','등표'],['513864','향화도','조위관측소'],
+  ['1079002','홍도등대','등대'],['22298','홍도','부이'],['33010','흑산도','연안방재'],
+];
+const SHIPINFO_WEATHER_STATION_STORAGE_KEY = 'shipinfo-weather-station-ids-v1';
+function getSelectedWeatherStationIds() {
+  try {
+    const v = JSON.parse(localStorage.getItem(SHIPINFO_WEATHER_STATION_STORAGE_KEY) || 'null');
+    if (Array.isArray(v) && v.length) return v.map(String);
+  } catch (e) {}
+  return SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.map((k) => k.split('|')[1]);
+}
+function setSelectedWeatherStationIds(ids) {
+  try {
+    if (ids) localStorage.setItem(SHIPINFO_WEATHER_STATION_STORAGE_KEY, JSON.stringify(ids));
+    else localStorage.removeItem(SHIPINFO_WEATHER_STATION_STORAGE_KEY);
+  } catch (e) {}
+}
+let weatherStationPickerOpen = false;
 const SHIPINFO_FIXED_QUERY1_SELECTION_DESCRIPTORS = SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.map((selectionKey) => {
   const [observationType = '', stationId = '', ...stationNameParts] = String(selectionKey || '').split('|');
   return {
@@ -3665,11 +3710,9 @@ function openFerryOperationExtractModal() {
 /* (삭제) - 이제 이 기능은 Firestore에서 처리합니다.
 */
 
-const DEFAULT_CAPTAIN_DUTY_ROWS = [
-  { shipName: '새섬두레', mainCaptain: '정종찬', reliefCaptains: ['박승호'], reliefPeriods: [] },
-  { shipName: '새섬관매', mainCaptain: '김석종', reliefCaptains: ['박승호'], reliefPeriods: [] },
-  { shipName: '가사페리', mainCaptain: '양기훈', reliefCaptains: ['박진원', '김어진'], reliefPeriods: [] }
-];
+// 선사 근무표 선박·선장 목록: 로그인한 선사 프로필 기준 (관리자 로그인은 서진도농협 목록)
+const SEOJINDO_CAPTAIN_ROWS = COMPANY_PROFILES['1234'].captainRows;
+function captainDutyDefRows() { return currentCompanyProfile?.captainRows || SEOJINDO_CAPTAIN_ROWS; }
 captainDutyConfigsByMonth = {
   [captainDutyViewYearMonth]: getDefaultCaptainDutyConfig(captainDutyViewYearMonth)
 };
@@ -3690,7 +3733,7 @@ const DATASETS = [
 
     // Firestore 문서 경로: datasets/{key}
     const dataDoc = (key) => doc(db, 'datasets', key);
-    const captainDutyDoc = () => doc(db, 'datasets', 'captainDutyData');
+    const captainDutyDoc = () => doc(db, 'datasets', currentCompanyProfile?.captainDocId || 'captainDutyData');
     const metaDoc = () => doc(db, 'datasets', '_meta');
 
     // ===============================
@@ -4371,7 +4414,7 @@ const DATASETS = [
       const metrics = [];
       if (hasWeatherMetricValue(row.windDirection)) metrics.push({ label: '풍향', value: String(row.windDirection).trim() });
       if (hasWeatherMetricValue(row.windSpeed)) metrics.push({ label: '풍속', value: String(row.windSpeed).trim() });
-      if (['BUOY', '조위관측소', '연안방재', '기상1호'].includes(typeLabel) && hasWeatherMetricValue(row.gust)) {
+      if (['BUOY', '조위관측소', '연안방재', '기상1호', 'AWS'].includes(typeLabel) && hasWeatherMetricValue(row.gust)) {
         metrics.push({ label: '돌풍', value: String(row.gust).trim() });
       }
       if (typeLabel === 'BUOY') {
@@ -4504,7 +4547,7 @@ const DATASETS = [
       const liveHistory = {};
       rows.forEach((row) => {
         const selectionKey = getFixedWeatherSelectionKeyForRow(row) || buildWeatherSelectionKey(row);
-        if (!SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.includes(selectionKey)) return;
+        if (!SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.includes(selectionKey) && !getSelectedWeatherStationIds().includes(String(row.stationId))) return;
         liveHistory[selectionKey] = mergeWeatherHistorySampleLists(liveHistory[selectionKey] || [], [row]);
       });
       return liveHistory;
@@ -5663,7 +5706,7 @@ const DATASETS = [
     }
 
     function getDefaultCaptainDutyRows() {
-      return DEFAULT_CAPTAIN_DUTY_ROWS.map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }));
+      return captainDutyDefRows().map((row, index) => ({ ...row, id: `captain-duty-${index + 1}` }));
     }
 
     function getDefaultCaptainDutyConfig(yearMonth = getCurrentCaptainDutyYearMonth()) {
@@ -5690,7 +5733,8 @@ const DATASETS = [
     }
 
     function normalizeCaptainDutyRow(row, index) {
-      const definition = DEFAULT_CAPTAIN_DUTY_ROWS[index] || DEFAULT_CAPTAIN_DUTY_ROWS[0];
+      const defRows = captainDutyDefRows();
+      const definition = defRows[index] || defRows[0];
       const reliefCaptains = [...definition.reliefCaptains];
       const rawPeriods = Array.isArray(row?.reliefPeriods)
         ? row.reliefPeriods
@@ -5712,7 +5756,7 @@ const DATASETS = [
       const yearMonth = normalizeCaptainDutyYearMonth(rawConfig?.yearMonth, fallbackYearMonth);
       const fallback = getDefaultCaptainDutyConfig(yearMonth);
       const savedRows = Array.isArray(rawConfig?.rows) ? rawConfig.rows : [];
-      const baseRows = DEFAULT_CAPTAIN_DUTY_ROWS.map((definition, index) => {
+      const baseRows = captainDutyDefRows().map((definition, index) => {
         return savedRows.find(row => String(row?.shipName || '').trim() === definition.shipName)
           || savedRows[index]
           || fallback.rows[index];
@@ -6112,7 +6156,46 @@ const DATASETS = [
           </article>`;
       }).join('');
 
-      const weatherCards = SHIPINFO_FIXED_QUERY1_SELECTION_KEYS.map((selectionKey) => {
+      // 선택한 지점(순서대로) → 화면 카드. 지점번호로 현재 관측값을 찾음
+      const rowByStationId = new Map();
+      (Array.isArray(querySnapshot?.rows) ? querySnapshot.rows : []).forEach((r) => {
+        const id = String(r?.stationId || '');
+        if (id && (!rowByStationId.has(id) || String(r.observedAt || '') > String(rowByStationId.get(id).observedAt || ''))) rowByStationId.set(id, r);
+      });
+      const hasObs = (r) => !!r && ['windSpeed', 'waveHeight', 'gust', 'visibility'].some((k) => hasWeatherMetricValue(r[k]));
+      const selectedIds = getSelectedWeatherStationIds();
+      const candName = (id) => (SHIPINFO_WEATHER_CANDIDATES.find((c) => c[0] === id) || [id, id, ''])[1];
+      const selectionKeys = selectedIds.map((id) => {
+        const fixed = getFixedWeatherSelectionDescriptorByStationId(id);
+        if (fixed) return fixed.selectionKey;
+        const r = rowByStationId.get(id);
+        return r ? buildWeatherSelectionKey(r) : `|${id}|${candName(id)}`;
+      });
+      selectionKeys.forEach((key, i) => { if (!queryRows.get(key) && rowByStationId.get(selectedIds[i])) queryRows.set(key, rowByStationId.get(selectedIds[i])); });
+      const pickerItem = ([id, name, grp]) => {
+        const on = selectedIds.includes(id), ok = hasObs(rowByStationId.get(id)), idx = selectedIds.indexOf(id);
+        const dis = !ok && !on;
+        return `<div class="flex items-center gap-2 rounded-lg px-2 py-1.5 ${on ? 'bg-cyan-500/10' : ''} ${dis ? 'opacity-40' : ''}">
+          <button type="button" class="h-7 w-7 shrink-0 rounded-md border ${on ? 'border-cyan-400 bg-cyan-500/30 text-cyan-100' : 'border-slate-600 text-slate-400'} text-xs font-bold" ${dis ? 'disabled' : ''} data-weather-pick-toggle="${escapeHtml(id)}" aria-label="${escapeHtml(name)} ${on ? '빼기' : '추가'}">${on ? '✓' : '+'}</button>
+          <div class="min-w-0 flex-1 text-sm text-white truncate">${escapeHtml(name)} <span class="text-[11px] text-slate-400">${escapeHtml(grp)}${ok ? '' : ' · 자료 없음'}</span></div>
+          ${on ? `<button type="button" class="h-7 w-7 rounded-md border border-slate-600 text-slate-300 text-xs" ${idx === 0 ? 'disabled' : ''} data-weather-pick-move="${escapeHtml(id)}" data-dir="-1" aria-label="위로">▲</button>
+          <button type="button" class="h-7 w-7 rounded-md border border-slate-600 text-slate-300 text-xs" ${idx === selectedIds.length - 1 ? 'disabled' : ''} data-weather-pick-move="${escapeHtml(id)}" data-dir="1" aria-label="아래로">▼</button>` : ''}
+        </div>`;
+      };
+      const selectedCands = selectedIds.map((id) => SHIPINFO_WEATHER_CANDIDATES.find((c) => c[0] === id) || [id, candName(id), '']);
+      const pickerPanel = weatherStationPickerOpen ? `
+        <div class="rounded-xl border border-cyan-400/40 bg-slate-900/80 p-2 space-y-1">
+          <div class="flex items-center justify-between px-1 pb-1">
+            <span class="text-xs font-semibold text-cyan-200">표시 지점 ${selectedIds.length}개 · ▲▼로 순서 변경</span>
+            <button type="button" class="text-[11px] text-slate-400 underline" data-weather-pick-reset="true">기본으로</button>
+          </div>
+          ${selectedCands.map(pickerItem).join('')}
+          <div class="border-t border-slate-700 my-1"></div>
+          ${SHIPINFO_WEATHER_CANDIDATES.filter((c) => !selectedIds.includes(c[0])).map(pickerItem).join('')}
+          <p class="px-1 pt-1 text-[11px] text-slate-500">흐린 지점은 지금 자료가 없어 고를 수 없습니다. 선택은 이 기기에만 저장됩니다.</p>
+        </div>` : '';
+
+      const weatherCards = pickerPanel + selectionKeys.map((selectionKey) => {
         const row = queryRows.get(selectionKey);
         if (!row) {
           return `
@@ -6159,7 +6242,10 @@ const DATASETS = [
           <div class="border-b border-slate-700 px-4 py-2.5">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-base font-bold text-cyan-300">운항 관측</h3>
-              <span class="rounded-full bg-slate-900/70 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">업데이트 ${escapeHtml(queryGeneratedAt)}</span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" class="rounded-full border ${weatherStationPickerOpen ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100' : 'border-slate-600 text-slate-300'} px-2.5 py-0.5 text-[11px] font-semibold" data-weather-pick-open="true">${weatherStationPickerOpen ? '선택 완료' : '지점 선택'}</button>
+                <span class="rounded-full bg-slate-900/70 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">업데이트 ${escapeHtml(queryGeneratedAt)}</span>
+              </div>
             </div>
           </div>
           <div class="p-3 space-y-2">${weatherCards}</div>
@@ -6230,8 +6316,35 @@ const DATASETS = [
         const areaSnapshot  = Array.isArray(areaData[0]?.payload?.rows)
           ? buildZoneWarningSnapshot(areaData[0].payload.rows, areaData[0].fetchedAt)
           : null;
-        const querySnapshot = buoyData[0]?.payload;
+        let querySnapshot = buoyData[0]?.payload;
         const fetchedAt     = buoyData[0]?.fetchedAt;
+        // 등대(해수부)·옥도 AWS 관측값도 운항 관측 지점으로 고를 수 있게 같은 모양으로 붙임
+        if (querySnapshot) {
+          try {
+            const [nmRes, awsRes] = await Promise.all([fetch(cacheUrl('wb-nmpnt'), fetchOptions), fetch(cacheUrl('wb-aws'), fetchOptions)]);
+            const nm = nmRes.ok ? (await nmRes.json())[0]?.payload : null;
+            const aws = awsRes.ok ? (await awsRes.json())[0]?.payload : null;
+            const toRow = (r, type) => {
+              const dt = String(r?.datetime || '');
+              if (!/^\d{12}/.test(dt)) return null;
+              return {
+                observationType: type, stationId: String(r.stationId), stationName: String(r.stationName || ''),
+                year: dt.slice(0, 4), monthDay: dt.slice(4, 8), hhmm: dt.slice(8, 12),
+                observedAt: new Date(`${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}T${dt.slice(8, 10)}:${dt.slice(10, 12)}:00+09:00`).toISOString(),
+                windDirection: r.windDirection || '', windSpeed: r.windSpeed || '', gust: r.gust || '',
+                visibility: r.visibility || '', waveHeight: r.waveHeight || '-', waveHeightMax: '',
+              };
+            };
+            const extra = [
+              ...((nm?.rows) || []).map((r) => toRow(r, 'L:등대/등표')),
+              ...((aws?.rows) || []).map((r) => toRow(r, 'A:AWS')),
+            ].filter(Boolean);
+            const have = new Set((querySnapshot.rows || []).map((r) => String(r.stationId)));
+            querySnapshot = { ...querySnapshot, rows: [...(querySnapshot.rows || []), ...extra.filter((r) => !have.has(r.stationId))] };
+          } catch (e) {
+            console.warn('등대·AWS 관측값 불러오기 실패', e);
+          }
+        }
 
         if (!areaSnapshot || !querySnapshot) {
           throw new Error('캐시 데이터가 아직 준비되지 않았습니다. 1~2분 후 다시 시도해 주세요.');
@@ -7646,6 +7759,26 @@ case 'ship-detail-section':
           String(vehicleLoadingImageBtn.dataset.vehicleLoadingShipId || ''),
           Number(vehicleLoadingImageBtn.dataset.vehicleLoadingImage)
         );
+        return;
+      }
+
+      // 운항 관측 지점 선택 (열기/닫기, 추가·빼기, 순서, 기본으로)
+      const pickBtn = e.target.closest('[data-weather-pick-open],[data-weather-pick-toggle],[data-weather-pick-move],[data-weather-pick-reset]');
+      if (pickBtn) {
+        if (pickBtn.dataset.weatherPickOpen) weatherStationPickerOpen = !weatherStationPickerOpen;
+        let ids = getSelectedWeatherStationIds();
+        if (pickBtn.dataset.weatherPickToggle) {
+          const id = pickBtn.dataset.weatherPickToggle;
+          ids = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+          setSelectedWeatherStationIds(ids.length ? ids : null);
+        }
+        if (pickBtn.dataset.weatherPickMove) {
+          const i = ids.indexOf(pickBtn.dataset.weatherPickMove), j = i + Number(pickBtn.dataset.dir);
+          if (i >= 0 && j >= 0 && j < ids.length) { [ids[i], ids[j]] = [ids[j], ids[i]]; setSelectedWeatherStationIds(ids); }
+        }
+        if (pickBtn.dataset.weatherPickReset) setSelectedWeatherStationIds(null);
+        const panelsEl = document.getElementById('weather-summary-panels');
+        if (panelsEl && lastWarningSnapshot && lastQuerySnapshot) panelsEl.innerHTML = buildWeatherSummaryPanels(lastWarningSnapshot, lastQuerySnapshot);
         return;
       }
 
