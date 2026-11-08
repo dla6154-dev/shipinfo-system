@@ -1175,6 +1175,18 @@ const COMPANY_PROFILES = {
   // '5678': { id: 'company-b', name: '선사명', appTitle: '진도통합관리시스템', tabs: [...], tabSections: [...] },
 };
 let currentCompanyProfile = null;
+// 운항관리자 근무표 날짜 팝업에 나오는 전체 선사 선장 근무표 (선사 페이지가 없는 곳은 기본값만 표시)
+const CAPTAIN_DUTY_COMPANIES = [
+  { name: '서진도농협', captainDocId: 'captainDutyData', captainRows: COMPANY_PROFILES['1234'].captainRows },
+  { name: '해광운수', captainDocId: 'captainDutyData_haegwang', captainRows: COMPANY_PROFILES['7890'].captainRows },
+  // TODO: 한림·산타모니카 선사 페이지(비밀번호) 만들 때 COMPANY_PROFILES에 같은 captainDocId로 추가
+  { name: '한림', captainDocId: 'captainDutyData_hallim', captainRows: [
+    { shipName: '한림페리11호', mainCaptain: '미정', reliefCaptains: [], reliefPeriods: [] }
+  ] },
+  { name: '산타모니카', captainDocId: 'captainDutyData_santamonica', captainRows: [
+    { shipName: '산타모니카', mainCaptain: '미정', reliefCaptains: [], reliefPeriods: [] }
+  ] }
+];
 const WEATHER_REMOTE_ORIGIN = 'https://mokpo-weather-dashboard.onrender.com';
 const WEATHER_OVERVIEW_URL = 'https://mokpo-weather-dashboard.onrender.com/overview';
 const WEATHER_PROXY_PREFIX = '/weather-api';
@@ -6068,26 +6080,45 @@ const DATASETS = [
         </div>`;
     }
 
-    function openCaptainDutyDayModal(year, month, day) {
+    async function openCaptainDutyDayModal(year, month, day) {
       const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
-      const config = getCaptainDutyConfigForYearMonth(yearMonth);
       const date = new Date(year, month - 1, day);
       const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
-      const shipColors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399'];
-      const cards = config.rows.map((row, index) => {
-        const captain = getCaptainDutyNameForDay(row, day);
+      const shipColors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#fb923c', '#60a5fa'];
+      const groups = await Promise.all(CAPTAIN_DUTY_COMPANIES.map(async (company) => {
+        let data = null;
+        try {
+          const snap = await getDoc(doc(db, 'datasets', company.captainDocId));
+          data = snap.exists() ? snap.data() : null;
+        } catch (error) {
+          console.warn('[captain-duty] load failed', company.captainDocId, error);
+        }
+        const prevProfile = currentCompanyProfile;
+        currentCompanyProfile = { ...(prevProfile || {}), captainRows: company.captainRows, captainDocId: company.captainDocId };
+        try {
+          const store = normalizeCaptainDutyConfigStore(data || undefined);
+          return { company, config: getCaptainDutyConfigForYearMonth(yearMonth, store) };
+        } finally {
+          currentCompanyProfile = prevProfile;
+        }
+      }));
+      let colorIndex = 0;
+      const cards = groups.flatMap(({ company, config }) => (config?.rows || []).map((row) => {
+        const captain = getCaptainDutyNameForDay(row, day) || '미정';
         const isRelief = captain !== row.mainCaptain;
-        const color = shipColors[index % shipColors.length];
+        const isUnset = captain === '미정';
+        const color = shipColors[colorIndex++ % shipColors.length];
+        const badge = isUnset ? ['bg-slate-600/30 text-slate-300', '미등록'] : isRelief ? ['bg-rose-500/15 text-rose-200', '예비 선장'] : ['bg-cyan-500/15 text-cyan-200', '본선 선장'];
         return `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4" style="border-left:4px solid ${color}">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <p class="text-xs font-bold text-slate-400">${escapeHtml(row.shipName)}</p>
-              <p class="mt-1 text-xl font-black text-white">${escapeHtml(captain)} 선장</p>
+              <p class="text-xs font-bold text-slate-400">${escapeHtml(row.shipName)} <span class="text-slate-500">· ${escapeHtml(company.name)}</span></p>
+              <p class="mt-1 text-xl font-black ${isUnset ? 'text-slate-400' : 'text-white'}">${escapeHtml(captain)}${isUnset ? '' : ' 선장'}</p>
             </div>
-            <span class="shrink-0 rounded-full px-3 py-1 text-xs font-bold ${isRelief ? 'bg-rose-500/15 text-rose-200' : 'bg-cyan-500/15 text-cyan-200'}">${isRelief ? '예비 선장' : '본선 선장'}</span>
+            <span class="shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badge[0]}">${badge[1]}</span>
           </div>
         </div>`;
-      }).join('');
+      })).join('');
       showModal(`${month}월 ${day}일 선장 근무표`, `
         <div class="space-y-4">
           <div class="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100">${year}년 ${month}월 ${day}일 (${dayName}) 전체 선박</div>
