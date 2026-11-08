@@ -5968,15 +5968,51 @@ const DATASETS = [
       return reliefPeriod?.captain || row.mainCaptain || '-';
     }
 
-    function buildCaptainDutySectionHtml({ showBackButton = true } = {}) {
+    // 운항관리자용: 전체 선사 선장 근무표(조회 전용)
+    let captainDutyAllData = null;
+    let captainDutyAllLoading = null;
+    function loadAllCaptainDutyData(force = false) {
+      if (captainDutyAllLoading && !force) return captainDutyAllLoading;
+      captainDutyAllLoading = Promise.all(CAPTAIN_DUTY_COMPANIES.map(async (company) => {
+        try {
+          const snap = await getDoc(doc(db, 'datasets', company.captainDocId));
+          return [company.captainDocId, snap.exists() ? snap.data() : null];
+        } catch (error) {
+          console.warn('[captain-duty] load failed', company.captainDocId, error);
+          return [company.captainDocId, null];
+        }
+      })).then((entries) => {
+        captainDutyAllData = Object.fromEntries(entries);
+        return captainDutyAllData;
+      });
+      return captainDutyAllLoading;
+    }
+    function getCompanyCaptainDutyConfig(company, yearMonth, data) {
+      const prevProfile = currentCompanyProfile;
+      currentCompanyProfile = { ...(prevProfile || {}), captainRows: company.captainRows, captainDocId: company.captainDocId };
+      try {
+        return getCaptainDutyConfigForYearMonth(yearMonth, normalizeCaptainDutyConfigStore(data || undefined));
+      } finally {
+        currentCompanyProfile = prevProfile;
+      }
+    }
+    function getAllCompaniesCaptainDutyConfig(yearMonth) {
+      const rows = CAPTAIN_DUTY_COMPANIES.flatMap((company) =>
+        (getCompanyCaptainDutyConfig(company, yearMonth, captainDutyAllData?.[company.captainDocId])?.rows || [])
+          .map((row) => ({ ...row, companyName: company.name })));
+      return { yearMonth, rows };
+    }
+
+    function buildCaptainDutySectionHtml({ showBackButton = true, allCompanies = false } = {}) {
       const yearMonth = normalizeCaptainDutyYearMonth(captainDutyViewYearMonth);
-      const config = getCaptainDutyConfigForYearMonth(yearMonth);
-      const hasSavedConfig = hasCaptainDutyConfigForYearMonth(yearMonth);
+      const config = allCompanies ? getAllCompaniesCaptainDutyConfig(yearMonth) : getCaptainDutyConfigForYearMonth(yearMonth);
+      const hasSavedConfig = allCompanies ? true : hasCaptainDutyConfigForYearMonth(yearMonth);
+      if (allCompanies) { captainDutyEditMode = false; captainDutySelectedCard = null; }
       const daysInMonth = getCaptainDutyDaysInMonth(config.yearMonth);
       const [year, month] = config.yearMonth.split('-').map(Number);
       const firstDow = new Date(year, month - 1, 1).getDay();
       const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-      const shipColors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399'];
+      const shipColors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#fb923c', '#60a5fa'];
       const now = new Date();
       const todayYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const isCurrentMonth = yearMonth === todayYm;
@@ -5994,7 +6030,7 @@ const DATASETS = [
         return `<section class="captain-duty-picker-group" style="--captain-color:${color}">
           <div class="flex items-center justify-between gap-2">
             <h3 class="text-sm font-black text-white">${escapeHtml(row.shipName)}</h3>
-            <span class="text-[10px] font-bold ${captainDutyEditMode ? 'text-rose-300' : 'text-slate-500'}">${captainDutyEditMode ? '수정 중' : '조회 중'}</span>
+            <span class="text-[10px] font-bold ${captainDutyEditMode ? 'text-rose-300' : 'text-slate-500'}">${allCompanies ? escapeHtml(row.companyName || '') : captainDutyEditMode ? '수정 중' : '조회 중'}</span>
           </div>
           <div class="captain-duty-picker-cards">
             ${captains.map((captain, captainIndex) => {
@@ -6024,7 +6060,7 @@ const DATASETS = [
             <span class="captain-duty-assignment-name">${escapeHtml(captain)}</span>
           </span>`;
         }).join('');
-        calendarCells += `<button type="button" class="duty-cal-cell${dow === 6 ? ' duty-cal-sat' : dow === 0 ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-captain-duty-day="${day}" aria-label="${day}일 선장 배정" ${captainDutyEditMode ? '' : 'disabled'}>
+        calendarCells += `<button type="button" class="duty-cal-cell${dow === 6 ? ' duty-cal-sat' : dow === 0 ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-captain-duty-day="${day}" ${allCompanies ? 'data-captain-duty-view="1"' : ''} aria-label="${day}일 선장 ${allCompanies ? '근무표 보기' : '배정'}" ${captainDutyEditMode || allCompanies ? '' : 'disabled'}>
           <span class="duty-cal-day${dow === 0 ? ' duty-cal-day-sun' : dow === 6 ? ' duty-cal-day-sat' : ''}">${day}일</span>
           ${assignments}
         </button>`;
@@ -6040,21 +6076,23 @@ const DATASETS = [
         saving: 'border-amber-400/25 bg-amber-500/10 text-amber-200',
         info: 'border-cyan-400/25 bg-cyan-500/10 text-cyan-100'
       };
-      const defaultStatus = !captainDutyEditMode
+      const defaultStatus = allCompanies
+        ? (captainDutyAllData ? '전체 선사 선장 근무표입니다. 수정은 각 선사 페이지에서 합니다.' : '전체 선사 근무표를 불러오는 중…')
+        : !captainDutyEditMode
         ? '근무표를 변경하려면 오른쪽 위의 수정 버튼을 누르세요.'
         : captainDutySelectedCard
           ? `${captainDutySelectedCard.shipName} · ${captainDutySelectedCard.captain} 선택됨 — 날짜를 누르면 자동 저장됩니다.`
           : '수정할 선장 이름 카드를 선택한 뒤 날짜를 누르세요.';
-      const status = captainDutyInteractionStatus || { tone: 'info', text: defaultStatus };
+      const status = (!allCompanies && captainDutyInteractionStatus) || { tone: 'info', text: defaultStatus };
 
       return `
         <div class="flex items-center gap-4 mb-5">
           ${showBackButton ? '<button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>' : ''}
           <div class="min-w-0">
             <h2 class="text-2xl font-bold text-rose-400">선장 근무표</h2>
-            <p class="text-sm text-slate-400 mt-1">수정 모드에서 이름 카드와 날짜를 선택하면 해당 선박의 선장이 변경됩니다.</p>
+            <p class="text-sm text-slate-400 mt-1">${allCompanies ? '전체 선사 선박의 선장 근무를 조회합니다.' : '수정 모드에서 이름 카드와 날짜를 선택하면 해당 선박의 선장이 변경됩니다.'}</p>
           </div>
-          <button type="button" data-captain-duty-edit-toggle class="ml-auto shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${captainDutyEditMode ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200' : 'border-rose-400/30 bg-rose-500/10 text-rose-200'}">
+          <button type="button" ${allCompanies ? 'hidden' : ''} data-captain-duty-edit-toggle class="ml-auto shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${captainDutyEditMode ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200' : 'border-rose-400/30 bg-rose-500/10 text-rose-200'}">
             <i class="fa-solid ${captainDutyEditMode ? 'fa-check' : 'fa-pen'} mr-1"></i>${captainDutyEditMode ? '수정 완료' : '수정'}
           </button>
         </div>
@@ -6082,47 +6120,30 @@ const DATASETS = [
 
     async function openCaptainDutyDayModal(year, month, day) {
       const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
-      const date = new Date(year, month - 1, day);
-      const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
-      const shipColors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#fb923c', '#60a5fa'];
-      const groups = await Promise.all(CAPTAIN_DUTY_COMPANIES.map(async (company) => {
-        let data = null;
-        try {
-          const snap = await getDoc(doc(db, 'datasets', company.captainDocId));
-          data = snap.exists() ? snap.data() : null;
-        } catch (error) {
-          console.warn('[captain-duty] load failed', company.captainDocId, error);
-        }
-        const prevProfile = currentCompanyProfile;
-        currentCompanyProfile = { ...(prevProfile || {}), captainRows: company.captainRows, captainDocId: company.captainDocId };
-        try {
-          const store = normalizeCaptainDutyConfigStore(data || undefined);
-          return { company, config: getCaptainDutyConfigForYearMonth(yearMonth, store) };
-        } finally {
-          currentCompanyProfile = prevProfile;
-        }
-      }));
-      let colorIndex = 0;
-      const cards = groups.flatMap(({ company, config }) => (config?.rows || []).map((row) => {
+      const dayName = ['일', '월', '화', '수', '목', '금', '토'][new Date(year, month - 1, day).getDay()];
+      if (!captainDutyAllData) await loadAllCaptainDutyData();
+      const rows = getAllCompaniesCaptainDutyConfig(yearMonth).rows.map((row) => {
         const captain = getCaptainDutyNameForDay(row, day) || '미정';
-        const isRelief = captain !== row.mainCaptain;
-        const isUnset = captain === '미정';
-        const color = shipColors[colorIndex++ % shipColors.length];
-        const badge = isUnset ? ['bg-slate-600/30 text-slate-300', '미등록'] : isRelief ? ['bg-rose-500/15 text-rose-200', '예비 선장'] : ['bg-cyan-500/15 text-cyan-200', '본선 선장'];
-        return `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4" style="border-left:4px solid ${color}">
-          <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-xs font-bold text-slate-400">${escapeHtml(row.shipName)} <span class="text-slate-500">· ${escapeHtml(company.name)}</span></p>
-              <p class="mt-1 text-xl font-black ${isUnset ? 'text-slate-400' : 'text-white'}">${escapeHtml(captain)}${isUnset ? '' : ' 선장'}</p>
-            </div>
-            <span class="shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badge[0]}">${badge[1]}</span>
-          </div>
-        </div>`;
-      })).join('');
+        const unset = captain === '미정';
+        const relief = !unset && captain !== row.mainCaptain;
+        return `<tr class="border-t border-slate-700">
+          <td class="px-3 py-2 font-bold text-white whitespace-nowrap">${escapeHtml(row.shipName)}</td>
+          <td class="px-3 py-2 text-slate-400 whitespace-nowrap">${escapeHtml(row.companyName || '')}</td>
+          <td class="px-3 py-2 font-black whitespace-nowrap ${unset ? 'text-slate-500' : relief ? 'text-rose-200' : 'text-cyan-100'}">${escapeHtml(captain)}</td>
+          <td class="px-3 py-2 text-xs whitespace-nowrap ${unset ? 'text-slate-500' : relief ? 'text-rose-300' : 'text-cyan-300'}">${unset ? '미등록' : relief ? '예비' : '본선'}</td>
+        </tr>`;
+      }).join('');
       showModal(`${month}월 ${day}일 선장 근무표`, `
-        <div class="space-y-4">
-          <div class="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100">${year}년 ${month}월 ${day}일 (${dayName}) 전체 선박</div>
-          <div class="grid gap-3">${cards || '<p class="py-8 text-center text-slate-400">등록된 선박이 없습니다.</p>'}</div>
+        <div class="space-y-3">
+          <p class="text-sm font-bold text-cyan-100">${year}년 ${month}월 ${day}일 (${dayName})</p>
+          <div class="overflow-x-auto rounded-xl border border-slate-700">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-800 text-xs text-slate-400"><tr>
+                <th class="px-3 py-2">선박</th><th class="px-3 py-2">선사</th><th class="px-3 py-2">선장</th><th class="px-3 py-2">구분</th>
+              </tr></thead>
+              <tbody>${rows || '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">등록된 선박이 없습니다.</td></tr>'}</tbody>
+            </table>
+          </div>
         </div>`);
     }
 
@@ -6987,7 +7008,10 @@ const DATASETS = [
 
       if (sectionId === 'captain-duty-section') {
         headerSubtitle.textContent = '선장 근무표';
-        section.innerHTML = buildCaptainDutySectionHtml();
+        section.innerHTML = buildCaptainDutySectionHtml({ allCompanies: true });
+        if (!params?.skipLoad) loadAllCaptainDutyData(true).then(() => {
+          if (!section.classList.contains('hidden')) renderSection('captain-duty-section', { skipLoad: true });
+        });
         return;
       }
 
@@ -8017,15 +8041,6 @@ case 'ship-detail-section':
         return;
       }
 
-      const dutyScheduleDayBtn = e.target.closest('[data-duty-schedule-day]');
-      if (dutyScheduleDayBtn) {
-        openCaptainDutyDayModal(
-          Number(dutyScheduleDayBtn.dataset.dutyYear),
-          Number(dutyScheduleDayBtn.dataset.dutyMonth),
-          Number(dutyScheduleDayBtn.dataset.dutyScheduleDay)
-        );
-        return;
-      }
 
       const captainDutyCardBtn = e.target.closest('[data-captain-duty-card]');
       if (captainDutyCardBtn) {
@@ -8034,6 +8049,11 @@ case 'ship-detail-section':
       }
 
       const captainDutyDayBtn = e.target.closest('[data-captain-duty-day]');
+      if (captainDutyDayBtn && captainDutyDayBtn.dataset.captainDutyView) {
+        const [vy, vm] = normalizeCaptainDutyYearMonth(captainDutyViewYearMonth).split('-').map(Number);
+        openCaptainDutyDayModal(vy, vm, Number(captainDutyDayBtn.dataset.captainDutyDay));
+        return;
+      }
       if (captainDutyDayBtn) {
         await assignCaptainDutyDay(captainDutyDayBtn);
         return;
@@ -8702,7 +8722,7 @@ case 'ship-detail-section':
           const aHtml = renderWorker(dayData.a);
           const bHtml = renderWorker(dayData.b);
 
-          cells += `<button type="button" class="duty-cal-cell${isSat ? ' duty-cal-sat' : isSun ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-duty-schedule-day="${d}" data-duty-year="${year}" data-duty-month="${month}" aria-label="${month}월 ${d}일 전체 선장 근무표 보기">
+          cells += `<button type="button" class="duty-cal-cell${isSat ? ' duty-cal-sat' : isSun ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-duty-schedule-day="${d}" data-duty-year="${year}" data-duty-month="${month}" aria-label="${month}월 ${d}일">
             <span class="duty-cal-day${isSun ? ' duty-cal-day-sun' : isSat ? ' duty-cal-day-sat' : ''}">${d}일</span>
             ${aHtml ? `<div class="duty-cal-shift"><span class="duty-shift-label duty-shift-a">A</span>${aHtml}</div>` : ''}
             ${bHtml ? `<div class="duty-cal-shift"><span class="duty-shift-label duty-shift-b">B</span>${bHtml}</div>` : ''}
