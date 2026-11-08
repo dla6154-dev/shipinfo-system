@@ -635,6 +635,11 @@
       transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
     }
     .captain-duty-picker-card:active { transform: scale(0.97); }
+    .captain-duty-picker-card:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+      transform: none;
+    }
     .captain-duty-picker-card.is-selected {
       border-color: var(--captain-color, #f472b6);
       background: color-mix(in srgb, var(--captain-color, #f472b6) 20%, #0f172a);
@@ -652,6 +657,20 @@
     }
     .captain-duty-calendar button.duty-cal-cell:active { transform: scale(0.98); }
     .captain-duty-calendar button.duty-cal-cell:hover { background: #172033; }
+    .captain-duty-calendar button.duty-cal-cell:disabled {
+      cursor: default;
+      transform: none;
+    }
+    .captain-duty-calendar button.duty-cal-cell:disabled:hover { background: inherit; }
+    .duty-schedule-calendar button.duty-cal-cell {
+      border: 0;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.08s ease;
+    }
+    .duty-schedule-calendar button.duty-cal-cell:hover { background: #172033; }
+    .duty-schedule-calendar button.duty-cal-cell:active { transform: scale(0.98); }
     .captain-duty-assignment {
       display: flex;
       flex-direction: column;
@@ -1113,6 +1132,7 @@ let captainDutyViewYearMonth = getCurrentCaptainDutyYearMonth();
 let captainDutySelectedCard = null;
 let captainDutyInteractionStatus = null;
 let captainDutySaveInFlight = false;
+let captainDutyEditMode = false;
 let _appHistoryReady = false;  // History API 초기화 여부
 let _historyNavigation = false; // popstate 처리 중 여부 (pushState 방지)
 const FAVORITE_SHIPS_STORAGE_KEY = 'favoriteShipIds';
@@ -5962,12 +5982,12 @@ const DATASETS = [
         return `<section class="captain-duty-picker-group" style="--captain-color:${color}">
           <div class="flex items-center justify-between gap-2">
             <h3 class="text-sm font-black text-white">${escapeHtml(row.shipName)}</h3>
-            <span class="text-[10px] font-bold text-slate-500">선장 선택</span>
+            <span class="text-[10px] font-bold ${captainDutyEditMode ? 'text-rose-300' : 'text-slate-500'}">${captainDutyEditMode ? '수정 중' : '조회 중'}</span>
           </div>
           <div class="captain-duty-picker-cards">
             ${captains.map((captain, captainIndex) => {
               const selected = captainDutySelectedCard?.shipName === row.shipName && captainDutySelectedCard?.captain === captain;
-              return `<button type="button" class="captain-duty-picker-card${selected ? ' is-selected' : ''}" style="--captain-color:${color}" data-captain-duty-card data-ship-index="${rowIndex}" data-captain-index="${captainIndex}" aria-pressed="${selected ? 'true' : 'false'}">
+              return `<button type="button" class="captain-duty-picker-card${selected ? ' is-selected' : ''}" style="--captain-color:${color}" data-captain-duty-card data-ship-index="${rowIndex}" data-captain-index="${captainIndex}" aria-pressed="${selected ? 'true' : 'false'}" ${captainDutyEditMode ? '' : 'disabled'}>
                 <span class="captain-duty-picker-card-name">${escapeHtml(captain)}</span>
                 <span class="captain-duty-picker-card-role">${captain === row.mainCaptain ? '본선 선장' : '예비 선장'}</span>
               </button>`;
@@ -5992,7 +6012,7 @@ const DATASETS = [
             <span class="captain-duty-assignment-name">${escapeHtml(captain)}</span>
           </span>`;
         }).join('');
-        calendarCells += `<button type="button" class="duty-cal-cell${dow === 6 ? ' duty-cal-sat' : dow === 0 ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-captain-duty-day="${day}" aria-label="${day}일 선장 배정">
+        calendarCells += `<button type="button" class="duty-cal-cell${dow === 6 ? ' duty-cal-sat' : dow === 0 ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-captain-duty-day="${day}" aria-label="${day}일 선장 배정" ${captainDutyEditMode ? '' : 'disabled'}>
           <span class="duty-cal-day${dow === 0 ? ' duty-cal-day-sun' : dow === 6 ? ' duty-cal-day-sat' : ''}">${day}일</span>
           ${assignments}
         </button>`;
@@ -6008,9 +6028,11 @@ const DATASETS = [
         saving: 'border-amber-400/25 bg-amber-500/10 text-amber-200',
         info: 'border-cyan-400/25 bg-cyan-500/10 text-cyan-100'
       };
-      const defaultStatus = captainDutySelectedCard
-        ? `${captainDutySelectedCard.shipName} · ${captainDutySelectedCard.captain} 선택됨 — 날짜를 누르면 자동 저장됩니다.`
-        : '위에서 선장 이름 카드를 선택한 뒤 날짜를 눌러 배정하세요.';
+      const defaultStatus = !captainDutyEditMode
+        ? '근무표를 변경하려면 오른쪽 위의 수정 버튼을 누르세요.'
+        : captainDutySelectedCard
+          ? `${captainDutySelectedCard.shipName} · ${captainDutySelectedCard.captain} 선택됨 — 날짜를 누르면 자동 저장됩니다.`
+          : '수정할 선장 이름 카드를 선택한 뒤 날짜를 누르세요.';
       const status = captainDutyInteractionStatus || { tone: 'info', text: defaultStatus };
 
       return `
@@ -6018,8 +6040,11 @@ const DATASETS = [
           ${showBackButton ? '<button class="back-btn" data-target="main-menu"><i class="fa-solid fa-arrow-left"></i></button>' : ''}
           <div class="min-w-0">
             <h2 class="text-2xl font-bold text-rose-400">선장 근무표</h2>
-            <p class="text-sm text-slate-400 mt-1">이름 카드를 선택하고 날짜를 누르면 해당 선박의 선장이 변경됩니다.</p>
+            <p class="text-sm text-slate-400 mt-1">수정 모드에서 이름 카드와 날짜를 선택하면 해당 선박의 선장이 변경됩니다.</p>
           </div>
+          <button type="button" data-captain-duty-edit-toggle class="ml-auto shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${captainDutyEditMode ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200' : 'border-rose-400/30 bg-rose-500/10 text-rose-200'}">
+            <i class="fa-solid ${captainDutyEditMode ? 'fa-check' : 'fa-pen'} mr-1"></i>${captainDutyEditMode ? '수정 완료' : '수정'}
+          </button>
         </div>
         <div class="captain-duty-picker">${pickerGroups}</div>
         <div id="captain-duty-action-status" class="mb-4 rounded-xl border px-3 py-2 text-xs font-semibold ${statusToneClasses[status.tone] || statusToneClasses.info}">${escapeHtml(status.text)}</div>
@@ -6033,7 +6058,7 @@ const DATASETS = [
         </div>
         <div class="mb-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">
           <span>${hasSavedConfig ? '저장된 월별 근무표' : '기본 근무표 · 첫 변경 시 저장'}</span>
-          <span>날짜 선택 시 자동 저장</span>
+          <span>${captainDutyEditMode ? '날짜 선택 시 자동 저장' : '조회 전용'}</span>
         </div>
         <div class="duty-cal-wrap">
           <div class="duty-cal-grid captain-duty-calendar">
@@ -6041,6 +6066,33 @@ const DATASETS = [
             ${calendarCells}
           </div>
         </div>`;
+    }
+
+    function openCaptainDutyDayModal(year, month, day) {
+      const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+      const config = getCaptainDutyConfigForYearMonth(yearMonth);
+      const date = new Date(year, month - 1, day);
+      const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+      const shipColors = ['#22d3ee', '#f472b6', '#fbbf24', '#a78bfa', '#34d399'];
+      const cards = config.rows.map((row, index) => {
+        const captain = getCaptainDutyNameForDay(row, day);
+        const isRelief = captain !== row.mainCaptain;
+        const color = shipColors[index % shipColors.length];
+        return `<div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-4" style="border-left:4px solid ${color}">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs font-bold text-slate-400">${escapeHtml(row.shipName)}</p>
+              <p class="mt-1 text-xl font-black text-white">${escapeHtml(captain)} 선장</p>
+            </div>
+            <span class="shrink-0 rounded-full px-3 py-1 text-xs font-bold ${isRelief ? 'bg-rose-500/15 text-rose-200' : 'bg-cyan-500/15 text-cyan-200'}">${isRelief ? '예비 선장' : '본선 선장'}</span>
+          </div>
+        </div>`;
+      }).join('');
+      showModal(`${month}월 ${day}일 선장 근무표`, `
+        <div class="space-y-4">
+          <div class="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100">${year}년 ${month}월 ${day}일 (${dayName}) 전체 선박</div>
+          <div class="grid gap-3">${cards || '<p class="py-8 text-center text-slate-400">등록된 선박이 없습니다.</p>'}</div>
+        </div>`);
     }
 
     function buildCaptainDutyPeriodEditor(row, period = {}) {
@@ -6160,11 +6212,23 @@ const DATASETS = [
       const [year, month] = normalizeCaptainDutyYearMonth(captainDutyViewYearMonth).split('-').map(Number);
       const shifted = new Date(year, month - 1 + offset, 1);
       captainDutyViewYearMonth = `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+      captainDutyEditMode = false;
+      captainDutySelectedCard = null;
       captainDutyInteractionStatus = null;
       renderVisibleCaptainDutySections();
     }
 
+    function toggleCaptainDutyEditMode() {
+      captainDutyEditMode = !captainDutyEditMode;
+      captainDutySelectedCard = null;
+      captainDutyInteractionStatus = captainDutyEditMode
+        ? { tone: 'info', text: '수정할 선장 이름 카드를 선택한 뒤 날짜를 누르세요.' }
+        : { tone: 'success', text: '수정을 완료했습니다. 현재는 조회 전용입니다.' };
+      renderVisibleCaptainDutySections();
+    }
+
     function selectCaptainDutyCard(button) {
+      if (!captainDutyEditMode) return;
       const config = getCaptainDutyConfigForYearMonth(captainDutyViewYearMonth);
       const shipIndex = Number(button.dataset.shipIndex);
       const captainIndex = Number(button.dataset.captainIndex);
@@ -6183,6 +6247,11 @@ const DATASETS = [
     async function assignCaptainDutyDay(button) {
       const day = clampCaptainDutyDay(button.dataset.captainDutyDay);
       if (day == null) return;
+      if (!captainDutyEditMode) {
+        captainDutyInteractionStatus = { tone: 'error', text: '먼저 수정 버튼을 눌러 수정 모드로 전환하세요.' };
+        renderVisibleCaptainDutySections();
+        return;
+      }
       if (!captainDutySelectedCard) {
         captainDutyInteractionStatus = { tone: 'error', text: '먼저 위에서 선장 이름 카드를 선택하세요.' };
         renderVisibleCaptainDutySections();
@@ -6845,6 +6914,11 @@ const DATASETS = [
     }
 
     function switchView(targetId, params = null) {
+      if (targetId !== 'captain-duty-section' && targetId !== 'vessel-schedule-section') {
+        captainDutyEditMode = false;
+        captainDutySelectedCard = null;
+        captainDutyInteractionStatus = null;
+      }
       closeTimetableViewer();
       Object.values(sections).forEach(section => section.classList.add('hidden'));
       sections[targetId]?.classList.remove('hidden');
@@ -7906,6 +7980,22 @@ case 'ship-detail-section':
         return;
       }
 
+      const captainDutyEditToggleBtn = e.target.closest('[data-captain-duty-edit-toggle]');
+      if (captainDutyEditToggleBtn) {
+        toggleCaptainDutyEditMode();
+        return;
+      }
+
+      const dutyScheduleDayBtn = e.target.closest('[data-duty-schedule-day]');
+      if (dutyScheduleDayBtn) {
+        openCaptainDutyDayModal(
+          Number(dutyScheduleDayBtn.dataset.dutyYear),
+          Number(dutyScheduleDayBtn.dataset.dutyMonth),
+          Number(dutyScheduleDayBtn.dataset.dutyScheduleDay)
+        );
+        return;
+      }
+
       const captainDutyCardBtn = e.target.closest('[data-captain-duty-card]');
       if (captainDutyCardBtn) {
         selectCaptainDutyCard(captainDutyCardBtn);
@@ -8264,6 +8354,8 @@ case 'ship-detail-section':
         const nextYearMonth = normalizeCaptainDutyYearMonth(e.target.value, captainDutyViewYearMonth);
         if (nextYearMonth !== captainDutyViewYearMonth) {
           captainDutyViewYearMonth = nextYearMonth;
+          captainDutyEditMode = false;
+          captainDutySelectedCard = null;
           captainDutyInteractionStatus = null;
           if (!sections['captain-duty-section'].classList.contains('hidden')) {
             renderSection('captain-duty-section');
@@ -8579,12 +8671,12 @@ case 'ship-detail-section':
           const aHtml = renderWorker(dayData.a);
           const bHtml = renderWorker(dayData.b);
 
-          cells += `<div class="duty-cal-cell${isSat ? ' duty-cal-sat' : isSun ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}">
-            <div class="duty-cal-day${isSun ? ' duty-cal-day-sun' : isSat ? ' duty-cal-day-sat' : ''}">${d}일</div>
+          cells += `<button type="button" class="duty-cal-cell${isSat ? ' duty-cal-sat' : isSun ? ' duty-cal-sun' : ''}${isToday ? ' duty-cal-today' : ''}" data-duty-schedule-day="${d}" data-duty-year="${year}" data-duty-month="${month}" aria-label="${month}월 ${d}일 전체 선장 근무표 보기">
+            <span class="duty-cal-day${isSun ? ' duty-cal-day-sun' : isSat ? ' duty-cal-day-sat' : ''}">${d}일</span>
             ${aHtml ? `<div class="duty-cal-shift"><span class="duty-shift-label duty-shift-a">A</span>${aHtml}</div>` : ''}
             ${bHtml ? `<div class="duty-cal-shift"><span class="duty-shift-label duty-shift-b">B</span>${bHtml}</div>` : ''}
             ${note}
-          </div>`;
+          </button>`;
         }
 
         el.innerHTML = `
@@ -8597,7 +8689,7 @@ case 'ship-detail-section':
             <button id="duty-next-btn" style="background:#334155;border:1px solid #475569;color:#cbd5e1;border-radius:8px;padding:4px 12px;cursor:pointer">▶</button>
           </div>
           <div class="duty-cal-wrap">
-          <div class="duty-cal-grid">
+          <div class="duty-cal-grid duty-schedule-calendar">
             ${DAY_NAMES.map((n,i) => `<div class="duty-cal-header${i===0?' duty-cal-day-sun':i===6?' duty-cal-day-sat':''}">${n}</div>`).join('')}
             ${cells}
           </div>
