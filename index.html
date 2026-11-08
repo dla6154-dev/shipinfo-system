@@ -6051,7 +6051,7 @@ const DATASETS = [
       for (let day = 1; day <= daysInMonth; day += 1) {
         const dow = (firstDow + day - 1) % 7;
         const isToday = isCurrentMonth && day === now.getDate();
-        const assignments = config.rows.map((row, rowIndex) => {
+        const assignments = allCompanies ? '' : config.rows.map((row, rowIndex) => {
           const color = shipColors[rowIndex % shipColors.length];
           const captain = getCaptainDutyNameForDay(row, day);
           const isRelief = captain !== row.mainCaptain;
@@ -6096,8 +6096,10 @@ const DATASETS = [
             <i class="fa-solid ${captainDutyEditMode ? 'fa-check' : 'fa-pen'} mr-1"></i>${captainDutyEditMode ? '수정 완료' : '수정'}
           </button>
         </div>
-        <div class="captain-duty-picker">${pickerGroups}</div>
-        <div id="captain-duty-action-status" class="mb-4 rounded-xl border px-3 py-2 text-xs font-semibold ${statusToneClasses[status.tone] || statusToneClasses.info}">${escapeHtml(status.text)}</div>
+        ${allCompanies
+          ? `<div class="mb-5"><p class="mb-2 text-sm font-black text-cyan-200">오늘의 선장 근무표 · ${now.getMonth() + 1}월 ${now.getDate()}일 (${dayNames[now.getDay()]})</p>${captainDutyAllData ? buildAllCaptainDutyTableHtml(now.getFullYear(), now.getMonth() + 1, now.getDate()) : '<p class="text-sm text-slate-400">불러오는 중…</p>'}</div>`
+          : `<div class="captain-duty-picker">${pickerGroups}</div>`}
+        <div ${allCompanies ? 'hidden' : ''} id="captain-duty-action-status" class="mb-4 rounded-xl border px-3 py-2 text-xs font-semibold ${statusToneClasses[status.tone] || statusToneClasses.info}">${escapeHtml(status.text)}</div>
         <div class="mb-3 flex items-center justify-between gap-3">
           <button type="button" data-captain-duty-month="prev" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-300 active:bg-slate-700" aria-label="이전 달">◀</button>
           <label class="min-w-0 text-center">
@@ -6118,10 +6120,8 @@ const DATASETS = [
         </div>`;
     }
 
-    async function openCaptainDutyDayModal(year, month, day) {
+    function buildAllCaptainDutyTableHtml(year, month, day) {
       const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
-      const dayName = ['일', '월', '화', '수', '목', '금', '토'][new Date(year, month - 1, day).getDay()];
-      if (!captainDutyAllData) await loadAllCaptainDutyData();
       const rows = getAllCompaniesCaptainDutyConfig(yearMonth).rows.map((row) => {
         const captain = getCaptainDutyNameForDay(row, day) || '미정';
         const unset = captain === '미정';
@@ -6133,17 +6133,23 @@ const DATASETS = [
           <td class="px-3 py-2 text-xs whitespace-nowrap ${unset ? 'text-slate-500' : relief ? 'text-rose-300' : 'text-cyan-300'}">${unset ? '미등록' : relief ? '예비' : '본선'}</td>
         </tr>`;
       }).join('');
+      return `<div class="overflow-x-auto rounded-xl border border-slate-700">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-slate-800 text-xs text-slate-400"><tr>
+            <th class="px-3 py-2">선박</th><th class="px-3 py-2">선사</th><th class="px-3 py-2">선장</th><th class="px-3 py-2">구분</th>
+          </tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">등록된 선박이 없습니다.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+    }
+
+    async function openCaptainDutyDayModal(year, month, day) {
+      const dayName = ['일', '월', '화', '수', '목', '금', '토'][new Date(year, month - 1, day).getDay()];
+      if (!captainDutyAllData) await loadAllCaptainDutyData();
       showModal(`${month}월 ${day}일 선장 근무표`, `
         <div class="space-y-3">
           <p class="text-sm font-bold text-cyan-100">${year}년 ${month}월 ${day}일 (${dayName})</p>
-          <div class="overflow-x-auto rounded-xl border border-slate-700">
-            <table class="w-full text-sm text-left">
-              <thead class="bg-slate-800 text-xs text-slate-400"><tr>
-                <th class="px-3 py-2">선박</th><th class="px-3 py-2">선사</th><th class="px-3 py-2">선장</th><th class="px-3 py-2">구분</th>
-              </tr></thead>
-              <tbody>${rows || '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-400">등록된 선박이 없습니다.</td></tr>'}</tbody>
-            </table>
-          </div>
+          ${buildAllCaptainDutyTableHtml(year, month, day)}
         </div>`);
     }
 
