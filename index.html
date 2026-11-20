@@ -6606,6 +6606,46 @@ const DATASETS = [
         </section>`;
     }
 
+    function toWeatherBoardObservationRow(raw, observationType) {
+      const dt = String(raw?.datetime || '');
+      if (!/^\d{12}/.test(dt)) return null;
+      return {
+        observationType,
+        stationId: String(raw.stationId),
+        stationName: String(raw.stationName || ''),
+        year: dt.slice(0, 4),
+        monthDay: dt.slice(4, 8),
+        hhmm: dt.slice(8, 12),
+        observedAt: new Date(`${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}T${dt.slice(8, 10)}:${dt.slice(10, 12)}:00+09:00`).toISOString(),
+        windDirection: raw.windDirection || '',
+        windSpeed: raw.windSpeed || '',
+        gust: raw.gust || '',
+        visibility: raw.visibility || '',
+        waveHeight: raw.waveHeight || '-',
+        waveHeightMax: raw.waveHeightMax || '',
+      };
+    }
+
+    function buildFastWeatherHistory(historySnapshots) {
+      const historyBySelection = {};
+      const add = (raw, observationType) => {
+        const row = toWeatherBoardObservationRow(raw, observationType);
+        if (!row) return;
+        const selectionKey = getFixedWeatherSelectionKeyForRow(row) || buildWeatherSelectionKey(row);
+        historyBySelection[selectionKey] = mergeWeatherHistorySampleLists(historyBySelection[selectionKey] || [], [row]);
+      };
+
+      (historySnapshots || []).forEach((snapshot) => {
+        const sources = snapshot?.payload || {};
+        const nmpnt = sources['wb-nmpnt']?.payload;
+        const aws = sources['wb-aws']?.payload;
+        (nmpnt?.rows || []).forEach((row) => add(row, 'L:등대/등표'));
+        (aws?.rows || []).forEach((row) => add(row, 'A:AWS'));
+        Object.values(aws?.lh || {}).forEach((row) => add(row, 'L:등표'));
+      });
+      return historyBySelection;
+    }
+
     async function loadWeatherSectionSummary(section, { bustCache = false } = {}) {
       const statusEl = section.querySelector('#weather-summary-status');
       const panelsEl = section.querySelector('#weather-summary-panels');
@@ -6638,7 +6678,7 @@ const DATASETS = [
         };
         const fetchOptions = {
           headers: sbHeaders,
-          cache: bustCache ? 'no-store' : 'default'
+          cache: 'no-store'
         };
 
         const [areaRes, buoyRes] = await Promise.all([
@@ -6675,26 +6715,34 @@ const DATASETS = [
         // 등대(해수부)·옥도 AWS 관측값도 운항 관측 지점으로 고를 수 있게 같은 모양으로 붙임
         if (querySnapshot) {
           try {
-            const [nmRes, awsRes] = await Promise.all([fetch(cacheUrl('wb-nmpnt'), fetchOptions), fetch(cacheUrl('wb-aws'), fetchOptions)]);
+            const historyUrl = new URL(`${SUPABASE_URL}/rest/v1/weather_board_history`);
+            historyUrl.searchParams.set('select', 'captured_at,payload');
+            historyUrl.searchParams.set('captured_at', `gte.${new Date(Date.now() - WEATHER_HISTORY_WINDOW_MS).toISOString()}`);
+            historyUrl.searchParams.set('order', 'captured_at.asc');
+            const [nmRes, awsRes, historyRes] = await Promise.all([
+              fetch(cacheUrl('wb-nmpnt'), fetchOptions),
+              fetch(cacheUrl('wb-aws'), fetchOptions),
+              fetch(historyUrl.toString(), fetchOptions),
+            ]);
             const nm = nmRes.ok ? (await nmRes.json())[0]?.payload : null;
             const aws = awsRes.ok ? (await awsRes.json())[0]?.payload : null;
-            const toRow = (r, type) => {
-              const dt = String(r?.datetime || '');
-              if (!/^\d{12}/.test(dt)) return null;
-              return {
-                observationType: type, stationId: String(r.stationId), stationName: String(r.stationName || ''),
-                year: dt.slice(0, 4), monthDay: dt.slice(4, 8), hhmm: dt.slice(8, 12),
-                observedAt: new Date(`${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}T${dt.slice(8, 10)}:${dt.slice(10, 12)}:00+09:00`).toISOString(),
-                windDirection: r.windDirection || '', windSpeed: r.windSpeed || '', gust: r.gust || '',
-                visibility: r.visibility || '', waveHeight: r.waveHeight || '-', waveHeightMax: '',
-              };
-            };
+            const historySnapshots = historyRes.ok ? await historyRes.json() : [];
             const extra = [
-              ...((nm?.rows) || []).map((r) => toRow(r, 'L:등대/등표')),
-              ...((aws?.rows) || []).map((r) => toRow(r, 'A:AWS')),
+              ...((nm?.rows) || []).map((r) => toWeatherBoardObservationRow(r, 'L:등대/등표')),
+              ...((aws?.rows) || []).map((r) => toWeatherBoardObservationRow(r, 'A:AWS')),
+              ...Object.values(aws?.lh || {}).map((r) => toWeatherBoardObservationRow(r, 'L:등표')),
             ].filter(Boolean);
-            const have = new Set((querySnapshot.rows || []).map((r) => String(r.stationId)));
-            querySnapshot = { ...querySnapshot, rows: [...(querySnapshot.rows || []), ...extra.filter((r) => !have.has(r.stationId))] };
+            const extraById = new Map(extra.map((row) => [String(row.stationId), row]));
+            const baseRows = querySnapshot.rows || [];
+            const have = new Set(baseRows.map((row) => String(row.stationId)));
+            querySnapshot = {
+              ...querySnapshot,
+              rows: [...baseRows.map((row) => extraById.get(String(row.stationId)) || row), ...extra.filter((row) => !have.has(String(row.stationId)))],
+              historyBySelection: mergeWeatherHistoryCollections(
+                querySnapshot.historyBySelection || {},
+                buildFastWeatherHistory(historySnapshots)
+              ),
+            };
           } catch (e) {
             console.warn('등대·AWS 관측값 불러오기 실패', e);
           }
@@ -8953,6 +9001,13 @@ case 'ship-detail-section':
         alert('알림 설정에 실패했습니다: ' + e.message);
       }
     }
+
+    setInterval(() => {
+      const weatherSection = sections['weather-section'];
+      if (!document.hidden && weatherSection && !weatherSection.classList.contains('hidden')) {
+        loadWeatherSectionSummary(weatherSection, { bustCache: false });
+      }
+    }, 60 * 1000);
 
     // SW는 앱과 무관하게 바로 등록
     if ('serviceWorker' in navigator) {
