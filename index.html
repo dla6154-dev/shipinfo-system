@@ -3895,8 +3895,7 @@ const DATASETS = [
     // ===============================
     // 3-1) Supabase vessel_specs 연동 (제원 우선, Firestore 보완)
     // ===============================
-    // 현역 선박 일괄 반영일(2026-11-19 엑셀 반영분). 이전 날짜 행은 운항 종료 선박이라 제외한다.
-    const SPEC_ACTIVE_SINCE = '2026-11-19T00:00:00Z';
+    // 현역 여부는 DB의 is_active 컬럼으로 판단한다 (운항현황 API에 있는 선박, 3일 유예 - refresh_vessel_is_active()가 10분마다 갱신)
     // 이름이 달라 자동 연결이 안 되는 선박: { 'Supabase 선명': 'Firestore 선명' }
     const SHIP_NAME_ALIASES = {
       '민국': '(신)민국'   // 총톤수 811·정원 700·진수일 2020-04-06 동일 확인
@@ -3923,7 +3922,7 @@ const DATASETS = [
     async function loadSupabaseVesselSpecs() {
       try {
         const select = 'psnshp_cd,vessel_name,tonnage,capacity,crew,speed,launch_date,updated_at';
-        const url = `${SUPABASE_URL}/rest/v1/vessel_specs?select=${select}&updated_at=gte.${encodeURIComponent(SPEC_ACTIVE_SINCE)}&order=psnshp_cd.asc&limit=1000`;
+        const url = `${SUPABASE_URL}/rest/v1/vessel_specs?select=${select}&is_active=eq.true&order=psnshp_cd.asc&limit=1000`;
         const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const rows = await res.json();
