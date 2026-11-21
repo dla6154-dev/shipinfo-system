@@ -1127,6 +1127,8 @@
     // 2) 전역 상태 (Firestore 동기화)
     // ===============================
 let lawData = [], shipData = [], dangerousGoodsData = [], inspectionData = [], safetyRulesData = [];
+// 여객선 제원: Supabase vessel_specs(우선) + Firestore datasets/shipData(보완) 병합 결과가 shipData
+let firestoreShipRows = [], supabaseSpecRows = [], supabaseSpecsLoaded = false;
 let captainDutyConfigsByMonth = {};
 let captainDutyViewYearMonth = getCurrentCaptainDutyYearMonth();
 let captainDutySelectedCard = null;
@@ -2810,7 +2812,7 @@ function buildVisibilityNoticeTextFromSelected() {
   });
   const lines = selected.map((itemId, i) => {
     const item = itemMap.get(itemId);
-    return item ? `${i + 1}. ${item.routeName} ${item.shipName}(${formatFerryOperationApiTime(item.sailTime)} ${item.departureName} 출항)` : '';
+    return item ? `${i + 1}. ${formatOfficialRouteName(item.routeName, item.shipName)} ${item.shipName}(${formatFerryOperationApiTime(item.sailTime)} ${item.departureName} 출항)` : '';
   }).filter(Boolean);
   return `${activeType.header}\n${lines.join('\n')}${activeType.footer}`;
 }
@@ -3663,6 +3665,19 @@ function applyFerryOperationCaptureMetrics(sourceElement, replacement) {
   replacement.style.textOverflow = 'ellipsis';
 }
 
+// 구간명 → 항로명 표기: 선박의 등록 항로와 구간이 다르면 "항로(구간)"으로 표시 (예: 율목-진도(진도-관매))
+const ROUTE_PORT_ALIASES = { '창유': '율목' };
+function formatOfficialRouteName(segment, shipName) {
+  const seg = String(segment || '').trim();
+  const norm = (v) => String(v || '').replace(/\s+/g, '').replace(/호$/, '');
+  const ship = norm(shipName);
+  if (!seg || !ship) return seg;
+  const route = FERRY_OPERATION_FIXED_REGISTERED_ROUTES.find((r) => r.ships.some((name) => norm(name) === ship));
+  if (!route) return seg;
+  const ends = (v) => String(v).split(/[-\/↔→~]/).map((p) => p.trim()).filter(Boolean).map((p) => ROUTE_PORT_ALIASES[p] || p).sort().join('|');
+  return ends(seg) === ends(route.routeName) ? route.routeName : `${route.routeName}(${seg})`;
+}
+
 function extractFerryOperationWeatherText() {
   const weatherState = readFerryOperationWeatherState();
   const all = [];
@@ -3708,8 +3723,8 @@ function extractFerryOperationWeatherText() {
     return '통제/비운항 항차가 없습니다.';
   }
 
-  const mainLines = items.map((item, index) => `${index + 1}. ${item.simpleRoute} ${item.vessel}호(${item.depTime} ${item.origin}출항)`);
-  const noteLines = allNotes.map((item) => `* ${item.simpleRoute} ${item.vessel}호(${item.depTime} ${item.origin}출항)[${item.note}]`);
+  const mainLines = items.map((item, index) => `${index + 1}. ${formatOfficialRouteName(item.simpleRoute, item.vessel)} ${item.vessel}호(${item.depTime} ${item.origin}출항)`);
+  const noteLines = allNotes.map((item) => `* ${formatOfficialRouteName(item.simpleRoute, item.vessel)} ${item.vessel}호(${item.depTime} ${item.origin}출항)[${item.note}]`);
 
   let result = mainLines.length ? `아래 항로 기상악화로 통제합니다.\n\n${mainLines.join('\n')}` : '';
   if (noteLines.length) {
@@ -3755,7 +3770,7 @@ function _weatherExtractBuildText() {
     const voy = v.voyages[ri];
     if (!voy) return;
     const sortKey = voy.depTime.replace(':', '') || '9999';
-    items.push({ sortKey, text: `${voy.simpleRoute} ${v.name}(${voy.depTime} ${voy.origin}출항)` });
+    items.push({ sortKey, text: `${formatOfficialRouteName(voy.simpleRoute, v.name)} ${v.name}(${voy.depTime} ${voy.origin}출항)` });
   });
   items.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   const lines = items.map((it, i) => `${i + 1}. ${it.text}`);
@@ -3873,6 +3888,163 @@ const DATASETS = [
       } catch (err) {
         console.error('[Firestore 초기 로드 오류]', err);
       }
+      // 화면 표시를 막지 않도록 기다리지 않고 불러온다 (실패해도 Firestore 자료로 그대로 동작)
+      loadSupabaseVesselSpecs();
+    }
+
+    // ===============================
+    // 3-1) Supabase vessel_specs 연동 (제원 우선, Firestore 보완)
+    // ===============================
+    // 현역 선박 일괄 반영일(2026-11-19 엑셀 반영분). 이전 날짜 행은 운항 종료 선박이라 제외한다.
+    const SPEC_ACTIVE_SINCE = '2026-11-19T00:00:00Z';
+    // 이름이 달라 자동 연결이 안 되는 선박: { 'Supabase 선명': 'Firestore 선명' }
+    const SHIP_NAME_ALIASES = {
+      '민국': '(신)민국'   // 총톤수 811·정원 700·진수일 2020-04-06 동일 확인
+    };
+
+    // 진수일 → 밀리초. Firestore는 엑셀 일련번호(숫자), Supabase는 'YYYY-MM-DD' 문자열
+    function shipLaunchTime(value) {
+      if (typeof value === 'number' && value > 20000) return Date.UTC(1899, 11, 30) + value * 86400000;
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return Date.parse(value.trim());
+      return null;
+    }
+
+    function normalizeShipName(name) {
+      const raw = String(name || '').trim();
+      const aliased = SHIP_NAME_ALIASES[raw] || raw;
+      return aliased.replace(/[\s()（）]/g, '').replace(/호$/, '');
+    }
+
+    function specNumber(value) {
+      const text = String(value ?? '').replace(/,/g, '').trim();
+      return /^\d+(\.\d+)?$/.test(text) ? Number(text) : null;
+    }
+
+    async function loadSupabaseVesselSpecs() {
+      try {
+        const select = 'psnshp_cd,vessel_name,tonnage,capacity,crew,speed,launch_date,updated_at';
+        const url = `${SUPABASE_URL}/rest/v1/vessel_specs?select=${select}&updated_at=gte.${encodeURIComponent(SPEC_ACTIVE_SINCE)}&order=psnshp_cd.asc&limit=1000`;
+        const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows = await res.json();
+        // 같은 선박이 센터별로 여러 행이므로 psnshp_cd 기준 1건으로 합친다 (최신 updated_at 우선)
+        const byCode = new Map();
+        (Array.isArray(rows) ? rows : []).forEach(row => {
+          const code = String(row.psnshp_cd || '').trim();
+          if (!code) return;
+          const prev = byCode.get(code);
+          if (!prev || String(row.updated_at || '') > String(prev.updated_at || '')) byCode.set(code, row);
+        });
+        supabaseSpecRows = [...byCode.values()].map(row => ({
+          code: String(row.psnshp_cd).trim(),
+          name: String(row.vessel_name || '').trim(),
+          gt: specNumber(row.tonnage),
+          capacity: specNumber(row.capacity),
+          crew: specNumber(row.crew),
+          speed: specNumber(row.speed),
+          launchDate: /^\d{4}-\d{2}-\d{2}$/.test(String(row.launch_date || '').trim()) ? String(row.launch_date).trim() : null
+        })).filter(spec => spec.name);
+        supabaseSpecsLoaded = true;
+        shipData = mergeShipData(firestoreShipRows, supabaseSpecRows);
+        pruneFavoriteShipIds();
+        rerenderIfVisible('shipData');
+      } catch (err) {
+        console.warn('[vessel_specs] 불러오기 실패 - Firestore 제원으로 표시합니다', err);
+      }
+    }
+
+    // Firestore 선박 ID(즐겨찾기 기준)는 그대로 두고, 제원 값만 Supabase 값으로 덮어쓴다.
+    // Supabase에만 있는 선박은 id 'SPEC-{psnshp_cd}'로 추가한다.
+    function mergeShipData(firestoreRows, specRows) {
+      const base = (firestoreRows || []).map(ship => ({ ...ship }));
+      if (!specRows || !specRows.length) return base;
+
+      const byName = new Map();
+      base.forEach(ship => {
+        const key = normalizeShipName(ship.name);
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key).push(ship);
+      });
+
+      // 이름이 같은 (제원 행, Firestore 선박) 후보 쌍을 만든다.
+      // 진수일이 1년 넘게 다르면 이름만 같은 다른 선박(예: 신조선이 이름을 이어받음)으로 보고 제외한다.
+      const YEAR_MS = 366 * 86400000;
+      const pairs = [];
+      specRows.forEach((spec, specIndex) => {
+        const specTime = shipLaunchTime(spec.launchDate);
+        (byName.get(normalizeShipName(spec.name)) || []).forEach(ship => {
+          const shipTime = shipLaunchTime(ship.launchDate);
+          const bothDated = specTime !== null && shipTime !== null;
+          if (bothDated && Math.abs(specTime - shipTime) > YEAR_MS) return;
+          const gtGap = Math.abs((Number(ship.gt) || 0) - (spec.gt ?? 0));
+          const dayGap = bothDated ? Math.abs(specTime - shipTime) / 86400000 : 0;
+          pairs.push({ specIndex, ship, score: gtGap + dayGap / 1000 });
+        });
+      });
+      pairs.sort((a, b) => a.score - b.score); // 총톤수·진수일이 가장 가까운 쌍부터 확정
+
+      const claimedShips = new Set();
+      const matchedSpecs = new Set();
+      pairs.forEach(({ specIndex, ship }) => {
+        if (matchedSpecs.has(specIndex) || claimedShips.has(ship)) return;
+        const spec = specRows[specIndex];
+        matchedSpecs.add(specIndex);
+        claimedShips.add(ship);
+        if (spec.gt !== null) ship.gt = spec.gt;
+        if (spec.capacity !== null) ship.capacity = spec.capacity;
+        if (spec.crew !== null) ship.minCrew = spec.crew;
+        if (spec.speed !== null) ship.speed = spec.speed;
+        if (spec.launchDate) ship.launchDate = spec.launchDate;
+        ship.psnshpCd = spec.code;
+        ship.specSource = 'supabase';
+      });
+
+      // 2차: 개명한 선박 - 이름은 달라도 총톤수·여객정원·진수일(±31일)이 모두 같으면 같은 선박으로 본다
+      specRows.forEach((spec, specIndex) => {
+        if (matchedSpecs.has(specIndex) || spec.gt === null || spec.capacity === null) return;
+        const specTime = shipLaunchTime(spec.launchDate);
+        if (specTime === null) return;
+        const sameShip = base.find(ship => {
+          if (claimedShips.has(ship)) return false;
+          const shipTime = shipLaunchTime(ship.launchDate);
+          return shipTime !== null
+            && Number(ship.gt) === spec.gt
+            && Number(ship.capacity) === spec.capacity
+            && Math.abs(shipTime - specTime) <= 31 * 86400000;
+        });
+        if (!sameShip) return;
+        matchedSpecs.add(specIndex);
+        claimedShips.add(sameShip);
+        if (spec.crew !== null) sameShip.minCrew = spec.crew;
+        if (spec.speed !== null) sameShip.speed = spec.speed;
+        sameShip.name = spec.name; // 현재 선명으로 표시 (ID는 그대로)
+        sameShip.psnshpCd = spec.code;
+        sameShip.specSource = 'supabase-renamed';
+      });
+
+      const added = [];
+      specRows.forEach((spec, specIndex) => {
+        if (matchedSpecs.has(specIndex)) return;
+        added.push({
+          id: `SPEC-${spec.code}`,
+          name: spec.name,
+          type: null,
+          serviceStartDate: null,
+          gt: spec.gt,
+          capacity: spec.capacity,
+          minCrew: spec.crew,
+          speed: spec.speed,
+          launchDate: spec.launchDate,
+          propulsion: null,
+          engines: null,
+          length: null,
+          beam: null,
+          depth: null,
+          psnshpCd: spec.code,
+          specSource: 'supabase-only'
+        });
+      });
+      return base.concat(added);
     }
 
     function subscribeRealtime() {
@@ -3905,7 +4077,8 @@ const DATASETS = [
       switch (key) {
         case 'lawData': lawData = rows; break;
         case 'shipData':
-          shipData = rows;
+          firestoreShipRows = rows;
+          shipData = mergeShipData(firestoreShipRows, supabaseSpecRows);
           pruneFavoriteShipIds();
           break;
         case 'dangerousGoodsData': dangerousGoodsData = rows; break;
@@ -3944,7 +4117,10 @@ const DATASETS = [
 
     function pruneFavoriteShipIds() {
       const validShipIds = new Set((shipData || []).map(ship => String(ship.id)));
-      const nextFavoriteShipIds = favoriteShipIds.filter(id => validShipIds.has(String(id)));
+      // Supabase 제원이 아직 로드되지 않았다면 'SPEC-' 선박(Supabase 전용)은 지우지 않는다
+      const nextFavoriteShipIds = favoriteShipIds.filter(id =>
+        validShipIds.has(String(id)) || (!supabaseSpecsLoaded && String(id).startsWith('SPEC-'))
+      );
       if (nextFavoriteShipIds.length !== favoriteShipIds.length) {
         favoriteShipIds = nextFavoriteShipIds;
         saveFavoriteShipIds();
