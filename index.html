@@ -3921,7 +3921,7 @@ const DATASETS = [
 
     async function loadSupabaseVesselSpecs() {
       try {
-        const select = 'psnshp_cd,vessel_name,tonnage,capacity,crew,speed,launch_date,updated_at';
+        const select = 'psnshp_cd,vessel_name,tonnage,capacity,crew,speed,launch_date,updated_at,length_m,breadth_m,depth_m,power_kw,engine_count,ship_type,service_start';
         const url = `${SUPABASE_URL}/rest/v1/vessel_specs?select=${select}&is_active=eq.true&order=psnshp_cd.asc&limit=1000`;
         const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -3941,7 +3941,15 @@ const DATASETS = [
           capacity: specNumber(row.capacity),
           crew: specNumber(row.crew),
           speed: specNumber(row.speed),
-          launchDate: /^\d{4}-\d{2}-\d{2}$/.test(String(row.launch_date || '').trim()) ? String(row.launch_date).trim() : null
+          launchDate: /^\d{4}-\d{2}-\d{2}$/.test(String(row.launch_date || '').trim()) ? String(row.launch_date).trim() : null,
+          // vessel_registry에서 vessel_specs로 옮겨 둔 선박 고유 제원
+          length: specNumber(row.length_m),
+          beam: specNumber(row.breadth_m),
+          depth: specNumber(row.depth_m),
+          propulsion: specNumber(row.power_kw),
+          engines: specNumber(row.engine_count),
+          type: String(row.ship_type || '').trim() || null,
+          serviceStartDate: /^\d{4}-\d{2}-\d{2}$/.test(String(row.service_start || '').trim()) ? String(row.service_start).trim() : null
         })).filter(spec => spec.name);
         supabaseSpecsLoaded = true;
         shipData = mergeShipData(firestoreShipRows, supabaseSpecRows);
@@ -3982,6 +3990,23 @@ const DATASETS = [
       });
       pairs.sort((a, b) => a.score - b.score); // 총톤수·진수일이 가장 가까운 쌍부터 확정
 
+      // vessel_specs 값이 있는 항목만 덮어쓴다 (값이 비어 있으면 Firestore 값을 그대로 둔다)
+      const applySpecValues = (ship, spec) => {
+        if (spec.gt !== null) ship.gt = spec.gt;
+        if (spec.capacity !== null) ship.capacity = spec.capacity;
+        if (spec.crew !== null) ship.minCrew = spec.crew;
+        if (spec.speed !== null) ship.speed = spec.speed;
+        if (spec.launchDate) ship.launchDate = spec.launchDate;
+        if (spec.length !== null) ship.length = spec.length;
+        if (spec.beam !== null) ship.beam = spec.beam;
+        if (spec.depth !== null) ship.depth = spec.depth;
+        if (spec.propulsion !== null) ship.propulsion = spec.propulsion;
+        if (spec.engines !== null) ship.engines = spec.engines;
+        if (spec.type) ship.type = spec.type;
+        if (spec.serviceStartDate) ship.serviceStartDate = spec.serviceStartDate;
+        ship.psnshpCd = spec.code;
+      };
+
       const claimedShips = new Set();
       const matchedSpecs = new Set();
       pairs.forEach(({ specIndex, ship }) => {
@@ -3989,12 +4014,7 @@ const DATASETS = [
         const spec = specRows[specIndex];
         matchedSpecs.add(specIndex);
         claimedShips.add(ship);
-        if (spec.gt !== null) ship.gt = spec.gt;
-        if (spec.capacity !== null) ship.capacity = spec.capacity;
-        if (spec.crew !== null) ship.minCrew = spec.crew;
-        if (spec.speed !== null) ship.speed = spec.speed;
-        if (spec.launchDate) ship.launchDate = spec.launchDate;
-        ship.psnshpCd = spec.code;
+        applySpecValues(ship, spec);
         ship.specSource = 'supabase';
       });
 
@@ -4014,10 +4034,8 @@ const DATASETS = [
         if (!sameShip) return;
         matchedSpecs.add(specIndex);
         claimedShips.add(sameShip);
-        if (spec.crew !== null) sameShip.minCrew = spec.crew;
-        if (spec.speed !== null) sameShip.speed = spec.speed;
+        applySpecValues(sameShip, spec);
         sameShip.name = spec.name; // 현재 선명으로 표시 (ID는 그대로)
-        sameShip.psnshpCd = spec.code;
         sameShip.specSource = 'supabase-renamed';
       });
 
@@ -4027,18 +4045,18 @@ const DATASETS = [
         added.push({
           id: `SPEC-${spec.code}`,
           name: spec.name,
-          type: null,
-          serviceStartDate: null,
+          type: spec.type,
+          serviceStartDate: spec.serviceStartDate,
           gt: spec.gt,
           capacity: spec.capacity,
           minCrew: spec.crew,
           speed: spec.speed,
           launchDate: spec.launchDate,
-          propulsion: null,
-          engines: null,
-          length: null,
-          beam: null,
-          depth: null,
+          propulsion: spec.propulsion,
+          engines: spec.engines,
+          length: spec.length,
+          beam: spec.beam,
+          depth: spec.depth,
           psnshpCd: spec.code,
           specSource: 'supabase-only'
         });
